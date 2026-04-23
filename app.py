@@ -22,8 +22,12 @@ import streamlit as st
 import sys
 import os
 
-# Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add project root to path — extended for Streamlit Cloud compatibility
+ROOT = os.path.dirname(os.path.abspath(__file__))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+sys.path.insert(0, os.getcwd())
+
 
 # ─────────────────────────────────────────────
 # PAGE CONFIGURATION — Must be first Streamlit call
