@@ -204,29 +204,9 @@ st.markdown("""
         margin-top: 3rem;
     }
 
-    /* ── Hide Streamlit branding (keep header visible for sidebar toggle) ── */
+    /* ── Hide only footer and hamburger menu — sidebar untouched ── */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: visible;}
-    header .stAppToolbar {visibility: hidden;}
-    header [data-testid="stToolbar"] {visibility: hidden;}
-    header [data-testid="stDecoration"] {display: none;}
-    header [data-testid="stHeader"] {background: transparent !important; border-bottom: none !important;}
-
-    /* ── Force sidebar + toggle always visible ── */
-    section[data-testid="stSidebar"] {
-        display: block !important;
-        visibility: visible !important;
-    }
-    button[data-testid="collapsedControl"],
-    button[data-testid="baseButton-headerNoPadding"],
-    [data-testid="stSidebarCollapsedControl"] {
-        display: flex !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        pointer-events: all !important;
-        z-index: 9999 !important;
-    }
 
     /* ── Tab styling ── */
     .stTabs [data-baseweb="tab-list"] {
