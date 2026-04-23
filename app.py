@@ -37,31 +37,53 @@ APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# CACHED MODULE LOADER — was re-executing every file on every page navigation.
-# @st.cache_resource means each module compiles ONCE per server session.
+# MODULE LOADER — dict-based cache so each .py file is compiled exactly once
+# per server process.  Using a plain dict instead of @st.cache_resource avoids
+# the crash that happens when cache_resource is called before Streamlit's
+# runtime is fully initialised (i.e. at module-import time).
 # ─────────────────────────────────────────────────────────────────────────────
-@st.cache_resource
-def _load_module_cached(module_name: str, relative_path: str):
+_MODULE_CACHE: dict = {}
+
+
+def load_module(module_name: str, relative_path: str):
+    """
+    Load a Python module from *relative_path* (relative to APP_DIR).
+    The result is cached in _MODULE_CACHE so subsequent calls are free.
+    Raises FileNotFoundError if the file does not exist.
+    """
+    if module_name in _MODULE_CACHE:
+        return _MODULE_CACHE[module_name]
+
     abs_path = os.path.join(APP_DIR, relative_path)
     if not os.path.exists(abs_path):
-        return None
+        raise FileNotFoundError(
+            f"Module file not found: {relative_path}\n"
+            f"Expected at: {abs_path}"
+        )
+
     spec = importlib.util.spec_from_file_location(module_name, abs_path)
     mod  = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = mod
     spec.loader.exec_module(mod)
+    _MODULE_CACHE[module_name] = mod
     return mod
 
 
-def load_module(module_name: str, relative_path: str):
-    """Public wrapper — returns cached module or raises FileNotFoundError."""
-    mod = _load_module_cached(module_name, relative_path)
-    if mod is None:
-        raise FileNotFoundError(relative_path)
-    return mod
-
-# Pre-load utils so modules can import them
-load_module("utils.gemini_client", "gemini_client.py")
-load_module("utils.image_client",  "image_client.py")
+def _prewarm_utils() -> None:
+    """
+    Eagerly load shared utility modules so sub-modules can `import` them.
+    Called inside main() — i.e. during a live Streamlit request, never at
+    import time — so missing files surface as a friendly UI error, not a
+    server crash.
+    """
+    for mod_name, rel_path in [
+        ("utils.gemini_client", "gemini_client.py"),
+        ("utils.image_client",  "image_client.py"),
+    ]:
+        try:
+            load_module(mod_name, rel_path)
+        except FileNotFoundError:
+            pass  # sub-modules will surface their own import errors
 
 # ─────────────────────────────────────────────
 # PAGE CONFIGURATION — Must be first Streamlit call
@@ -1417,6 +1439,8 @@ def render_post_library():
 # ─────────────────────────────────────────────
 def main():
     """Main application entry point and page router."""
+    # Warm up shared utility modules (safe here — Streamlit runtime is active)
+    _prewarm_utils()
     init_session_state()
     selected_page = render_sidebar()
 
