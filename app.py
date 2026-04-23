@@ -213,6 +213,23 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
 
+    /* ── Keep sidebar toggle button always visible ── */
+    [data-testid="collapsedControl"] {
+        visibility: visible !important;
+        display: flex !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+    }
+    [data-testid="stSidebarCollapsedControl"] {
+        visibility: visible !important;
+        display: flex !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+    }
+    
+    
+    
+
     /* ── Tab styling ── */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
