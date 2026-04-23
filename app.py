@@ -21,9 +21,22 @@ Stack: Python · Streamlit · Gemini API · Stability AI · Hugging Face
 import streamlit as st
 import sys
 import os
+import importlib.util
 
-# Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# ── Bulletproof module loader for Streamlit Cloud ──────────────────────────
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def load_module(module_name, relative_path):
+    abs_path = os.path.join(APP_DIR, relative_path)
+    spec = importlib.util.spec_from_file_location(module_name, abs_path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+# Pre-load utils so modules can import them
+load_module("utils.gemini_client", "utils/gemini_client.py")
+load_module("utils.image_client",  "utils/image_client.py")
 
 # ─────────────────────────────────────────────
 # PAGE CONFIGURATION — Must be first Streamlit call
@@ -474,41 +487,41 @@ def main():
     init_session_state()
     selected_page = render_sidebar()
 
-    # ── Page routing ──────────────────────────────────────────────────────────
+    # ── Page routing using importlib (Streamlit Cloud compatible) ─────────────
     if selected_page == "🏠 Home":
         render_home()
 
     elif selected_page == "🚀 Post Generator":
-        from modules.post_generator import render_post_generator
-        render_post_generator()
+        mod = load_module("modules.post_generator", "modules/post_generator.py")
+        mod.render_post_generator()
 
     elif selected_page == "🔧 Post Optimizer":
-        from modules.post_optimizer import render_post_optimizer
-        render_post_optimizer()
+        mod = load_module("modules.post_optimizer", "modules/post_optimizer.py")
+        mod.render_post_optimizer()
 
     elif selected_page == "💼 About Optimizer":
-        from modules.about_optimizer import render_about_optimizer
-        render_about_optimizer()
+        mod = load_module("modules.about_optimizer", "modules/about_optimizer.py")
+        mod.render_about_optimizer()
 
     elif selected_page == "🌟 Profile Enhancer":
-        from modules.profile_enhancer import render_profile_enhancer
-        render_profile_enhancer()
+        mod = load_module("modules.profile_enhancer", "modules/profile_enhancer.py")
+        mod.render_profile_enhancer()
 
     elif selected_page == "💡 Content Ideas":
-        from modules.content_ideas import render_content_ideas
-        render_content_ideas()
+        mod = load_module("modules.content_ideas", "modules/content_ideas.py")
+        mod.render_content_ideas()
 
     elif selected_page == "🧠 Strategy Insights":
-        from modules.strategy_insights import render_strategy_insights
-        render_strategy_insights()
+        mod = load_module("modules.strategy_insights", "modules/strategy_insights.py")
+        mod.render_strategy_insights()
 
     elif selected_page == "🎨 Image Generator":
-        from modules.image_generator import render_image_generator
-        render_image_generator()
+        mod = load_module("modules.image_generator", "modules/image_generator.py")
+        mod.render_image_generator()
 
     elif selected_page == "⚡ Engagement Toolkit":
-        from modules.engagement_toolkit import render_engagement_toolkit
-        render_engagement_toolkit()
+        mod = load_module("modules.engagement_toolkit", "modules/engagement_toolkit.py")
+        mod.render_engagement_toolkit()
 
 
 # ─────────────────────────────────────────────
