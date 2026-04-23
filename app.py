@@ -35,8 +35,8 @@ def load_module(module_name, relative_path):
     return mod
 
 # Pre-load utils so modules can import them
-load_module("utils.gemini_client", "utils/gemini_client.py")
-load_module("utils.image_client",  "utils/image_client.py")
+load_module("utils.gemini_client", "gemini_client.py")
+load_module("utils.image_client",  "image_client.py")
 
 # ─────────────────────────────────────────────
 # PAGE CONFIGURATION — Must be first Streamlit call
@@ -492,35 +492,35 @@ def main():
         render_home()
 
     elif selected_page == "🚀 Post Generator":
-        mod = load_module("modules.post_generator", "modules/post_generator.py")
+        mod = load_module("modules.post_generator", "post_generator.py")
         mod.render_post_generator()
 
     elif selected_page == "🔧 Post Optimizer":
-        mod = load_module("modules.post_optimizer", "modules/post_optimizer.py")
+        mod = load_module("modules.post_optimizer", "post_optimizer.py")
         mod.render_post_optimizer()
 
     elif selected_page == "💼 About Optimizer":
-        mod = load_module("modules.about_optimizer", "modules/about_optimizer.py")
+        mod = load_module("modules.about_optimizer", "about_optimizer.py")
         mod.render_about_optimizer()
 
     elif selected_page == "🌟 Profile Enhancer":
-        mod = load_module("modules.profile_enhancer", "modules/profile_enhancer.py")
+        mod = load_module("modules.profile_enhancer", "profile_enhancer.py")
         mod.render_profile_enhancer()
 
     elif selected_page == "💡 Content Ideas":
-        mod = load_module("modules.content_ideas", "modules/content_ideas.py")
+        mod = load_module("modules.content_ideas", "content_ideas.py")
         mod.render_content_ideas()
 
     elif selected_page == "🧠 Strategy Insights":
-        mod = load_module("modules.strategy_insights", "modules/strategy_insights.py")
+        mod = load_module("modules.strategy_insights", "strategy_insights.py")
         mod.render_strategy_insights()
 
     elif selected_page == "🎨 Image Generator":
-        mod = load_module("modules.image_generator", "modules/image_generator.py")
+        mod = load_module("modules.image_generator", "image_generator.py")
         mod.render_image_generator()
 
     elif selected_page == "⚡ Engagement Toolkit":
-        mod = load_module("modules.engagement_toolkit", "modules/engagement_toolkit.py")
+        mod = load_module("modules.engagement_toolkit", "engagement_toolkit.py")
         mod.render_engagement_toolkit()
 
 
