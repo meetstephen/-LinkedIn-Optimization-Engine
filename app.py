@@ -659,12 +659,13 @@ def render_home():
                 st.warning("Post is too short to analyze. Please paste a real LinkedIn post.")
             else:
                 with st.spinner("🤖 Scoring your post with AI..."):
-                    try:
-                        import google.generativeai as genai
-                        genai.configure(api_key=st.session_state["gemini_api_key"])
-                        model = genai.GenerativeModel("gemini-1.5-flash")
+                            import json  # ← moved here, outside try block
+                            try:
+                                import google.generativeai as genai
+                                genai.configure(api_key=st.session_state["gemini_api_key"])
+                                model = genai.GenerativeModel("gemini-1.5-flash")
 
-                        analysis_prompt = f"""You are a LinkedIn virality expert. Analyze this LinkedIn post and return ONLY a valid JSON object — no markdown, no explanation, no backticks.
+                                analysis_prompt = f"""You are a LinkedIn virality expert. Analyze this LinkedIn post and return ONLY a valid JSON object — no markdown, no explanation, no backticks.
 
 POST TO ANALYZE:
 \"\"\"
@@ -694,7 +695,7 @@ Return this exact JSON structure:
                             raw = raw.split("```")[1]
                             if raw.startswith("json"):
                                 raw = raw[4:]
-                        import json
+                        
                         result = json.loads(raw.strip())
                         st.session_state["viral_analyzer_result"] = result
                     except json.JSONDecodeError:
