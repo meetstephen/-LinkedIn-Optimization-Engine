@@ -657,11 +657,11 @@ def render_home():
                 st.warning("Post is too short to analyze. Please paste a real LinkedIn post.")
             else:
                 with st.spinner("🤖 Scoring your post with AI..."):
-                    import json  # ← moved here, outside try block
+                    import json
                     try:
-                        import google.generativeai as genai
-                        genai.configure(api_key=st.session_state["gemini_api_key"])
-                        model = genai.GenerativeModel("gemini-1.5-flash")
+                        from google import genai as google_genai
+                        from google.genai import types as genai_types
+                        client = google_genai.Client(api_key=st.session_state["gemini_api_key"])
 
                         analysis_prompt = f"""You are a LinkedIn virality expert. Analyze this LinkedIn post and return ONLY a valid JSON object — no markdown, no explanation, no backticks.
 
@@ -686,14 +686,21 @@ Return this exact JSON structure:
   "improved_hook": "<rewrite only the first 1-2 lines to be more viral, max 30 words>"
 }}"""
 
-                        response = model.generate_content(analysis_prompt)
+                        response = client.models.generate_content(
+                            model="gemini-2.5-flash",
+                            contents=analysis_prompt,
+                            config=genai_types.GenerateContentConfig(
+                                temperature=0.4,
+                                max_output_tokens=1024,
+                            ),
+                        )
                         raw = response.text.strip()
                         # Strip markdown fences if present
                         if raw.startswith("```"):
                             raw = raw.split("```")[1]
                             if raw.startswith("json"):
                                 raw = raw[4:]
-                        
+
                         result = json.loads(raw.strip())
                         st.session_state["viral_analyzer_result"] = result
                     except json.JSONDecodeError:
@@ -702,6 +709,8 @@ Return this exact JSON structure:
                     except Exception as e:
                         st.error(f"⚠️ Analysis failed: {str(e)[:120]}")
                         st.session_state["viral_analyzer_result"] = None
+
+        
 
         # ── Render results ──────────────────────────────────
         result = st.session_state.get("viral_analyzer_result")
