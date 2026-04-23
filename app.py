@@ -22,12 +22,8 @@ import streamlit as st
 import sys
 import os
 
-# Add project root to path — extended for Streamlit Cloud compatibility
-ROOT = os.path.dirname(os.path.abspath(__file__))
-if ROOT not in sys.path:
-    sys.path.insert(0, ROOT)
-sys.path.insert(0, os.getcwd())
-
+# Add project root to path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # ─────────────────────────────────────────────
 # PAGE CONFIGURATION — Must be first Streamlit call
@@ -208,27 +204,29 @@ st.markdown("""
         margin-top: 3rem;
     }
 
-    /* ── Hide Streamlit branding ── */
+    /* ── Hide Streamlit branding (keep header visible for sidebar toggle) ── */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: hidden;}
+    header {visibility: visible;}
+    header .stAppToolbar {visibility: hidden;}
+    header [data-testid="stToolbar"] {visibility: hidden;}
+    header [data-testid="stDecoration"] {display: none;}
+    header [data-testid="stHeader"] {background: transparent !important; border-bottom: none !important;}
 
-    /* ── Keep sidebar toggle button always visible ── */
-    [data-testid="collapsedControl"] {
+    /* ── Force sidebar + toggle always visible ── */
+    section[data-testid="stSidebar"] {
+        display: block !important;
         visibility: visible !important;
-        display: flex !important;
-        opacity: 1 !important;
-        pointer-events: auto !important;
     }
+    button[data-testid="collapsedControl"],
+    button[data-testid="baseButton-headerNoPadding"],
     [data-testid="stSidebarCollapsedControl"] {
-        visibility: visible !important;
         display: flex !important;
+        visibility: visible !important;
         opacity: 1 !important;
-        pointer-events: auto !important;
+        pointer-events: all !important;
+        z-index: 9999 !important;
     }
-    
-    
-    
 
     /* ── Tab styling ── */
     .stTabs [data-baseweb="tab-list"] {
@@ -248,20 +246,18 @@ st.markdown("""
 # ─────────────────────────────────────────────
 # SESSION STATE INITIALIZATION
 # ─────────────────────────────────────────────
-def init_session_state():                          # ← NEW CODE starts here
+def init_session_state():
     """Initialize all session state variables."""
-    import streamlit as st
     defaults = {
-        # Auto-load from Streamlit Cloud secrets if available
-        "gemini_api_key": st.secrets.get("GEMINI_API_KEY", ""),
-        "stability_api_key": st.secrets.get("STABILITY_API_KEY", ""),
-        "hf_api_key": st.secrets.get("HUGGING_FACE_API_KEY", ""),
+        "gemini_api_key": "",
+        "stability_api_key": "",
+        "hf_api_key": "",
         "last_generated_post": "",
         "current_page": "🏠 Home",
     }
     for key, value in defaults.items():
         if key not in st.session_state:
-            st.session_state[key] = value          # ← NEW CODE ends here
+            st.session_state[key] = value
 
 
 # ─────────────────────────────────────────────
