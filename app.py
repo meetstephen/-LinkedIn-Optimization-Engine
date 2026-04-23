@@ -221,6 +221,64 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
 
+    /* ── Viral Analyzer Score Bars ── */
+    .score-bar-wrap {
+        margin: 0.6rem 0;
+    }
+    .score-bar-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 3px;
+    }
+    .score-bar-bg {
+        background: #E1E9F5;
+        border-radius: 99px;
+        height: 10px;
+        overflow: hidden;
+    }
+    .score-bar-fill {
+        height: 100%;
+        border-radius: 99px;
+        transition: width 0.8s ease;
+    }
+    .viral-panel {
+        background: #F8FBFF;
+        border: 1.5px solid #C7D9F5;
+        border-radius: 14px;
+        padding: 1.5rem;
+        margin-top: 1rem;
+    }
+    .viral-score-circle {
+        width: 90px; height: 90px;
+        border-radius: 50%;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        font-weight: 800; color: white;
+        margin: 0 auto 1rem auto;
+        font-size: 1.8rem;
+        box-shadow: 0 4px 16px rgba(10,102,194,0.3);
+    }
+    .copy-btn-wrap {
+        display: flex;
+        gap: 8px;
+        margin-top: 0.5rem;
+    }
+    /* ── Quick action badge ── */
+    .badge-new {
+        background: #FF6B35;
+        color: white;
+        font-size: 0.65rem;
+        font-weight: 700;
+        padding: 2px 7px;
+        border-radius: 99px;
+        vertical-align: middle;
+        margin-left: 6px;
+        letter-spacing: 0.5px;
+    }
+
     /* ── Tab styling ── */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
@@ -237,16 +295,76 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
+# UTILITY — One-click clipboard copy
+# ─────────────────────────────────────────────
+def copy_to_clipboard_button(text: str, label: str = "📋 Copy to Clipboard", key: str = "copy"):
+    """Renders a button that copies `text` to the user's clipboard via JS."""
+    escaped = text.replace("`", "\\`").replace("$", "\\$")
+    copy_js = f"""
+    <script>
+    function copyText_{key}() {{
+        navigator.clipboard.writeText(`{escaped}`).then(() => {{
+            const btn = document.getElementById('copybtn_{key}');
+            const orig = btn.innerText;
+            btn.innerText = '✅ Copied!';
+            btn.style.background = '#00c851';
+            setTimeout(() => {{ btn.innerText = orig; btn.style.background = ''; }}, 2000);
+        }});
+    }}
+    </script>
+    <button id="copybtn_{key}"
+        onclick="copyText_{key}()"
+        style="
+            background: linear-gradient(135deg,#0A66C2,#004182);
+            color:white; border:none; border-radius:8px;
+            padding:8px 18px; font-size:0.85rem; font-weight:600;
+            cursor:pointer; transition:all 0.2s ease;
+            box-shadow:0 2px 8px rgba(10,102,194,0.25);
+        ">{label}</button>
+    """
+    st.markdown(copy_js, unsafe_allow_html=True)
+
+
+def save_to_history(post_type: str, content: str):
+    """Adds a generated post to session history and bumps stats."""
+    import datetime
+    record = {
+        "type": post_type,
+        "content": content,
+        "timestamp": datetime.datetime.now().strftime("%H:%M"),
+    }
+    st.session_state["post_history"].insert(0, record)
+    # Keep last 20 only
+    st.session_state["post_history"] = st.session_state["post_history"][:20]
+    st.session_state["session_posts_generated"] += 1
+
+# ─────────────────────────────────────────────
 # SESSION STATE INITIALIZATION
 # ─────────────────────────────────────────────
 def init_session_state():
     """Initialize all session state variables."""
+    # Auto-load from environment variables / Streamlit secrets (production-ready)
+    def _get_secret(env_key: str, fallback: str = "") -> str:
+        """Check env vars first, then st.secrets, then fallback."""
+        env_val = os.environ.get(env_key, "")
+        if env_val:
+            return env_val
+        try:
+            return st.secrets.get(env_key, fallback)
+        except Exception:
+            return fallback
+
     defaults = {
-        "gemini_api_key": "",
-        "stability_api_key": "",
-        "hf_api_key": "",
+        "gemini_api_key":    _get_secret("GEMINI_API_KEY"),
+        "stability_api_key": _get_secret("STABILITY_API_KEY"),
+        "hf_api_key":        _get_secret("HF_API_KEY"),
         "last_generated_post": "",
         "current_page": "🏠 Home",
+        # History & stats (new)
+        "post_history": [],          # list of {type, content, timestamp}
+        "session_posts_generated": 0,
+        "session_minutes_saved": 0,
+        "viral_analyzer_result": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -364,6 +482,30 @@ def render_sidebar():
         </div>
         """, unsafe_allow_html=True)
 
+        # ── Session Stats ──────────────────────────────────
+        st.markdown("<hr style='border-color:rgba(255,255,255,0.2);'>", unsafe_allow_html=True)
+        posts_gen  = st.session_state.get("session_posts_generated", 0)
+        mins_saved = posts_gen * 12   # avg 12 min saved per AI-generated post
+        history_ct = len(st.session_state.get("post_history", []))
+        st.markdown(f"""
+        <div style="font-size:0.78rem; color:rgba(255,255,255,0.85); text-align:center;">
+            <div style="display:flex; justify-content:space-around; margin-top:0.4rem;">
+                <div>
+                    <div style="font-size:1.4rem; font-weight:800;">{posts_gen}</div>
+                    <div style="opacity:0.75; font-size:0.7rem;">Posts Made</div>
+                </div>
+                <div>
+                    <div style="font-size:1.4rem; font-weight:800;">{mins_saved}</div>
+                    <div style="opacity:0.75; font-size:0.7rem;">Mins Saved</div>
+                </div>
+                <div>
+                    <div style="font-size:1.4rem; font-weight:800;">{history_ct}</div>
+                    <div style="opacity:0.75; font-size:0.7rem;">Saved Posts</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
     return selected_page
 
 
@@ -467,10 +609,181 @@ def render_home():
         """)
 
     st.markdown("---")
-    # Quick start CTA
-    st.info("👈 **Select a module from the sidebar** to get started. Recommended first step: **Profile Enhancer** to see your current score!")
+    st.info("👈 **Select a module from the sidebar** to get started. Or try the **Viral Analyzer** below — paste any LinkedIn post for an instant AI score!")
+
+    # ════════════════════════════════════════════════════════
+    # 🔥 WOW FEATURE: LinkedIn Viral Post Analyzer
+    # ════════════════════════════════════════════════════════
+    st.markdown("""
+    <div style="display:flex; align-items:center; margin-bottom:0.5rem;">
+        <span style="font-size:1.5rem; margin-right:0.5rem;">🔥</span>
+        <h2 style="margin:0;">Viral Post Analyzer</h2>
+        <span class="badge-new">NEW</span>
+    </div>
+    <p style="color:#555; margin-bottom:1rem; font-size:0.93rem;">
+        Paste any LinkedIn post — yours or a top creator's — and get an instant AI-powered virality breakdown
+        across 5 dimensions. Understand <em>exactly</em> why posts go viral.
+    </p>
+    """, unsafe_allow_html=True)
+
+    analyze_col, result_col = st.columns([1, 1], gap="large")
+
+    with analyze_col:
+        post_to_analyze = st.text_area(
+            "Paste a LinkedIn post here",
+            height=220,
+            placeholder="Paste any LinkedIn post to analyze...\n\nExample:\n'I got rejected by 12 companies before landing my dream job.\nHere's what I learned:\n...'",
+            key="viral_analyzer_input",
+        )
+
+        char_count = len(post_to_analyze)
+        char_color = "#08df5e" if char_count <= 3000 else "#F31A0E"
+        st.markdown(
+            f"<div style='font-size:0.75rem; color:{char_color}; text-align:right;'>"
+            f"{char_count:,} / 3,000 chars</div>",
+            unsafe_allow_html=True,
+        )
+
+        analyze_btn = st.button(
+            "🔥 Analyze Virality",
+            type="primary",
+            disabled=not bool(st.session_state.get("gemini_api_key")),
+            key="viral_analyze_btn",
+        )
+        if not st.session_state.get("gemini_api_key"):
+            st.caption("⚠️ Add your Gemini API key in the sidebar to enable this.")
+
+    with result_col:
+        if analyze_btn and post_to_analyze.strip():
+            if len(post_to_analyze.strip()) < 30:
+                st.warning("Post is too short to analyze. Please paste a real LinkedIn post.")
+            else:
+                with st.spinner("🤖 Scoring your post with AI..."):
+                    try:
+                        import google.generativeai as genai
+                        genai.configure(api_key=st.session_state["gemini_api_key"])
+                        model = genai.GenerativeModel("gemini-1.5-flash")
+
+                        analysis_prompt = f"""You are a LinkedIn virality expert. Analyze this LinkedIn post and return ONLY a valid JSON object — no markdown, no explanation, no backticks.
+
+POST TO ANALYZE:
+\"\"\"
+{post_to_analyze[:3000]}
+\"\"\"
+
+Return this exact JSON structure:
+{{
+  "overall_score": <integer 0-100>,
+  "verdict": "<one punchy sentence verdict, max 15 words>",
+  "dimensions": {{
+    "hook_power": {{"score": <0-100>, "comment": "<max 20 words>"}},
+    "storytelling": {{"score": <0-100>, "comment": "<max 20 words>"}},
+    "cta_strength": {{"score": <0-100>, "comment": "<max 20 words>"}},
+    "formatting": {{"score": <0-100>, "comment": "<max 20 words>"}},
+    "emotional_pull": {{"score": <0-100>, "comment": "<max 20 words>"}}
+  }},
+  "top_strength": "<what is working best, max 25 words>",
+  "top_fix": "<the single most impactful change to make, max 25 words>",
+  "improved_hook": "<rewrite only the first 1-2 lines to be more viral, max 30 words>"
+}}"""
+
+                        response = model.generate_content(analysis_prompt)
+                        raw = response.text.strip()
+                        # Strip markdown fences if present
+                        if raw.startswith("```"):
+                            raw = raw.split("```")[1]
+                            if raw.startswith("json"):
+                                raw = raw[4:]
+                        import json
+                        result = json.loads(raw.strip())
+                        st.session_state["viral_analyzer_result"] = result
+                    except json.JSONDecodeError:
+                        st.error("⚠️ AI returned unexpected format. Try again.")
+                        st.session_state["viral_analyzer_result"] = None
+                    except Exception as e:
+                        st.error(f"⚠️ Analysis failed: {str(e)[:120]}")
+                        st.session_state["viral_analyzer_result"] = None
+
+        # ── Render results ──────────────────────────────────
+        result = st.session_state.get("viral_analyzer_result")
+        if result:
+            score = result.get("overall_score", 0)
+            # Color: red < 40, orange < 65, green >= 65
+            if score >= 65:
+                score_color = "linear-gradient(135deg,#00c851,#007a32)"
+                score_label = "🚀 High Viral Potential"
+            elif score >= 40:
+                score_color = "linear-gradient(135deg,#FF6B35,#cc4a00)"
+                score_label = "⚠️ Moderate Potential"
+            else:
+                score_color = "linear-gradient(135deg,#FF3B30,#990000)"
+                score_label = "❌ Low Viral Potential"
+
+            st.markdown(f"""
+            <div class="viral-panel">
+                <div class="viral-score-circle" style="background:{score_color};">
+                    {score}
+                    <div style="font-size:0.55rem; font-weight:600; opacity:0.9; margin-top:-4px;">/ 100</div>
+                </div>
+                <div style="text-align:center; font-weight:700; color:#0A66C2; margin-bottom:1rem;">{score_label}</div>
+                <div style="font-style:italic; color:#444; text-align:center; font-size:0.9rem; margin-bottom:1.2rem;">
+                    "{result.get('verdict', '')}"
+                </div>
+            """, unsafe_allow_html=True)
+
+            dim_labels = {
+                "hook_power":    ("🎣 Hook Power",     "#05396C"),
+                "storytelling":  ("📖 Storytelling",   "#4D0988"),
+                "cta_strength":  ("📣 CTA Strength",   "#067934"),
+                "formatting":    ("🗂️ Formatting",     "#7A2607"),
+                "emotional_pull":("❤️ Emotional Pull", "#800830"),
+            }
+
+            dims = result.get("dimensions", {})
+            for dim_key, (dim_name, bar_color) in dim_labels.items():
+                dim_data = dims.get(dim_key, {})
+                s = dim_data.get("score", 0)
+                comment = dim_data.get("comment", "")
+                st.markdown(f"""
+                <div class="score-bar-wrap">
+                    <div class="score-bar-label">
+                        <span>{dim_name}</span>
+                        <span style="color:{bar_color}; font-weight:800;">{s}/100</span>
+                    </div>
+                    <div class="score-bar-bg">
+                        <div class="score-bar-fill" style="width:{s}%; background:{bar_color};"></div>
+                    </div>
+                    <div style="font-size:0.74rem; color:#666; margin-top:2px;">{comment}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            # Strength / Fix / Improved Hook
+            st.markdown("<br>", unsafe_allow_html=True)
+            c1, c2 = st.columns(2)
+            with c1:
+                st.success(f"✅ **What's working:** {result.get('top_strength', '')}")
+            with c2:
+                st.warning(f"🔧 **Top fix:** {result.get('top_fix', '')}")
+
+            improved_hook = result.get("improved_hook", "")
+            if improved_hook:
+                st.markdown("**✨ AI-Improved Opening Hook:**")
+                st.info(f'*"{improved_hook}"*')
+                copy_to_clipboard_button(improved_hook, "📋 Copy Improved Hook", key="hook_copy")
+
+        elif not analyze_btn:
+            st.markdown("""
+            <div style="text-align:center; padding:3rem 1rem; color:#aaa; border:2px dashed #D0E8FF; border-radius:12px; margin-top:0.5rem;">
+                <div style="font-size:2.5rem;">📊</div>
+                <div style="font-weight:600; color:#888; margin-top:0.5rem;">Your viral score will appear here</div>
+                <div style="font-size:0.8rem; margin-top:0.3rem;">Paste a post and click Analyze</div>
+            </div>
+            """, unsafe_allow_html=True)
 
     # Footer
+    st.markdown("---")
     st.markdown("""
     <div class="footer">
         Built with ❤️ using Streamlit · Gemini AI · Stability AI (SDXL) · Hugging Face<br>
@@ -488,40 +801,35 @@ def main():
     selected_page = render_sidebar()
 
     # ── Page routing using importlib (Streamlit Cloud compatible) ─────────────
+    MODULE_MAP = {
+        "🏠 Home":              (None, None),
+        "🚀 Post Generator":    ("modules.post_generator",   "post_generator.py",   "render_post_generator"),
+        "🔧 Post Optimizer":    ("modules.post_optimizer",   "post_optimizer.py",   "render_post_optimizer"),
+        "💼 About Optimizer":   ("modules.about_optimizer",  "about_optimizer.py",  "render_about_optimizer"),
+        "🌟 Profile Enhancer":  ("modules.profile_enhancer", "profile_enhancer.py", "render_profile_enhancer"),
+        "💡 Content Ideas":     ("modules.content_ideas",    "content_ideas.py",    "render_content_ideas"),
+        "🧠 Strategy Insights": ("modules.strategy_insights","strategy_insights.py","render_strategy_insights"),
+        "🎨 Image Generator":   ("modules.image_generator",  "image_generator.py",  "render_image_generator"),
+        "⚡ Engagement Toolkit":("modules.engagement_toolkit","engagement_toolkit.py","render_engagement_toolkit"),
+    }
+
     if selected_page == "🏠 Home":
         render_home()
-
-    elif selected_page == "🚀 Post Generator":
-        mod = load_module("modules.post_generator", "post_generator.py")
-        mod.render_post_generator()
-
-    elif selected_page == "🔧 Post Optimizer":
-        mod = load_module("modules.post_optimizer", "post_optimizer.py")
-        mod.render_post_optimizer()
-
-    elif selected_page == "💼 About Optimizer":
-        mod = load_module("modules.about_optimizer", "about_optimizer.py")
-        mod.render_about_optimizer()
-
-    elif selected_page == "🌟 Profile Enhancer":
-        mod = load_module("modules.profile_enhancer", "profile_enhancer.py")
-        mod.render_profile_enhancer()
-
-    elif selected_page == "💡 Content Ideas":
-        mod = load_module("modules.content_ideas", "content_ideas.py")
-        mod.render_content_ideas()
-
-    elif selected_page == "🧠 Strategy Insights":
-        mod = load_module("modules.strategy_insights", "strategy_insights.py")
-        mod.render_strategy_insights()
-
-    elif selected_page == "🎨 Image Generator":
-        mod = load_module("modules.image_generator", "image_generator.py")
-        mod.render_image_generator()
-
-    elif selected_page == "⚡ Engagement Toolkit":
-        mod = load_module("modules.engagement_toolkit", "engagement_toolkit.py")
-        mod.render_engagement_toolkit()
+    elif selected_page in MODULE_MAP:
+        mod_name, mod_file, render_fn = MODULE_MAP[selected_page]
+        try:
+            mod = load_module(mod_name, mod_file)
+            getattr(mod, render_fn)()
+        except FileNotFoundError:
+            st.error(f"⚠️ Module file `{mod_file}` not found. Make sure it exists in your project root.")
+            st.info("👈 Return to **Home** from the sidebar while you fix this.")
+        except AttributeError:
+            st.error(f"⚠️ `{render_fn}()` function not found in `{mod_file}`.")
+        except Exception as e:
+            st.error(f"⚠️ Failed to load **{selected_page}**: {e}")
+            with st.expander("🔍 Full error details"):
+                import traceback
+                st.code(traceback.format_exc(), language="python")
 
 
 # ─────────────────────────────────────────────
