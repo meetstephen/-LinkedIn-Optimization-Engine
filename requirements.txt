@@ -1,0 +1,19 @@
+# ══════════════════════════════════════════════════════════════
+# LinkedIn Optimization Engine — Requirements
+# Install with: pip install -r requirements.txt
+# ══════════════════════════════════════════════════════════════
+
+# ── Core Framework ──────────────────────────────────────────
+streamlit>=1.32.0
+
+# ── AI Text Generation ──────────────────────────────────────
+google-generativeai>=0.5.0
+
+# ── HTTP Requests (Image APIs) ──────────────────────────────
+requests>=2.31.0
+
+# ── Image Processing ────────────────────────────────────────
+Pillow>=10.0.0
+
+# ── Utilities ───────────────────────────────────────────────
+python-dotenv>=1.0.0          # Optional: load .env file for API keys
