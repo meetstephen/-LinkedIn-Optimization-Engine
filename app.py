@@ -227,18 +227,20 @@ st.markdown("""
 # ─────────────────────────────────────────────
 # SESSION STATE INITIALIZATION
 # ─────────────────────────────────────────────
-def init_session_state():
+def init_session_state():                          # ← NEW CODE starts here
     """Initialize all session state variables."""
+    import streamlit as st
     defaults = {
-        "gemini_api_key": "",
-        "stability_api_key": "",
-        "hf_api_key": "",
+        # Auto-load from Streamlit Cloud secrets if available
+        "gemini_api_key": st.secrets.get("GEMINI_API_KEY", ""),
+        "stability_api_key": st.secrets.get("STABILITY_API_KEY", ""),
+        "hf_api_key": st.secrets.get("HUGGING_FACE_API_KEY", ""),
         "last_generated_post": "",
         "current_page": "🏠 Home",
     }
     for key, value in defaults.items():
         if key not in st.session_state:
-            st.session_state[key] = value
+            st.session_state[key] = value          # ← NEW CODE ends here
 
 
 # ─────────────────────────────────────────────
