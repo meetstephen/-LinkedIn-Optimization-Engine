@@ -48,7 +48,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
     menu_items={
         "About": "LinkedIn Optimization Engine — AI-powered LinkedIn growth toolkit",
-    },
+    }
 )
 
 # ─────────────────────────────────────────────
@@ -334,9 +334,7 @@ def save_to_history(post_type: str, content: str):
         "timestamp": datetime.datetime.now().strftime("%H:%M"),
     }
     st.session_state["post_history"].insert(0, record)
-    # Keep last 20 only
-    st.session_state["post_history"] = st.session_state["post_history"][:20]
-    st.session_state["session_posts_generated"] += 1
+
 
 # ─────────────────────────────────────────────
 # SESSION STATE INITIALIZATION
@@ -659,13 +657,13 @@ def render_home():
                 st.warning("Post is too short to analyze. Please paste a real LinkedIn post.")
             else:
                 with st.spinner("🤖 Scoring your post with AI..."):
-                            import json  # ← moved here, outside try block
-                            try:
-                                import google.generativeai as genai
-                                genai.configure(api_key=st.session_state["gemini_api_key"])
-                                model = genai.GenerativeModel("gemini-1.5-flash")
+                    import json  # ← moved here, outside try block
+                    try:
+                        import google.generativeai as genai
+                        genai.configure(api_key=st.session_state["gemini_api_key"])
+                        model = genai.GenerativeModel("gemini-1.5-flash")
 
-                                analysis_prompt = f"""You are a LinkedIn virality expert. Analyze this LinkedIn post and return ONLY a valid JSON object — no markdown, no explanation, no backticks.
+                        analysis_prompt = f"""You are a LinkedIn virality expert. Analyze this LinkedIn post and return ONLY a valid JSON object — no markdown, no explanation, no backticks.
 
 POST TO ANALYZE:
 \"\"\"
