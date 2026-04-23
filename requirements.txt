@@ -1,19 +1,19 @@
-# ══════════════════════════════════════════════════════════════
-# LinkedIn Optimization Engine — Requirements
-# Install with: pip install -r requirements.txt
-# ══════════════════════════════════════════════════════════════
+# ── Core Framework ──────────────────────────
+streamlit>=1.35.0
 
-# ── Core Framework ──────────────────────────────────────────
-streamlit>=1.32.0
+# ── Gemini AI (new SDK — google-generativeai is deprecated) ──
+google-genai>=1.0.0
 
-# ── AI Text Generation ──────────────────────────────────────
-google-generativeai>=0.5.0
+# ── Image Generation ────────────────────────
+stability-sdk>=0.8.6
+huggingface-hub>=0.23.0
+diffusers>=0.27.0
 
-# ── HTTP Requests (Image APIs) ──────────────────────────────
+# ── HTTP & API calls ────────────────────────
 requests>=2.31.0
 
-# ── Image Processing ────────────────────────────────────────
-Pillow>=10.0.0
+# ── Image handling ──────────────────────────
+Pillow>=10.3.0
 
-# ── Utilities ───────────────────────────────────────────────
-python-dotenv>=1.0.0          # Optional: load .env file for API keys
+# ── Data & Utils ────────────────────────────
+python-dotenv>=1.0.0
