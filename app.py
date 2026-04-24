@@ -726,37 +726,53 @@ def render_home():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Feature cards grid — includes two NEW cards
-    st.markdown("### 🛠️ What Can You Do Today?")
+    # ── Feature cards ── rendered in ONE st.markdown() call via CSS grid.
+    # Calling st.markdown(unsafe_allow_html=True) per st.columns() cell causes
+    # Streamlit's markdown parser to escape subsequent cards as raw code blocks.
+    # A single HTML/CSS-grid call is the reliable production fix.
 
     features = [
-        ("🔥", "Viral Hook Analyzer", "Score your hook across 5 dimensions, get 5 power rewrites + live mobile preview", True),
-        ("🚀", "Post Generator",      "Create viral posts with proven frameworks, hooks, and 2–3 variations per topic", False),
-        ("🔧", "Post Optimizer",      "Get your existing posts diagnosed and rewritten with engagement scores", False),
-        ("💼", "About Optimizer",     "Transform your About section into a personal brand story that gets found", False),
-        ("🌟", "Profile Enhancer",    "Get your profile scored (0–100) and a 30-day transformation roadmap", False),
-        ("💡", "Content Ideas",       "Generate a full content calendar with hooks, angles, and hashtags", False),
-        ("🧠", "Strategy Insights",   "Reverse-engineered playbooks from top LinkedIn creators", False),
-        ("🎨", "Image Generator",     "AI-generated professional visuals using SDXL and Hugging Face", False),
-        ("⚡", "Engagement Toolkit",  "Hooks, CTAs, hashtag optimizer, and perfect posting times", False),
-        ("📚", "Post Library",        "Every generated post auto-saved — search, star, filter, and export", True),
+        ("\U0001f525", "Viral Hook Analyzer", "Score your hook across 5 dimensions, get 5 power rewrites + live mobile preview", True),
+        ("\U0001f680", "Post Generator",      "Create viral posts with proven frameworks, hooks, and 2&ndash;3 variations per topic", False),
+        ("\U0001f527", "Post Optimizer",      "Get your existing posts diagnosed and rewritten with engagement scores", False),
+        ("\U0001f4bc", "About Optimizer",     "Transform your About section into a personal brand story that gets found", False),
+        ("\U0001f31f", "Profile Enhancer",    "Get your profile scored (0&ndash;100) and a 30-day transformation roadmap", False),
+        ("\U0001f4a1", "Content Ideas",       "Generate a full content calendar with hooks, angles, and hashtags", False),
+        ("\U0001f9e0", "Strategy Insights",   "Reverse-engineered playbooks from top LinkedIn creators", False),
+        ("\U0001f3a8", "Image Generator",     "AI-generated professional visuals using SDXL and Hugging Face", False),
+        ("\u26a1", "Engagement Toolkit",      "Hooks, CTAs, hashtag optimizer, and perfect posting times", False),
+        ("\U0001f4da", "Post Library",        "Every generated post auto-saved &mdash; search, star, filter, and export", True),
     ]
 
-    for row_start in range(0, len(features), 4):
-        row = features[row_start: row_start + 4]
-        cols = st.columns(len(row))
-        for col, (icon, title, desc, is_new) in zip(cols, row):
-            with col:
-                new_badge = '<span class="new-badge">NEW</span>' if is_new else ""
-                st.markdown(f"""
-                <div class="feature-card">
-                    {new_badge}
-                    <div class="icon">{icon}</div>
-                    <h3>{title}</h3>
-                    <p>{desc}</p>
-                </div>
-                """, unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
+    _card_html = ""
+    for _icon, _title, _desc, _is_new in features:
+        _badge = '<span class="fc-new">NEW</span>' if _is_new else ""
+        _card_html += (
+            f'<div class="fc-card">{_badge}'
+            f'<div class="fc-icon">{_icon}</div>'
+            f'<p class="fc-title">{_title}</p>'
+            f'<p class="fc-desc">{_desc}</p></div>'
+        )
+
+    st.markdown("""
+<style>
+.fc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem;}
+@media(max-width:900px){.fc-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:500px){.fc-grid{grid-template-columns:1fr;}}
+.fc-card{background:#fff;border:1px solid #E1E9F5;border-radius:12px;padding:1.4rem 1rem;
+         text-align:center;position:relative;box-shadow:0 2px 8px rgba(0,0,0,.06);
+         transition:transform .2s,box-shadow .2s,border-color .2s;}
+.fc-card:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(10,102,194,.15);border-color:#0A66C2;}
+.fc-new{position:absolute;top:10px;right:10px;background:#FF6B35;color:#fff;
+        font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;
+        padding:2px 7px;border-radius:10px;}
+.fc-icon{font-size:2.2rem;margin-bottom:.5rem;display:block;}
+.fc-title{color:#0A66C2;font-weight:700;margin:0 0 .4rem;font-size:.92rem;}
+.fc-desc{color:#555;font-size:.82rem;margin:0;line-height:1.4;}
+</style>
+<div class="fc-grid">""" + _card_html + """</div>
+""", unsafe_allow_html=True)
+
 
     # Getting started guide
     st.markdown("---")
