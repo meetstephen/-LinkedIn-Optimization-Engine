@@ -7,13 +7,13 @@ from utils.gemini_client import generate_text
 
 
 CREATOR_ARCHETYPES = {
-    "The Educator": "Breaks down complex topics into digestible frameworks. Known for carousels, step-by-step guides, and 'what they don't teach you' posts.",
-    "The Storyteller": "Masters vulnerability and personal narrative. Uses emotional arcs, cliffhangers in hooks, and relatable human moments.",
+    "The Educator":           "Breaks down complex topics into digestible frameworks. Known for carousels, step-by-step guides, and 'what they don't teach you' posts.",
+    "The Storyteller":        "Masters vulnerability and personal narrative. Uses emotional arcs, cliffhangers in hooks, and relatable human moments.",
     "The Contrarian Thinker": "Challenges conventional wisdom. Posts controversial takes, defends with data, sparks massive comment threads.",
-    "The Results Poster": "Shows before/after, shares numbers, proof-of-concept posts. Attracts clients and employers with demonstrated outcomes.",
-    "The Community Builder": "Engages others, reposts with commentary, Q&A threads, collaborative posts. Wins through relationship capital.",
-    "The Niche Expert": "Hyper-specific advice for a defined audience. Known as THE go-to person for one topic.",
-    "The Document Builder": "Builds in public — shares the journey, the failures, the weekly updates. Audiences become invested in their story.",
+    "The Results Poster":     "Shows before/after, shares numbers, proof-of-concept posts. Attracts clients and employers with demonstrated outcomes.",
+    "The Community Builder":  "Engages others, reposts with commentary, Q&A threads, collaborative posts. Wins through relationship capital.",
+    "The Niche Expert":       "Hyper-specific advice for a defined audience. Known as THE go-to person for one topic.",
+    "The Document Builder":   "Builds in public — shares the journey, the failures, the weekly updates. Audiences become invested in their story.",
 }
 
 HOOK_FORMULAS = [
@@ -23,91 +23,90 @@ HOOK_FORMULAS = [
     "Curiosity Gap: '[Do/Don't] [common action] until you read this.'",
     "Before/After: 'X months ago, I [was struggling with Y]. Today [dramatic outcome].'",
     "Direct Address: 'If you're a [specific role] and you're doing [specific thing], stop.'",
-    "Question: 'Why do [impressive people] all seem to [do surprising thing]?'",
     "Story Opening: '[Day/time]. I was [doing something]. Then [unexpected thing happened].'",
     "Bold Claim: '[Topic] changed how I think about [bigger concept]. Here's how:'",
     "List Tease: 'X things I wish someone told me about [topic] when I started:'",
 ]
 
 
-def build_strategy_prompt(creator_type: str, niche: str, goal: str) -> str:
+def build_strategy_prompt(creator_type, niche, goal):
     archetype_desc = CREATOR_ARCHETYPES.get(creator_type, "")
     hooks_formatted = "\n".join([f"{i+1}. {h}" for i, h in enumerate(HOOK_FORMULAS)])
-    return f"""You are a LinkedIn growth strategist who has studied the top 1% of LinkedIn creators and reverse-engineered their exact playbooks.
+    return f"""You study what actually works on LinkedIn — not the theory, the real patterns. You've watched thousands of posts succeed and fail. You know the difference between a creator who posts and one who grows.
 
-TASK: Create a complete LinkedIn Creator Strategy Playbook for this creator.
+Build a strategy playbook for this creator:
 
-CREATOR PROFILE:
-- Creator Archetype: {creator_type} — {archetype_desc}
-- Niche/Industry: {niche}
-- Primary Goal: {goal}
+- Archetype: {creator_type} — {archetype_desc}
+- Niche: {niche}
+- Goal: {goal}
 
-DELIVER A COMPLETE STRATEGY PLAYBOOK:
+Write this like you're a mentor who's seen it work, not a consultant filling a template.
+No buzzwords. No padding. Every line should be something they can act on today.
 
-## 🧬 YOUR CREATOR DNA
-Based on the {creator_type} archetype, here's how to manifest this on LinkedIn:
-[Deep explanation with specific tactics, examples, and why this archetype wins in {niche}]
+NEVER use: "leverage", "synergy", "game-changer", "thought leader", "content machine",
+"actionable insights", "crush it", "go viral", "algorithm hack"
 
-## 🪝 HOOK FORMULA MASTERCLASS
-The 5 best hook formulas for {creator_type} in {niche}:
+---
 
-For each formula, provide:
-- Formula name
+## YOUR CREATOR DNA
+What makes the {creator_type} archetype work — and specifically how it plays in {niche}.
+The one thing this archetype must never do. The one thing they must always do.
+3–4 paragraphs, specific to their niche.
+
+## THE 5 HOOKS THAT WILL ACTUALLY WORK FOR YOU
+Pick the 5 best hook formulas for a {creator_type} in {niche}.
+For each:
 - Template
-- Example for {niche}
-- Why it works psychologically
-- When to use it
+- Real example written for {niche} (not a placeholder — an actual hook ready to use)
+- The psychology behind why it stops scrolling
 
-Reference these proven hooks for inspiration:
+Reference these formulas as inspiration:
 {hooks_formatted}
 
-## 📐 POST ARCHITECTURE BLUEPRINTS
-3 proven post structures for maximum {niche} engagement:
+## 3 POST BLUEPRINTS
+Three repeatable structures that consistently perform for this archetype.
+For each blueprint:
+- Name it something memorable
+- Show the structure line by line (e.g., "Line 1: X. Lines 2-4: Y. Line 5: Z.")
+- Write a real example for {niche}
 
-Blueprint 1: [Name]
-- Line 1: [what to write]
-- Lines 2–5: [what to write]
-[etc. — full blueprint with instructions]
+## 10 ENGAGEMENT TACTICS
+Not generic tips. Specific moves.
+Each one: what to do + when to do it + what result to expect.
 
-Blueprint 2: [Name] [full blueprint]
-Blueprint 3: [Name] [full blueprint]
+## POSTING RHYTHM
+- Best days for {niche} audience (with a reason, not just the days)
+- Best times (with timezone context)
+- How many times per week — and why that number
+- Content mix: what % of posts should be each type
 
-## 🔥 ENGAGEMENT MULTIPLICATION TACTICS
-10 specific tactics to 10x comments and shares:
-1. [Tactic + exact implementation]
-[...]
+## THE ALGORITHM IN PLAIN ENGLISH
+What LinkedIn actually rewards for {creator_type} creators right now.
+What most creators in {niche} get wrong about distribution.
+How to use the first 60 minutes after posting.
 
-## ⏰ OPTIMAL POSTING STRATEGY
-- Best days for {niche} audience: [specific days with reasoning]
-- Best times: [specific times with timezone context]
-- Posting frequency: [specific recommendation]
-- Content mix ratio: [X% stories, Y% education, Z% engagement posts]
+## 90-DAY ROADMAP
+Month 1 — Foundation: 3–4 specific things to do, not categories
+Month 2 — Momentum: what should be different by now, 3–4 actions
+Month 3 — Authority: what "made it" looks like, 3–4 actions
 
-## 🌱 ALGORITHM GROWTH FORMULA
-How to hack LinkedIn's algorithm for {creator_type} creators:
-[Specific, tactical instructions covering: early engagement window, comment strategy, network seeding, content repurposing]
+One metric to track per month.
 
-## 📈 90-DAY GROWTH ROADMAP
-Month 1 — Foundation: [key actions]
-Month 2 — Momentum: [key actions]  
-Month 3 — Authority: [key actions]
+## THE COMMENT STRATEGY
+Most people ignore this. It's how creators actually grow.
+Exactly how to use commenting to build faster than posting alone.
 
-Milestone checkpoints and what metrics to track at each stage.
-
-## 💬 COMMENT STRATEGY (Hidden Growth Lever)
-[Complete playbook on using comments to grow faster than posting — the underrated secret of top creators]
-
-## 🏆 CREATOR CASE STUDY
-Simulate a success story: Describe how a fictional {creator_type} creator in {niche} went from 0 to 10K followers in 90 days using these exact tactics. Include their content strategy, breakthrough post type, and turning point moment.
+## REAL-WORLD CASE STUDY
+Create a specific fictional creator in {niche} who is a {creator_type}.
+Walk through their first 90 days: their first 5 post topics, the post that broke through, the turning point, where they were at day 90.
+Make it feel real — specific numbers, specific moments.
 """
 
 
 def render_strategy_insights():
-    """Renders the Creator Strategy Insights tab UI."""
     st.header("🧠 Creator Strategy Insights")
-    st.markdown("Reverse-engineered playbooks from top LinkedIn creators — personalized to your archetype and niche.")
+    st.markdown("A real playbook based on what actually works — not what sounds good in theory.")
 
-    # Creator archetype display
     with st.expander("🎭 Learn About Creator Archetypes", expanded=False):
         for archetype, desc in CREATOR_ARCHETYPES.items():
             st.markdown(f"**{archetype}**: {desc}")
@@ -115,34 +114,24 @@ def render_strategy_insights():
     col1, col2 = st.columns(2)
 
     with col1:
-        creator_type = st.selectbox(
-            "🎭 Your Creator Archetype",
-            list(CREATOR_ARCHETYPES.keys()),
-            help="Choose the style that resonates most with you",
-        )
-        niche = st.text_input(
-            "🎯 Your Niche",
-            placeholder="e.g., B2B SaaS, Career Coaching, Data Engineering",
-        )
+        creator_type = st.selectbox("🎭 Your Creator Archetype", list(CREATOR_ARCHETYPES.keys()),
+                                     help="Choose the style that feels most like you")
+        niche = st.text_input("🎯 Your Niche", placeholder="e.g., B2B SaaS, Career Coaching, Data Engineering")
 
     with col2:
-        goal = st.selectbox(
-            "🎯 Primary Growth Goal",
-            [
-                "Grow to 5K followers in 90 days",
-                "Establish myself as a thought leader",
-                "Attract premium clients / consulting work",
-                "Get recruited by top companies",
-                "Build an audience for my product/course",
-                "Become the go-to expert in my niche",
-            ],
-        )
+        goal = st.selectbox("🎯 Primary Growth Goal", [
+            "Grow to 5K followers in 90 days",
+            "Establish myself as a thought leader",
+            "Attract premium clients / consulting work",
+            "Get recruited by top companies",
+            "Build an audience for my product/course",
+            "Become the go-to expert in my niche",
+        ])
         st.info(f"**Your Archetype:** {CREATOR_ARCHETYPES[creator_type]}")
 
     st.markdown("---")
 
-    # Quick reference: Hook formulas
-    with st.expander("🪝 Quick Reference: 10 Proven Hook Formulas", expanded=False):
+    with st.expander("🪝 Quick Reference: 9 Proven Hook Formulas", expanded=False):
         for formula in HOOK_FORMULAS:
             st.markdown(f"• {formula}")
 
@@ -151,7 +140,7 @@ def render_strategy_insights():
             st.error("Please enter your niche.")
             return
 
-        with st.spinner("Building your personalized creator playbook..."):
+        with st.spinner("Building your playbook..."):
             try:
                 prompt = build_strategy_prompt(creator_type, niche, goal)
                 result = generate_text(prompt, temperature=0.8, max_tokens=3000)
@@ -159,7 +148,6 @@ def render_strategy_insights():
                 st.success("✅ Strategy playbook generated!")
                 st.markdown("---")
 
-                # Download option
                 st.download_button(
                     label="📥 Download Strategy Playbook",
                     data=result,
