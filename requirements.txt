@@ -1,26 +1,8 @@
-# ══════════════════════════════════════════════════════════════════════════════
-#  LinkedIn Optimization Engine — requirements.txt
-#  Tested on: Python 3.12 · Python 3.14 (Streamlit Cloud)
-#  Install: pip install -r requirements.txt
-# ══════════════════════════════════════════════════════════════════════════════
+# LinkedIn Optimization Engine — Python dependencies
+# Install with: pip install -r requirements.txt
 
-# ── Web framework ──────────────────────────────────────────────────────────────
-streamlit>=1.40.0
-
-# ── Google AI (Gemini) ─────────────────────────────────────────────────────────
-# IMPORTANT: use "google-genai" (the new unified SDK, 2024+).
-# Do NOT add "google-generativeai" — it shares the google.genai namespace
-# and will conflict, causing an ImportError on Streamlit Cloud.
-# app.py uses:  from google import genai
-#               from google.genai import types
-google-genai>=1.7.0
-
-# ── HTTP client — Stability AI REST API + Hugging Face Inference API ───────────
-requests>=2.32.0
-
-# ── Image handling — decode/display Stability AI & HF image responses ──────────
-Pillow>=11.0.0
-
-# ── Standard library only below this line ──────────────────────────────────────
-# sys, os, importlib, json, re, time, datetime, traceback, base64
-# — all built-in, no install needed.
+streamlit>=1.35.0
+google-genai>=0.8.0
+SQLAlchemy>=2.0.0
+requests>=2.31.0
+Pillow>=10.0.0
