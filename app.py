@@ -517,16 +517,17 @@ def init_session_state():
         "gemini_api_key":    _get_secret("GEMINI_API_KEY"),
         "stability_api_key": _get_secret("STABILITY_API_KEY"),
         "hf_api_key":        _get_secret("HF_API_KEY"),
+        "gemini_model":      "gemini-2.5-flash",  # switchable from sidebar
         "last_generated_post": "",
         "current_page": "🏠 Home",
         # History & stats
-        "post_history": [],          # list of {type, content, timestamp}
-        "post_library": [],          # NEW: richer saved-post store for Post Library page
+        "post_history": [],
+        "post_library": [],
         "session_posts_generated": 0,
         "session_minutes_saved": 0,
-        "hooks_analyzed": 0,         # NEW: hook analyzer counter
+        "hooks_analyzed": 0,
         "viral_analyzer_result": None,
-        "hook_analysis_result": None, # NEW: dedicated hook analyzer result
+        "hook_analysis_result": None,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -575,6 +576,43 @@ def render_sidebar():
             label_visibility="collapsed",
         )
         st.session_state["current_page"] = selected_page
+
+        st.markdown("<hr style='border-color:rgba(255,255,255,0.2);'>", unsafe_allow_html=True)
+
+        # ── Gemini Model Switcher ─────────────────────────────────────────
+        st.markdown("**🤖 Gemini Model**")
+
+        GEMINI_MODELS = {
+            "gemini-2.5-flash":      ("⚡ Gemini 2.5 Flash",      "Fast · Best for most tasks"),
+            "gemini-2.5-flash-lite": ("🪶 Gemini 2.5 Flash-Lite", "Lightweight · Use if Flash errors"),
+        }
+
+        current_model = st.session_state.get("gemini_model", "gemini-2.5-flash")
+        # Build display list in a fixed order
+        model_keys   = list(GEMINI_MODELS.keys())
+        model_labels = [GEMINI_MODELS[k][0] for k in model_keys]
+        current_idx  = model_keys.index(current_model) if current_model in model_keys else 0
+
+        chosen_label = st.radio(
+            "Select Gemini model",
+            model_labels,
+            index=current_idx,
+            label_visibility="collapsed",
+            key="gemini_model_radio",
+        )
+        chosen_key = model_keys[model_labels.index(chosen_label)]
+        if chosen_key != st.session_state["gemini_model"]:
+            st.session_state["gemini_model"] = chosen_key
+            # Clear cached AI results so they re-run with the new model
+            st.session_state["viral_analyzer_result"] = None
+            st.session_state["hook_analysis_result"]  = None
+
+        _, sub = GEMINI_MODELS[st.session_state["gemini_model"]]
+        st.markdown(
+            f"<div style='font-size:0.72rem; color:rgba(255,255,255,0.65); "
+            f"margin-top:-6px; margin-bottom:6px;'>{sub}</div>",
+            unsafe_allow_html=True,
+        )
 
         st.markdown("<hr style='border-color:rgba(255,255,255,0.2);'>", unsafe_allow_html=True)
 
@@ -898,7 +936,7 @@ Return this exact JSON structure:
 }}"""
 
                         response = client.models.generate_content(
-                            model="gemini-2.5-flash",
+                            model=st.session_state.get("gemini_model", "gemini-2.5-flash"),
                             contents=analysis_prompt,
                             config=genai_types.GenerateContentConfig(
                                 temperature=0.4,
@@ -1154,7 +1192,7 @@ Rules: every rewrite ≤210 chars, distinctly different techniques, genuinely vi
                 from google.genai import types as genai_types
                 client   = google_genai.Client(api_key=st.session_state["gemini_api_key"])
                 response = client.models.generate_content(
-                    model="gemini-2.5-flash",
+                    model=st.session_state.get("gemini_model", "gemini-2.5-flash"),
                     contents=prompt,
                     config=genai_types.GenerateContentConfig(temperature=0.5, max_output_tokens=1500),
                 )
