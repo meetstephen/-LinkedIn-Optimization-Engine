@@ -7,68 +7,75 @@ from utils.gemini_client import generate_text
 
 
 OPTIMIZATION_GOALS = {
-    "Maximum Engagement": "optimize for likes, comments, and shares — prioritize emotional resonance",
-    "Professional Authority": "position as thought leader — credibility and expertise signaling",
-    "Lead Generation": "attract potential clients/employers — clear value demonstration",
-    "Community Building": "spark conversations — questions, relatable content",
-    "Personal Branding": "build distinctive voice — authentic, memorable, consistent",
+    "Maximum Engagement":    "likes, comments, shares — the post needs emotional pull and a reason to respond",
+    "Professional Authority":"clear expertise signal — confident, specific, not arrogant",
+    "Lead Generation":       "attract clients or employers — show the result, not just the skill",
+    "Community Building":    "get people talking — relatable friction, genuine questions",
+    "Personal Branding":     "unmistakably you — a distinctive voice that people remember",
 }
+
+_BANNED = """
+NEVER use: "game-changer", "dive in", "leverage", "synergy", "actionable", "thought leader",
+"passionate about", "journey", "crushing it", "hustle", "disrupt", "innovative",
+"cutting-edge", "best practices", "I'm excited to share", "I'm thrilled",
+"in today's fast-paced world", "at the end of the day", "needless to say",
+"in conclusion", "circle back", "touch base", "move the needle"
+"""
 
 
 def build_optimizer_prompt(original_post: str, goal: str) -> str:
     goal_desc = OPTIMIZATION_GOALS.get(goal, goal)
-    return f"""You are a LinkedIn content strategist who has helped 100+ creators grow from 1K to 100K+ followers.
-
-TASK: Analyze and completely optimize the following LinkedIn post.
+    return f"""You edit LinkedIn posts the way a great editor improves a first draft — you keep the writer's voice, cut what doesn't serve the reader, and make every line do more work.
 
 ORIGINAL POST:
 \"\"\"
 {original_post}
 \"\"\"
 
-OPTIMIZATION GOAL: {goal} — {goal_desc}
+GOAL: {goal} — {goal_desc}
 
-DELIVER THE FOLLOWING:
+{_BANNED}
 
-## 🔍 DIAGNOSTIC ANALYSIS
-Rate each element (1–10) with a brief reason:
-- Hook Strength: X/10 — [reason]
-- Clarity: X/10 — [reason]  
-- Emotional Impact: X/10 — [reason]
-- Formatting: X/10 — [reason]
-- CTA Effectiveness: X/10 — [reason]
-- Hashtag Quality: X/10 — [reason]
+DELIVER:
 
-**OVERALL ENGAGEMENT SCORE: XX/100**
+## DIAGNOSIS
+Score each element (1–10) in one line each:
+- Hook: X/10 — [why, specifically]
+- Clarity: X/10 — [why]
+- Emotional pull: X/10 — [why]
+- Formatting: X/10 — [why]
+- CTA: X/10 — [why]
 
-## ⚠️ KEY ISSUES FOUND
-List 3–5 specific problems with the original post (be direct and specific).
+**OVERALL: XX/100**
 
-## ✅ OPTIMIZED VERSION
-Rewrite the complete post with:
-- Stronger hook (scroll-stopping first line)
-- Better formatting (short lines, white space)
-- Clearer message and storytelling
-- Stronger CTA
-- Better hashtags
-(Keep the author's voice but dramatically improve execution)
+## WHAT'S KILLING IT
+3–4 specific problems. Be direct. No softening.
 
-## 📈 IMPROVEMENTS MADE
-List exactly what you changed and why each change increases engagement.
+## REWRITTEN VERSION
+Write the full rewritten post. Keep the author's voice and story — only improve the execution.
 
-## 💡 PRO TIPS
-2–3 additional power moves the author can use going forward.
+Rules for the rewrite:
+- Hook must not start with "I"
+- No questions as hooks
+- One idea per line, blank lines between paragraphs
+- Specifics over generalities (real numbers, real details)
+- One vulnerable or honest moment
+- CTA is a genuine question — max one, at the end
+- Under 260 words
+
+## WHAT CHANGED & WHY
+List 4–5 specific edits with the reason each one performs better.
+Not "improved the hook" — say exactly what you changed it to and why that's stronger.
 """
 
 
 def render_post_optimizer():
-    """Renders the Post Optimizer tab UI."""
     st.header("🔧 LinkedIn Post Optimizer")
     st.markdown("Paste your existing post and get a full diagnosis + professional rewrite with engagement score.")
 
     original_post = st.text_area(
         "📝 Paste Your LinkedIn Post Here",
-        placeholder="Paste your existing LinkedIn post here...\n\nExcited to announce that I just completed a certification in...",
+        placeholder="Paste your existing LinkedIn post here...",
         height=200,
     )
 
@@ -91,12 +98,11 @@ def render_post_optimizer():
         with st.spinner("Analyzing and rewriting your post..."):
             try:
                 prompt = build_optimizer_prompt(original_post, goal)
-                result = generate_text(prompt, temperature=0.7)
+                result = generate_text(prompt, temperature=0.72)
 
                 st.success("✅ Optimization complete!")
                 st.markdown("---")
 
-                # Side by side comparison
                 col1, col2 = st.columns(2)
                 with col1:
                     st.subheader("❌ Original Post")
@@ -105,13 +111,11 @@ def render_post_optimizer():
                         f'{original_post.replace(chr(10), "<br>")}</div>',
                         unsafe_allow_html=True,
                     )
-
                 with col2:
                     st.subheader("✅ After AI Analysis")
-                    # Extract score for highlight
                     score_line = ""
                     for line in result.split("\n"):
-                        if "OVERALL ENGAGEMENT SCORE" in line.upper():
+                        if "OVERALL" in line.upper():
                             score_line = line
                             break
                     if score_line:
@@ -119,8 +123,6 @@ def render_post_optimizer():
 
                 st.markdown("---")
                 st.markdown(result)
-
-                # Save optimized post
                 st.session_state["last_generated_post"] = result
 
             except Exception as e:
