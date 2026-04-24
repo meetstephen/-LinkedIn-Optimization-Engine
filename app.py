@@ -449,6 +449,246 @@ st.markdown("""
         background-color: #EAF4FF;
         border-bottom: 3px solid #0A66C2;
     }
+
+    /* ══════════════════════════════════════════════════════════════
+       TEXT VISIBILITY FIX — force dark text on all main-area whites
+       The sidebar's "* { color: white !important }" can bleed into
+       Streamlit's shared component layer, making text invisible on
+       white/light tiles. Every rule below locks dark text on the
+       main content pane only.
+    ══════════════════════════════════════════════════════════════ */
+
+    /* ── Global main area text ── */
+    .main .block-container,
+    .main .block-container p,
+    .main .block-container span,
+    .main .block-container li,
+    .main .block-container label,
+    .main .block-container div,
+    section[data-testid="stMain"] p,
+    section[data-testid="stMain"] span,
+    section[data-testid="stMain"] label,
+    section[data-testid="stMain"] li,
+    [data-testid="stMarkdownContainer"] p,
+    [data-testid="stMarkdownContainer"] li,
+    [data-testid="stMarkdownContainer"] span,
+    [data-testid="stMarkdownContainer"] strong,
+    [data-testid="stMarkdownContainer"] em,
+    [data-testid="stMarkdownContainer"] td,
+    [data-testid="stMarkdownContainer"] th {
+        color: #1a1a1a !important;
+    }
+
+    /* ── Headings in main area ── */
+    section[data-testid="stMain"] h1,
+    section[data-testid="stMain"] h2,
+    section[data-testid="stMain"] h3,
+    section[data-testid="stMain"] h4,
+    section[data-testid="stMain"] h5,
+    .main .block-container h1,
+    .main .block-container h2,
+    .main .block-container h3,
+    .main .block-container h4 {
+        color: #0A66C2 !important;
+    }
+
+    /* ── Metric tiles ── */
+    [data-testid="stMetric"] {
+        background: #F0F7FF !important;
+        border-radius: 10px;
+        padding: 1rem;
+        border: 1px solid #D0E8FF;
+    }
+    [data-testid="stMetric"] label,
+    [data-testid="stMetric"] [data-testid="stMetricLabel"],
+    [data-testid="stMetricLabel"] p,
+    [data-testid="stMetricLabel"] span {
+        color: #444 !important;
+        font-weight: 600 !important;
+    }
+    [data-testid="stMetric"] [data-testid="stMetricValue"],
+    [data-testid="stMetricValue"] div,
+    [data-testid="stMetricValue"] span {
+        color: #0A66C2 !important;
+        font-weight: 800 !important;
+    }
+    [data-testid="stMetricDelta"],
+    [data-testid="stMetricDelta"] span {
+        color: #444 !important;
+    }
+
+    /* ── Expander header & body ── */
+    [data-testid="stExpander"] {
+        border: 1px solid #E1E9F5 !important;
+        border-radius: 10px !important;
+        background: #ffffff !important;
+    }
+    [data-testid="stExpander"] summary,
+    [data-testid="stExpander"] summary p,
+    [data-testid="stExpander"] summary span,
+    [data-testid="stExpander"] summary svg {
+        color: #1a1a1a !important;
+    }
+    [data-testid="stExpander"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stExpander"] [data-testid="stMarkdownContainer"] li,
+    [data-testid="stExpander"] [data-testid="stMarkdownContainer"] span,
+    [data-testid="stExpander"] [data-testid="stMarkdownContainer"] strong {
+        color: #1a1a1a !important;
+    }
+
+    /* ── Alert / info / success / warning / error boxes ── */
+    [data-testid="stAlert"] p,
+    [data-testid="stAlert"] span,
+    [data-testid="stAlert"] li,
+    [data-testid="stAlert"] strong,
+    [data-testid="stNotification"] p,
+    [data-testid="stNotification"] span,
+    .stAlert p, .stAlert span, .stAlert li,
+    .element-container .stSuccess p,
+    .element-container .stInfo p,
+    .element-container .stWarning p,
+    .element-container .stError p {
+        color: #1a1a1a !important;
+    }
+
+    /* ── Input fields — text typed by user ── */
+    .stTextInput > div > div > input {
+        color: #1a1a1a !important;
+        background: #ffffff !important;
+        border-radius: 8px;
+        border: 1.5px solid #C7D9F5;
+    }
+    .stTextArea > div > div > textarea {
+        color: #1a1a1a !important;
+        background: #ffffff !important;
+        border-radius: 8px;
+        border: 1.5px solid #C7D9F5;
+    }
+    .stTextInput > div > div > input:focus,
+    .stTextArea > div > div > textarea:focus {
+        border-color: #0A66C2 !important;
+        box-shadow: 0 0 0 2px rgba(10,102,194,0.15);
+    }
+
+    /* ── Selectbox / dropdown ── */
+    [data-testid="stSelectbox"] div[data-baseweb="select"] div,
+    [data-testid="stSelectbox"] div[data-baseweb="select"] span,
+    [data-testid="stSelectbox"] > label,
+    [data-testid="stSelectbox"] > label p {
+        color: #1a1a1a !important;
+    }
+
+    /* ── Radio buttons ── */
+    [data-testid="stRadio"] > label,
+    [data-testid="stRadio"] > label p,
+    [data-testid="stRadio"] div[role="radiogroup"] label,
+    [data-testid="stRadio"] div[role="radiogroup"] p,
+    [data-testid="stRadio"] div[role="radiogroup"] span {
+        color: #1a1a1a !important;
+    }
+
+    /* ── Checkbox ── */
+    [data-testid="stCheckbox"] label,
+    [data-testid="stCheckbox"] label p,
+    [data-testid="stCheckbox"] label span {
+        color: #1a1a1a !important;
+    }
+
+    /* ── Slider labels ── */
+    [data-testid="stSlider"] label,
+    [data-testid="stSlider"] label p,
+    [data-testid="stSlider"] div[data-testid="stTickBarMin"],
+    [data-testid="stSlider"] div[data-testid="stTickBarMax"] {
+        color: #1a1a1a !important;
+    }
+
+    /* ── Number input ── */
+    [data-testid="stNumberInput"] label,
+    [data-testid="stNumberInput"] label p,
+    [data-testid="stNumberInput"] input {
+        color: #1a1a1a !important;
+    }
+
+    /* ── Multiselect ── */
+    [data-testid="stMultiSelect"] label,
+    [data-testid="stMultiSelect"] label p,
+    [data-testid="stMultiSelect"] div[data-baseweb="tag"] span,
+    [data-testid="stMultiSelect"] div[data-baseweb="select"] div {
+        color: #1a1a1a !important;
+    }
+
+    /* ── Dataframe / table ── */
+    [data-testid="stDataFrame"] td,
+    [data-testid="stDataFrame"] th,
+    [data-testid="stTable"] td,
+    [data-testid="stTable"] th {
+        color: #1a1a1a !important;
+        background: #ffffff !important;
+    }
+
+    /* ── Caption / small text ── */
+    [data-testid="stCaptionContainer"] p,
+    .stCaption p {
+        color: #555 !important;
+    }
+
+    /* ── Tab labels ── */
+    .stTabs [data-baseweb="tab"] p,
+    .stTabs [data-baseweb="tab"] span {
+        color: #1a1a1a !important;
+    }
+    .stTabs [aria-selected="true"] p,
+    .stTabs [aria-selected="true"] span {
+        color: #0A66C2 !important;
+        font-weight: 700 !important;
+    }
+
+    /* ── Download button ── */
+    [data-testid="stDownloadButton"] button p,
+    [data-testid="stDownloadButton"] button span {
+        color: #1a1a1a !important;
+    }
+
+    /* ── Code blocks ── */
+    [data-testid="stCode"] code,
+    .stCode code,
+    pre, pre span, pre code {
+        color: #1a1a1a !important;
+        background: #f5f7fa !important;
+    }
+
+    /* ── Sidebar — keep white text, override everything above ── */
+    [data-testid="stSidebar"],
+    [data-testid="stSidebar"] *,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] span,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] div,
+    [data-testid="stSidebar"] li {
+        color: white !important;
+    }
+    [data-testid="stSidebar"] .stRadio label {
+        background: rgba(255,255,255,0.1);
+        border-radius: 8px;
+        padding: 8px 12px;
+        margin: 3px 0;
+        display: block;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    [data-testid="stSidebar"] .stRadio label:hover {
+        background: rgba(255,255,255,0.25);
+        transform: translateX(4px);
+    }
+    [data-testid="stSidebar"] .stTextInput input,
+    [data-testid="stSidebar"] .stTextInput input::placeholder {
+        color: #1a1a1a !important;
+        background: rgba(255,255,255,0.95) !important;
+    }
+    [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] div {
+        color: #1a1a1a !important;
+        background: rgba(255,255,255,0.95) !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
