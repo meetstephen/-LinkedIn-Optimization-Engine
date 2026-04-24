@@ -6,79 +6,101 @@ import streamlit as st
 from utils.gemini_client import generate_text
 
 
-# ─── Tone descriptions ───────────────────────────────────────────────────────
 TONE_DESCRIPTIONS = {
-    "Inspirational": "motivational, uplifting, empowering — like a coach speaking to professionals",
-    "Educational": "informative, structured, teaching-oriented — like a subject matter expert sharing wisdom",
-    "Storytelling": "narrative-driven, personal, relatable — like sharing a real experience",
-    "Contrarian": "thought-provoking, challenges assumptions — like a bold LinkedIn thought leader",
-    "Data-Driven": "analytical, evidence-based, specific numbers and facts — like a researcher",
-    "Conversational": "casual, authentic, approachable — like talking to a friend at a networking event",
-    "Motivational": "high-energy, action-oriented, pushing people to take steps",
+    "Inspirational":   "hopeful, grounded — a mentor talking to someone earlier in their journey",
+    "Educational":     "clear, direct, generous — the smartest person in the room who never makes you feel dumb",
+    "Storytelling":    "narrative-first, specific details, real tension — not a TED talk, a conversation",
+    "Contrarian":      "calm confidence, not rage-bait — challenges assumptions without being arrogant",
+    "Data-Driven":     "precise, crisp, lets the numbers do the talking — no fluff around the stats",
+    "Conversational":  "like texting a smart friend — lowercase where natural, short sentences, real thoughts",
+    "Motivational":    "honest energy, not toxic positivity — acknowledges the hard part before the push",
 }
 
 FRAMEWORK_DESCRIPTIONS = {
-    "Hook → Story → Insight → CTA": "Start with a bold hook, tell a brief story, share the key insight, close with CTA",
-    "Problem → Agitation → Solution": "Present a problem, amplify its pain, provide your unique solution",
-    "Listicle (Numbered Tips)": "X things I learned / X mistakes I made / X tools that changed my work",
-    "Before → After → Bridge": "Describe the before state, the after state, and how to bridge the gap",
-    "Contrarian Statement": "State an unpopular opinion, defend it with evidence, invite debate",
-    "Personal Story Arc": "Vulnerability → Struggle → Lesson → Takeaway",
+    "Hook → Story → Insight → CTA":  "Open mid-scene, tell what happened, extract the lesson, end with a question",
+    "Problem → Agitation → Solution": "Name the pain clearly, make it feel real, offer a specific way out",
+    "Listicle (Numbered Tips)":        "A number in the hook, tight actionable points, no padding",
+    "Before → After → Bridge":        "Where you were, where you got to, the exact step that bridged the gap",
+    "Contrarian Statement":            "One uncomfortable truth, defend it calmly, invite the pushback",
+    "Personal Story Arc":              "Specific moment → what you felt → what you did → what you now know",
 }
+
+# Global voice rules injected into every post generation prompt
+_VOICE_RULES = """
+VOICE & STYLE RULES — follow these without exception:
+
+1. BANNED WORDS & PHRASES — never write these:
+   "game-changer", "game-changing", "dive in", "let's dive into", "in today's fast-paced world",
+   "I'm excited to share", "I'm thrilled to announce", "leverage", "synergy", "actionable insights",
+   "thought leader", "passionate about", "journey", "transformation", "crushing it",
+   "hustle", "disrupt", "innovative", "cutting-edge", "best practices", "circle back",
+   "touch base", "bandwidth", "move the needle", "at the end of the day", "it goes without saying",
+   "needless to say", "in conclusion", "in summary", "I hope this finds you well"
+
+2. HOOK RULES:
+   - Never open with "I" as the first word
+   - No questions as the hook (weak — everyone does it)
+   - No emojis in the hook line
+   - Must create a gap — reader has to keep going to close it
+   - Under 12 words ideally
+
+3. FORMATTING:
+   - One idea per line
+   - Blank line between every paragraph
+   - Max 3 lines per paragraph
+   - Never use bullet points with dashes (—) inside the post body
+   - Numbered lists only when the number is part of the hook
+
+4. SOUND HUMAN:
+   - Incomplete sentences are fine if they hit harder that way
+   - Use specifics: not "a lot of money" but "$47,000"
+   - Not "many years" but "11 years"
+   - Tension before resolution — don't rush to the lesson
+   - One vulnerability moment per post minimum
+   - Write like you're talking to one specific person, not an audience
+
+5. CTA:
+   - One question at the end, max
+   - Must be genuinely curious, not a fake question
+   - No "drop a comment below" or "hit the like button"
+"""
 
 
 def build_post_prompt(topic: str, niche: str, tone: str, framework: str, audience: str) -> str:
     tone_desc = TONE_DESCRIPTIONS.get(tone, tone)
     framework_desc = FRAMEWORK_DESCRIPTIONS.get(framework, framework)
 
-    return f"""You are a top LinkedIn creator with 500K+ followers. Your posts consistently go viral because of your ability to craft engaging, human-centered content.
+    return f"""You write LinkedIn posts for a specific type of creator: someone who has real experience, has made real mistakes, and doesn't need to impress anyone. Their posts feel like they came from a person, not a content team.
 
-TASK: Write 2 high-performing LinkedIn post VARIATIONS on the following:
+WHAT YOU'RE WRITING:
+- Topic: {topic}
+- Niche: {niche}
+- Audience: {audience}
+- Tone: {tone} — {tone_desc}
+- Framework: {framework} — {framework_desc}
 
-Topic: {topic}
-Niche/Industry: {niche}
-Target Audience: {audience}
-Tone: {tone} — {tone_desc}
-Framework: {framework} — {framework_desc}
+Write 2 completely different post variations on this topic. Same message, different angle, different structure.
 
-STRICT FORMATTING RULES FOR EACH VARIATION:
-1. START with a powerful, scroll-stopping HOOK (1–2 lines max, no emojis in hook)
-2. Body: Short paragraphs (1–3 lines each). Use line breaks generously.
-3. Include a personal insight or contrarian angle
-4. Use 2–3 relevant emojis sparingly (not in hook)
-5. End with a compelling CTA (question or action)
-6. Add 5–8 relevant hashtags at the bottom
-7. Keep total post under 300 words
-8. Avoid corporate speak, jargon, or generic advice
+{_VOICE_RULES}
 
-OUTPUT FORMAT:
+OUTPUT FORMAT — use exactly this, nothing else:
+
 ---VARIATION 1---
-[Hook]
-
-[Body with short paragraphs]
-
-[CTA]
-
-[Hashtags]
+[The post. No label, no intro, just the post itself.]
 
 ---VARIATION 2---
-[Hook]
-
-[Body with short paragraphs]
-
-[CTA]
-
-[Hashtags]
+[The post. Completely different structure from V1.]
 
 ---ANALYSIS---
-Hook strength: [Strong/Medium/Weak] — [brief reason]
-Engagement prediction: [High/Medium/Low] — [brief reason]
-Best variation: [1 or 2] — [brief reason]
+Hook strength: [Strong/Medium/Weak] — [one specific sentence on why]
+Which to post: [1 or 2] — [one specific sentence on why]
+What to A/B test next time: [one specific thing]
+
+Keep each post under 280 words. Every line should earn its place.
 """
 
 
 def render_post_generator():
-    """Renders the Post Generator tab UI."""
     st.header("🚀 LinkedIn Post Generator")
     st.markdown("Generate scroll-stopping posts using proven viral frameworks powered by Gemini AI.")
 
@@ -103,7 +125,6 @@ def render_post_generator():
     with col2:
         tone = st.selectbox("🎭 Tone", list(TONE_DESCRIPTIONS.keys()))
         framework = st.selectbox("📐 Content Framework", list(FRAMEWORK_DESCRIPTIONS.keys()))
-
         st.info(f"**Framework:** {FRAMEWORK_DESCRIPTIONS[framework]}")
 
     st.markdown("---")
@@ -116,16 +137,15 @@ def render_post_generator():
             st.error("Please enter your niche/industry.")
             return
 
-        with st.spinner("Crafting your viral LinkedIn posts..."):
+        with st.spinner("Writing your posts..."):
             try:
                 prompt = build_post_prompt(topic, niche, tone, framework, audience)
-                result = generate_text(prompt, temperature=0.85)
+                result = generate_text(prompt, temperature=0.88)
 
                 st.success("✅ Posts generated!")
                 st.markdown("---")
                 st.subheader("📝 Your Post Variations")
 
-                # Display in expandable sections
                 parts = result.split("---")
                 for part in parts:
                     part = part.strip()
@@ -145,7 +165,6 @@ def render_post_generator():
                         with st.expander("📊 AI Analysis", expanded=True):
                             st.markdown(part.replace("ANALYSIS", "").strip())
 
-                # Save last post to session for image generation
                 st.session_state["last_generated_post"] = result
 
             except Exception as e:
