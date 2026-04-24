@@ -30,10 +30,24 @@ import importlib.util
 import json
 import re
 import time
+import traceback
 from datetime import datetime
 
 # ── Resolve app directory (works locally & on Streamlit Cloud) ─────────────
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# ── Ensure core/ is importable regardless of working directory ──────────────
+if APP_DIR not in sys.path:
+    sys.path.insert(0, APP_DIR)
+
+# ── Core modules (graceful fallback so app.py still imports even if missing) ─
+try:
+    from core import db as _db          # DB persistence
+    from core import ai as _ai          # Central AI client
+    from core import state as _state    # State helpers
+    _CORE_AVAILABLE = True
+except ImportError:
+    _CORE_AVAILABLE = False
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -481,19 +495,25 @@ def save_to_history(post_type: str, content: str):
 
 
 def save_to_library(content: str, module: str, score: int = 0, tags: list = None):
-    """Save a post to the persistent Post Library and bump counters."""
-    entry = {
-        "id": int(time.time() * 1000),
-        "content": content.strip(),
-        "module": module,
-        "score": score,
-        "tags": tags or [],
-        "created_at": datetime.now().strftime("%b %d, %Y · %I:%M %p"),
-        "starred": False,
-    }
-    st.session_state["post_library"].insert(0, entry)
-    st.session_state["session_posts_generated"] += 1
-    # also mirror into legacy post_history so sidebar stats stay consistent
+    """Save a post to the Post Library (DB-backed) and bump session counters."""
+    if _CORE_AVAILABLE:
+        _db.save_post(content, module, score=score, tags=tags or [])
+    else:
+        # Legacy in-memory fallback (no persistence)
+        entry = {
+            "id": int(time.time() * 1000),
+            "content": content.strip(),
+            "module": module,
+            "score": score,
+            "tags": tags or [],
+            "created_at": datetime.now().strftime("%b %d, %Y · %I:%M %p"),
+            "starred": False,
+        }
+        st.session_state.setdefault("post_library", []).insert(0, entry)
+
+    st.session_state["session_posts_generated"] = (
+        st.session_state.get("session_posts_generated", 0) + 1
+    )
     save_to_history(module, content)
 
 
@@ -502,12 +522,15 @@ def save_to_library(content: str, module: str, score: int = 0, tags: list = None
 # ─────────────────────────────────────────────
 def init_session_state():
     """Initialize all session state variables."""
-    # Auto-load from environment variables / Streamlit secrets (production-ready)
+    if _CORE_AVAILABLE:
+        _state.init_session_state()
+        return
+
+    # ── Fallback (core/ not found) ─────────────────────────────────────────
     def _get_secret(env_key: str, fallback: str = "") -> str:
-        """Check env vars first, then st.secrets, then fallback."""
-        env_val = os.environ.get(env_key, "")
-        if env_val:
-            return env_val
+        val = os.environ.get(env_key, "")
+        if val:
+            return val
         try:
             return st.secrets.get(env_key, fallback)
         except Exception:
@@ -517,10 +540,9 @@ def init_session_state():
         "gemini_api_key":    _get_secret("GEMINI_API_KEY"),
         "stability_api_key": _get_secret("STABILITY_API_KEY"),
         "hf_api_key":        _get_secret("HF_API_KEY"),
-        "gemini_model":      "gemini-2.5-flash",  # switchable from sidebar
+        "gemini_model":      "gemini-2.5-flash",
         "last_generated_post": "",
         "current_page": "🏠 Home",
-        # History & stats
         "post_history": [],
         "post_library": [],
         "session_posts_generated": 0,
@@ -688,7 +710,8 @@ def render_sidebar():
         st.markdown("<hr style='border-color:rgba(255,255,255,0.2);'>", unsafe_allow_html=True)
         posts_gen   = st.session_state.get("session_posts_generated", 0)
         mins_saved  = posts_gen * 12   # avg 12 min saved per AI-generated post
-        history_ct  = len(st.session_state.get("post_history", []))
+        history_ct  = (_db.get_stats()["total"] if _CORE_AVAILABLE
+                       else len(st.session_state.get("post_library", [])))
         hooks_done  = st.session_state.get("hooks_analyzed", 0)
         st.markdown(f"""
         <div style="font-size:0.78rem; color:rgba(255,255,255,0.85); text-align:center;">
@@ -906,18 +929,10 @@ def render_home():
                 st.warning("Post is too short to analyze. Please paste a real LinkedIn post.")
             else:
                 with st.spinner("🤖 Scoring your post with AI..."):
-                    import json
-                    try:
-                        from google import genai as google_genai
-                        from google.genai import types as genai_types
-                        client = google_genai.Client(api_key=st.session_state["gemini_api_key"])
-
-                        analysis_prompt = f"""You are a LinkedIn virality expert. Analyze this LinkedIn post and return ONLY a valid JSON object — no markdown, no explanation, no backticks.
+                    analysis_prompt = f"""You are a LinkedIn virality expert. Analyze this LinkedIn post and return ONLY a valid JSON object — no markdown, no explanation, no backticks.
 
 POST TO ANALYZE:
-\"\"\"
-{post_to_analyze[:3000]}
-\"\"\"
+\"\"\"{post_to_analyze[:3000]}\"\"\"
 
 Return this exact JSON structure:
 {{
@@ -934,29 +949,36 @@ Return this exact JSON structure:
   "top_fix": "<the single most impactful change to make, max 25 words>",
   "improved_hook": "<rewrite only the first 1-2 lines to be more viral, max 30 words>"
 }}"""
-
-                        response = client.models.generate_content(
-                            model=st.session_state.get("gemini_model", "gemini-2.5-flash"),
-                            contents=analysis_prompt,
-                            config=genai_types.GenerateContentConfig(
+                    try:
+                        if _CORE_AVAILABLE:
+                            result = _ai.generate_json(
+                                analysis_prompt,
+                                st.session_state["gemini_api_key"],
+                                model=st.session_state.get("gemini_model", "gemini-2.5-flash"),
                                 temperature=0.4,
-                                max_output_tokens=1024,
-                            ),
-                        )
-                        raw = response.text.strip()
-                        # Strip markdown fences if present
-                        if raw.startswith("```"):
-                            raw = raw.split("```")[1]
-                            if raw.startswith("json"):
-                                raw = raw[4:]
-
-                        result = json.loads(raw.strip())
+                                max_tokens=1024,
+                                required_keys=["overall_score", "dimensions"],
+                            )
+                        else:
+                            from google import genai as _genai
+                            from google.genai import types as _gtypes
+                            _c  = _genai.Client(api_key=st.session_state["gemini_api_key"])
+                            _r  = _c.models.generate_content(
+                                model=st.session_state.get("gemini_model", "gemini-2.5-flash"),
+                                contents=analysis_prompt,
+                                config=_gtypes.GenerateContentConfig(temperature=0.4, max_output_tokens=1024),
+                            )
+                            raw = _r.text.strip()
+                            if raw.startswith("```"):
+                                raw = raw.split("```")[1]
+                                if raw.startswith("json"):
+                                    raw = raw[4:]
+                            result = json.loads(raw.strip())
                         st.session_state["viral_analyzer_result"] = result
-                    except json.JSONDecodeError:
-                        st.error("⚠️ AI returned unexpected format. Try again.")
-                        st.session_state["viral_analyzer_result"] = None
-                    except Exception as e:
-                        st.error(f"⚠️ Analysis failed: {str(e)[:120]}")
+                    except Exception:
+                        st.error("⚠️ Something went wrong. Please try again.")
+                        with st.expander("🔍 Details (for debugging)"):
+                            st.code(traceback.format_exc())
                         st.session_state["viral_analyzer_result"] = None
 
         
@@ -1188,27 +1210,36 @@ Return ONLY a JSON object — no markdown, no backticks, no preamble:
 Rules: every rewrite ≤210 chars, distinctly different techniques, genuinely viral-worthy."""
 
             try:
-                from google import genai as google_genai
-                from google.genai import types as genai_types
-                client   = google_genai.Client(api_key=st.session_state["gemini_api_key"])
-                response = client.models.generate_content(
-                    model=st.session_state.get("gemini_model", "gemini-2.5-flash"),
-                    contents=prompt,
-                    config=genai_types.GenerateContentConfig(temperature=0.5, max_output_tokens=1500),
-                )
-                raw = response.text.strip()
-                if raw.startswith("```"):
-                    raw = raw.split("```")[1]
-                    if raw.startswith("json"):
-                        raw = raw[4:]
-                data = json.loads(raw.strip())
+                if _CORE_AVAILABLE:
+                    data = _ai.generate_json(
+                        prompt,
+                        st.session_state["gemini_api_key"],
+                        model=st.session_state.get("gemini_model", "gemini-2.5-flash"),
+                        temperature=0.5,
+                        max_tokens=1500,
+                        required_keys=["overall_score", "scores", "rewrites"],
+                    )
+                else:
+                    from google import genai as _genai
+                    from google.genai import types as _gtypes
+                    _c   = _genai.Client(api_key=st.session_state["gemini_api_key"])
+                    _res = _c.models.generate_content(
+                        model=st.session_state.get("gemini_model", "gemini-2.5-flash"),
+                        contents=prompt,
+                        config=_gtypes.GenerateContentConfig(temperature=0.5, max_output_tokens=1500),
+                    )
+                    raw = _res.text.strip()
+                    if raw.startswith("```"):
+                        raw = raw.split("```")[1]
+                        if raw.startswith("json"):
+                            raw = raw[4:]
+                    data = json.loads(raw.strip())
                 st.session_state["hook_analysis_result"] = data
                 st.session_state["hooks_analyzed"] = st.session_state.get("hooks_analyzed", 0) + 1
-            except json.JSONDecodeError:
-                st.error("⚠️ AI returned an unexpected format. Please try again.")
-                st.session_state["hook_analysis_result"] = None
-            except Exception as e:
-                st.error(f"⚠️ Analysis failed: {str(e)[:150]}")
+            except Exception:
+                st.error("⚠️ Something went wrong. Please try again.")
+                with st.expander("🔍 Details (for debugging)"):
+                    st.code(traceback.format_exc())
                 st.session_state["hook_analysis_result"] = None
 
     # ── Results ─────────────────────────────────────────────────────────────
@@ -1350,67 +1381,104 @@ Rules: every rewrite ≤210 chars, distinctly different techniques, genuinely vi
 
 
 # ─────────────────────────────────────────────
-# 📚 POST LIBRARY — Dedicated Page
+# 📚 POST LIBRARY — Dedicated Page (DB-backed)
 # ─────────────────────────────────────────────
 def render_post_library():
     st.markdown("""
     <div class="main-header">
-        <div class="v-badge">Auto-saved · Filterable · Exportable</div>
+        <div class="v-badge">Persistent · Filterable · Exportable</div>
         <h1>📚 Post Library</h1>
-        <p>Every post you generate is automatically saved here — rate, star, filter, and export in bulk</p>
+        <p>Every post you generate is automatically saved here — star, filter, and export in bulk</p>
     </div>
     """, unsafe_allow_html=True)
 
-    library = st.session_state.get("post_library", [])
-
-    if not library:
-        st.info(
-            "📭 **Your library is empty.**  Generate a post in any module and it will appear here "
-            "automatically. Start with 🔥 **Viral Hook Analyzer** or 🚀 **Post Generator**."
-        )
-        return
-
-    # ── Controls ─────────────────────────────────────────────────────────────
+    # ── Controls ──────────────────────────────────────────────────────────────
     ctrl1, ctrl2, ctrl3 = st.columns([1.2, 1, 0.8])
     with ctrl1:
         search = st.text_input("🔍 Search posts", placeholder="Type to filter…", key="lib_search")
     with ctrl2:
-        modules       = ["All Modules"] + sorted(set(p["module"] for p in library))
+        # Build module list from DB (or fallback session)
+        if _CORE_AVAILABLE:
+            all_posts_for_modules = _db.get_posts()
+        else:
+            all_posts_for_modules = st.session_state.get("post_library", [])
+        modules = ["All Modules"] + sorted({p["module"] for p in all_posts_for_modules})
         filter_module = st.selectbox("Filter by module", modules, key="lib_filter")
     with ctrl3:
-        sort_by = st.selectbox("Sort by", ["Newest first", "Oldest first", "Highest score", "Starred"], key="lib_sort")
+        sort_label = st.selectbox(
+            "Sort by",
+            ["Newest first", "Oldest first", "Highest score", "Starred"],
+            key="lib_sort",
+        )
 
-    # Apply filters
-    filtered = library.copy()
-    if search:
-        filtered = [p for p in filtered if search.lower() in p["content"].lower()]
-    if filter_module != "All Modules":
-        filtered = [p for p in filtered if p["module"] == filter_module]
-    if sort_by == "Oldest first":
-        filtered = list(reversed(filtered))
-    elif sort_by == "Highest score":
-        filtered = sorted(filtered, key=lambda x: x.get("score", 0), reverse=True)
-    elif sort_by == "Starred":
-        filtered = [p for p in filtered if p.get("starred")]
+    sort_map = {
+        "Newest first":  "newest",
+        "Oldest first":  "oldest",
+        "Highest score": "score",
+        "Starred":       "starred",
+    }
+
+    # ── Fetch posts ───────────────────────────────────────────────────────────
+    if _CORE_AVAILABLE:
+        try:
+            filtered = _db.get_posts(
+                search=search,
+                module=filter_module,
+                sort=sort_map[sort_label],
+            )
+            stats = _db.get_stats()
+            total_count = stats["total"]
+        except Exception:
+            st.error("⚠️ Could not load Post Library.")
+            with st.expander("🔍 Details (for debugging)"):
+                st.code(traceback.format_exc())
+            return
+    else:
+        # Legacy session-state fallback
+        library  = st.session_state.get("post_library", [])
+        filtered = library.copy()
+        if search:
+            filtered = [p for p in filtered if search.lower() in p["content"].lower()]
+        if filter_module != "All Modules":
+            filtered = [p for p in filtered if p["module"] == filter_module]
+        if sort_label == "Oldest first":
+            filtered = list(reversed(filtered))
+        elif sort_label == "Highest score":
+            filtered = sorted(filtered, key=lambda x: x.get("score", 0), reverse=True)
+        elif sort_label == "Starred":
+            filtered = [p for p in filtered if p.get("starred")]
+        total_count = len(library)
+        scored = [p for p in library if p.get("score", 0) > 0]
+        top_mod = (max({p["module"] for p in library},
+                       key=lambda m: sum(1 for p in library if p["module"] == m)).split()[-1]
+                   if library else "—")
+        stats = {
+            "total":      total_count,
+            "starred":    sum(1 for p in library if p.get("starred")),
+            "avg_score":  (sum(p["score"] for p in scored) // len(scored)) if scored else 0,
+            "top_module": top_mod,
+        }
+
+    if total_count == 0:
+        st.info(
+            "📭 **Your library is empty.** Generate a post in any module and it will appear here "
+            "automatically. Start with 🔥 **Viral Hook Analyzer** or 🚀 **Post Generator**."
+        )
+        return
 
     # ── Stats row ─────────────────────────────────────────────────────────────
     sc1, sc2, sc3, sc4 = st.columns(4)
     with sc1:
-        st.metric("📝 Total Posts", len(library))
+        st.metric("📝 Total Posts", stats["total"])
     with sc2:
-        starred_n = sum(1 for p in library if p.get("starred"))
-        st.metric("⭐ Starred", starred_n)
+        st.metric("⭐ Starred", stats["starred"])
     with sc3:
-        scored = [p for p in library if p.get("score", 0) > 0]
-        avg    = sum(p["score"] for p in scored) // len(scored) if scored else 0
-        st.metric("📊 Avg Hook Score", f"{avg}/100" if scored else "N/A")
+        avg = stats["avg_score"]
+        st.metric("📊 Avg Hook Score", f"{avg}/100" if avg else "N/A")
     with sc4:
-        if library:
-            top_mod = max(set(p["module"] for p in library),
-                          key=lambda m: sum(1 for p in library if p["module"] == m))
-            st.metric("🏆 Most Used", top_mod.split()[-1])
+        st.metric("🏆 Most Used", stats["top_module"])
 
-    st.markdown(f"**Showing {len(filtered)} of {len(library)} posts**")
+    st.markdown(f"**Showing {len(filtered)} of {total_count} posts**")
     st.markdown("---")
 
     # ── Bulk export ───────────────────────────────────────────────────────────
@@ -1436,13 +1504,37 @@ def render_post_library():
         st.warning("No posts match your filters.")
         return
 
+    # ── Pagination (50 per page) ───────────────────────────────────────────────
+    PAGE_SIZE = 50
+    total_pages = max(1, (len(filtered) + PAGE_SIZE - 1) // PAGE_SIZE)
+    page = st.session_state.get("lib_page", 1)
+    page = max(1, min(page, total_pages))
+
+    if total_pages > 1:
+        pg_cols = st.columns([1, 2, 1])
+        with pg_cols[0]:
+            if st.button("◀ Prev", disabled=(page == 1), key="lib_prev"):
+                st.session_state["lib_page"] = page - 1
+                st.rerun()
+        with pg_cols[1]:
+            st.markdown(
+                f"<div style='text-align:center; padding:0.3rem; color:#555;'>Page {page} / {total_pages}</div>",
+                unsafe_allow_html=True,
+            )
+        with pg_cols[2]:
+            if st.button("Next ▶", disabled=(page == total_pages), key="lib_next"):
+                st.session_state["lib_page"] = page + 1
+                st.rerun()
+
+    page_posts = filtered[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]
+
     # ── Post cards ────────────────────────────────────────────────────────────
-    for post in filtered:
+    for post in page_posts:
         score    = post.get("score", 0)
         starred  = post.get("starred", False)
         tags     = post.get("tags", [])
         tag_html = " ".join(f'<span class="tag">{t}</span>' for t in tags)
-        score_str= f"🔥 {score}/100" if score > 0 else ""
+        score_str = f"🔥 {score}/100" if score > 0 else ""
 
         st.markdown(f"""
         <div class="post-card">
@@ -1463,9 +1555,12 @@ def render_post_library():
         with act2:
             star_label = "⭐ Unstar" if starred else "☆ Star"
             if st.button(star_label, key=f"lib_star_{post['id']}"):
-                for item in st.session_state["post_library"]:
-                    if item["id"] == post["id"]:
-                        item["starred"] = not item["starred"]
+                if _CORE_AVAILABLE:
+                    _db.toggle_star(post["id"])
+                else:
+                    for item in st.session_state["post_library"]:
+                        if item["id"] == post["id"]:
+                            item["starred"] = not item["starred"]
                 st.rerun()
         with act3:
             if st.button("🔥 Analyze Hook", key=f"lib_hook_{post['id']}"):
@@ -1480,9 +1575,16 @@ def render_post_library():
             )
         with act5:
             if st.button("🗑️", key=f"lib_del_{post['id']}", help="Delete this post"):
-                st.session_state["post_library"] = [
-                    p for p in st.session_state["post_library"] if p["id"] != post["id"]
-                ]
+                if _CORE_AVAILABLE:
+                    _db.delete_post(post["id"])
+                    # Sync session counter
+                    st.session_state["session_posts_generated"] = max(
+                        0, st.session_state.get("session_posts_generated", 1) - 1
+                    )
+                else:
+                    st.session_state["post_library"] = [
+                        p for p in st.session_state["post_library"] if p["id"] != post["id"]
+                    ]
                 st.rerun()
 
         st.markdown("<hr style='margin:0.4rem 0; border-color:#f0f0f0;'>", unsafe_allow_html=True)
