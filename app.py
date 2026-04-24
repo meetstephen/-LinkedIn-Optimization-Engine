@@ -589,7 +589,8 @@ def render_sidebar():
             "🧠 Strategy Insights",
             "🎨 Image Generator",
             "⚡ Engagement Toolkit",
-            "📚 Post Library",           # NEW — auto-saved posts with search/export
+            "📚 Post Library",           # auto-saved posts with search/export
+            "🗄️ Data Manager",           # backup export & restore
         ]
         selected_page = st.radio(
             "Navigate to",
@@ -929,27 +930,25 @@ def render_home():
                 st.warning("Post is too short to analyze. Please paste a real LinkedIn post.")
             else:
                 with st.spinner("🤖 Scoring your post with AI..."):
-                    analysis_prompt = f"""You read LinkedIn posts the way a senior editor does — quickly, honestly, looking for what earns attention and what loses it. You score without flattery.
+                    analysis_prompt = f"""You are a LinkedIn virality expert. Analyze this LinkedIn post and return ONLY a valid JSON object — no markdown, no explanation, no backticks.
 
-Analyze this post and return ONLY a valid JSON object. No markdown, no backticks, no explanation.
-
-POST:
+POST TO ANALYZE:
 \"\"\"{post_to_analyze[:3000]}\"\"\"
 
-Return exactly this JSON structure:
+Return this exact JSON structure:
 {{
   "overall_score": <integer 0-100>,
-  "verdict": "<one direct sentence on whether this post will perform and why — max 15 words, no softening>",
+  "verdict": "<one punchy sentence verdict, max 15 words>",
   "dimensions": {{
-    "hook_power":    {{"score": <0-100>, "comment": "<specific comment on the hook — does it stop scrolling? — max 20 words>"}},
-    "storytelling":  {{"score": <0-100>, "comment": "<is there a real story or just claims? — max 20 words>"}},
-    "cta_strength":  {{"score": <0-100>, "comment": "<does the CTA earn a response or just ask for one? — max 20 words>"}},
-    "formatting":    {{"score": <0-100>, "comment": "<is it easy to read on mobile? short lines? breathing room? — max 20 words>"}},
-    "emotional_pull":{{"score": <0-100>, "comment": "<does it make the reader feel something real? — max 20 words>"}}
+    "hook_power": {{"score": <0-100>, "comment": "<max 20 words>"}},
+    "storytelling": {{"score": <0-100>, "comment": "<max 20 words>"}},
+    "cta_strength": {{"score": <0-100>, "comment": "<max 20 words>"}},
+    "formatting": {{"score": <0-100>, "comment": "<max 20 words>"}},
+    "emotional_pull": {{"score": <0-100>, "comment": "<max 20 words>"}}
   }},
-  "top_strength": "<the one specific thing working well — name it precisely, max 25 words>",
-  "top_fix": "<the single change that would lift this post most — be specific, max 25 words>",
-  "improved_hook": "<rewrite only the first 1-2 lines — no AI clichés, no questions, must not start with I, max 30 words>"
+  "top_strength": "<what is working best, max 25 words>",
+  "top_fix": "<the single most impactful change to make, max 25 words>",
+  "improved_hook": "<rewrite only the first 1-2 lines to be more viral, max 30 words>"
 }}"""
                     try:
                         if _CORE_AVAILABLE:
@@ -1177,39 +1176,39 @@ def render_viral_hook_analyzer():
     # ── AI Analysis ─────────────────────────────────────────────────────────
     if analyze_btn and user_text.strip():
         with st.spinner("🔥 Analyzing across 5 LinkedIn dimensions…"):
-            prompt = f"""You analyze LinkedIn hooks the way a great editor does — you know immediately whether someone will keep reading or scroll past. You score honestly, not encouragingly.
+            prompt = f"""You are a world-class LinkedIn content strategist. Analyze the hook/opening of this post.
 
-HOOK (first 210 chars — what the feed shows):
+HOOK (first 210 chars):
 \"\"\"{user_text[:210].strip()}\"\"\"
 
-FULL POST (for context):
+FULL POST (context):
 \"\"\"{user_text}\"\"\"
 
 Return ONLY a JSON object — no markdown, no backticks, no preamble:
 {{
   "overall_score": <0-100 integer>,
   "scores": {{
-    "curiosity_gap":     <0-20 — does it open a loop the reader must close?>,
-    "emotional_trigger": <0-20 — does it create real feeling: tension, recognition, surprise?>,
-    "specificity":       <0-20 — concrete details, numbers, names vs vague generalities?>,
-    "bold_claim":        <0-20 — does it say something worth stopping for?>,
-    "readability":       <0-20 — short lines, natural rhythm, easy to scan on mobile?>
+    "curiosity_gap":     <0-20>,
+    "emotional_trigger": <0-20>,
+    "specificity":       <0-20>,
+    "bold_claim":        <0-20>,
+    "readability":       <0-20>
   }},
-  "verdict": "<2 honest sentences — does this hook earn the reader's next 30 seconds? be direct>",
-  "strengths":  ["<one specific thing that is working>", "<another specific thing working>"],
-  "weaknesses": ["<one specific reason it might lose readers>", "<another specific problem>"],
+  "verdict": "<2-sentence honest verdict>",
+  "strengths":  ["<strength 1>", "<strength 2>"],
+  "weaknesses": ["<weakness 1>", "<weakness 2>"],
   "rewrites": [
-    {{"label": "Curiosity Gap",  "hook": "<rewrite that opens a loop — no questions, no I opener, ≤210 chars>"}},
-    {{"label": "Story Opening",  "hook": "<start mid-action — specific moment, specific place, ≤210 chars>"}},
-    {{"label": "Bold Claim",     "hook": "<a statement that challenges something people believe, ≤210 chars>"}},
-    {{"label": "Data-Led",       "hook": "<a real specific number that surprises — not a round number, ≤210 chars>"}},
-    {{"label": "{tone}",         "hook": "<rewrite in this tone, genuinely different from the others, ≤210 chars>"}}
+    {{"label": "Curiosity Gap",  "hook": "<rewrite using curiosity-gap technique, ≤210 chars>"}},
+    {{"label": "Story Opening",  "hook": "<rewrite starting mid-action, ≤210 chars>"}},
+    {{"label": "Bold Claim",     "hook": "<rewrite with a provocative statement, ≤210 chars>"}},
+    {{"label": "Data-Led",       "hook": "<rewrite with a striking stat or number, ≤210 chars>"}},
+    {{"label": "{tone}",         "hook": "<rewrite in the requested tone, ≤210 chars>"}}
   ],
-  "best_posting_time": "<specific day and time window for this type of content>",
-  "predicted_ctr": "<honest estimate of see-more CTR relative to average — give a range>"
+  "best_posting_time": "<recommended day & time>",
+  "predicted_ctr": "<estimated see-more CTR vs average>"
 }}
 
-Non-negotiable for rewrites: no AI clichés, no hooks starting with I, no questions as hooks, every rewrite ≤210 chars, each one structurally different from the others."""
+Rules: every rewrite ≤210 chars, distinctly different techniques, genuinely viral-worthy."""
 
             try:
                 if _CORE_AVAILABLE:
@@ -1620,6 +1619,16 @@ def main():
         render_viral_hook_analyzer()
     elif selected_page == "📚 Post Library":
         render_post_library()
+    elif selected_page == "🗄️ Data Manager":
+        try:
+            dm = load_module("data_manager", "data_manager.py")
+            dm.render_data_manager()
+        except FileNotFoundError:
+            st.error("⚠️ `data_manager.py` not found. Make sure it exists in your project root.")
+        except Exception:
+            st.error("⚠️ Something went wrong loading the Data Manager.")
+            with st.expander("🔍 Details"):
+                st.code(traceback.format_exc())
     elif selected_page in MODULE_MAP:
         mod_name, mod_file, render_fn = MODULE_MAP[selected_page]
         try:
