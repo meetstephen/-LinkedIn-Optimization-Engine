@@ -103,12 +103,12 @@ def _prewarm_utils() -> None:
 # PAGE CONFIGURATION — Must be first Streamlit call
 # ─────────────────────────────────────────────
 st.set_page_config(
-    page_title="LinkedIn Optimization Engine",
-    page_icon="🚀",
+    page_title="LinkedEdge",
+    page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
-        "About": "LinkedIn Optimization Engine — AI-powered LinkedIn growth toolkit",
+        "About": "LinkedEdge — AI-powered LinkedIn growth toolkit by LinkedIn Optimization Engine",
     }
 )
 
@@ -117,89 +117,15 @@ st.set_page_config(
 # ─────────────────────────────────────────────
 st.markdown("""
 <style>
-
-/* ╔══════════════════════════════════════════════════════════════════╗
-   ║   🎨  THEME CONFIGURATOR — EDIT COLOURS HERE                   ║
-   ║   Search:  THEME CONFIGURATOR  to jump here instantly          ║
-   ║   Every colour in the app flows from these tokens.             ║
-   ╚══════════════════════════════════════════════════════════════════╝ */
-:root {
-    /* ── Brand ───────────────────────────────────── */
-    --blue:       #0A66C2;  /* primary — buttons, links, headings   */
-    --blue-dark:  #004182;  /* hover / gradient end — sidebar       */
-    --blue-light: #EAF4FF;  /* tinted bg — tags, metric tiles       */
-    --blue-mid:   #C7D9F5;  /* input borders, dividers              */
-
-    /* ── Status ──────────────────────────────────── */
-    --green:      #00875A;  /* success states                       */
-    --orange:     #E86A2C;  /* NEW badge, warning accents           */
-
-    /* ── Typography ──────────────────────────────── */
-    --text-dark:  #111827;  /* body copy, card text                 */
-    --text-mid:   #374151;  /* labels, secondary text               */
-    --text-muted: #6B7280;  /* captions, placeholders               */
-
-    /* ── Surfaces ────────────────────────────────── */
-    --bg-app:     #F3F6FB;  /* overall page background              */
-    --bg-card:    #FFFFFF;  /* card / tile surface                  */
-    --bg-subtle:  #F8FAFF;  /* panel backgrounds                    */
-    --border:     #E1E9F5;  /* card edges, dividers                 */
-
-    /* ── Shadows ─────────────────────────────────── */
-    --shadow-sm:  0 1px 4px rgba(0,0,0,.07);
-    --shadow-md:  0 4px 16px rgba(10,102,194,.12);
-    --shadow-lg:  0 8px 32px rgba(10,102,194,.18);
-
-    /* ── Radii ───────────────────────────────────── */
-    --radius-sm:  8px;   /* inputs, buttons                         */
-    --radius-md:  12px;  /* cards, expanders                        */
-    --radius-lg:  16px;  /* page header banner                      */
-}
-/* ══════════════  END THEME CONFIGURATOR  ═══════════════════════════ */
-
-
-/* ── App shell ───────────────────────────────────────────────────── */
-.stApp { background: var(--bg-app); }
-.block-container {
-    padding-top: 1.5rem !important;
-    max-width: 1100px !important;
-}
-
-/* ── Method 1 Typography Lock ────────────────────────────────────── */
-/* Forces dark text on the light background, prevents Streamlit      */
-/* dark-mode bleed making text invisible on white cards/tiles.        */
-.main .block-container p,
-.main .block-container span:not(.v-badge):not(.new-badge):not(.badge-new),
-.main .block-container li,
-.main .block-container label,
-.main .block-container .stMarkdown,
-[data-testid="stMarkdownContainer"] p,
-[data-testid="stMarkdownContainer"] li,
-[data-testid="stMarkdownContainer"] span,
-[data-testid="stMarkdownContainer"] strong,
-[data-testid="stMarkdownContainer"] em,
-[data-testid="stMarkdownContainer"] td,
-[data-testid="stMarkdownContainer"] th {
-    color: var(--text-dark) !important;
-}
-.main .block-container h1,
-.main .block-container h2,
-.main .block-container h3,
-[data-testid="stMarkdownContainer"] h1,
-[data-testid="stMarkdownContainer"] h2,
-[data-testid="stMarkdownContainer"] h3 {
-    color: var(--blue) !important;
-}
-.main .block-container h4,
-.main .block-container h5,
-[data-testid="stMarkdownContainer"] h4 {
-    color: var(--text-dark) !important;
-}
-.main .block-container .stCaption p,
-[data-testid="stCaptionContainer"] p {
-    color: var(--text-muted) !important;
-    font-size: 0.8rem !important;
-}
+    /* ── Root & Global ── */
+    :root {
+        --linkedin-blue: #0A66C2;
+        --linkedin-dark: #004182;
+        --linkedin-light: #EAF4FF;
+        --accent-green: #00c851;
+        --accent-orange: #FF6B35;
+        --text-muted: #666;
+    }
 
     /* ── Sidebar ── */
     [data-testid="stSidebar"] {
@@ -524,6 +450,48 @@ st.markdown("""
         border-bottom: 3px solid #0A66C2;
     }
 
+    /* ══════════════════════════════════════════════════════════════
+       TEXT VISIBILITY FIX — force dark text on all main-area whites
+       The sidebar's "* { color: white !important }" can bleed into
+       Streamlit's shared component layer, making text invisible on
+       white/light tiles. Every rule below locks dark text on the
+       main content pane only.
+    ══════════════════════════════════════════════════════════════ */
+
+    /* ── Global main area text ── */
+    .main .block-container,
+    .main .block-container p,
+    .main .block-container span,
+    .main .block-container li,
+    .main .block-container label,
+    .main .block-container div,
+    section[data-testid="stMain"] p,
+    section[data-testid="stMain"] span,
+    section[data-testid="stMain"] label,
+    section[data-testid="stMain"] li,
+    [data-testid="stMarkdownContainer"] p,
+    [data-testid="stMarkdownContainer"] li,
+    [data-testid="stMarkdownContainer"] span,
+    [data-testid="stMarkdownContainer"] strong,
+    [data-testid="stMarkdownContainer"] em,
+    [data-testid="stMarkdownContainer"] td,
+    [data-testid="stMarkdownContainer"] th {
+        color: #1a1a1a !important;
+    }
+
+    /* ── Headings in main area ── */
+    section[data-testid="stMain"] h1,
+    section[data-testid="stMain"] h2,
+    section[data-testid="stMain"] h3,
+    section[data-testid="stMain"] h4,
+    section[data-testid="stMain"] h5,
+    .main .block-container h1,
+    .main .block-container h2,
+    .main .block-container h3,
+    .main .block-container h4 {
+        color: #0A66C2 !important;
+    }
+
     /* ── Metric tiles ── */
     [data-testid="stMetric"] {
         background: #F0F7FF !important;
@@ -836,16 +804,47 @@ def render_sidebar():
     with st.sidebar:
         # Logo & Title
         st.markdown("""
-        <div style="text-align:center; padding: 1rem 0;">
-            <div style="font-size:3rem;">🚀</div>
-            <h2 style="color:white!important; margin:0; font-size:1.2rem; font-weight:800;">
-                LinkedIn Engine
-            </h2>
-            <p style="color:rgba(255,255,255,0.7)!important; font-size:0.75rem; margin:4px 0 0 0;">
-                AI-Powered Optimization
-            </p>
+        <div style="text-align:center; padding:1.2rem 0.5rem 0.8rem;">
+            <!-- Icon mark -->
+            <div style="
+                display:inline-flex; align-items:center; justify-content:center;
+                width:56px; height:56px; border-radius:14px;
+                background:linear-gradient(135deg,rgba(255,255,255,0.28),rgba(255,255,255,0.10));
+                border:1.5px solid rgba(255,255,255,0.3);
+                font-size:1.8rem; margin-bottom:0.7rem;
+                box-shadow:0 4px 16px rgba(0,0,0,0.15);
+            ">⚡</div>
+
+            <!-- WordMark -->
+            <div style="
+                font-size:1.7rem; font-weight:900; letter-spacing:-0.5px;
+                color:white; line-height:1;
+                text-shadow:0 2px 8px rgba(0,0,0,0.2);
+            ">
+                Linked<span style="
+                    color:#7DD3FC;
+                    text-shadow:0 0 20px rgba(125,211,252,0.5);
+                ">Edge</span>
+            </div>
+
+            <!-- Subtitle -->
+            <div style="
+                margin-top:5px;
+                font-size:0.67rem; font-weight:600; letter-spacing:0.8px;
+                text-transform:uppercase;
+                color:rgba(255,255,255,0.6);
+            ">LinkedIn Optimization Engine</div>
+
+            <!-- Tagline pill -->
+            <div style="
+                display:inline-block; margin-top:10px;
+                background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2);
+                border-radius:20px; padding:3px 12px;
+                font-size:0.65rem; color:rgba(255,255,255,0.8);
+                letter-spacing:0.3px;
+            ">AI-Powered · Production Ready</div>
         </div>
-        <hr style="border-color:rgba(255,255,255,0.2); margin:0.5rem 0;">
+        <hr style="border-color:rgba(255,255,255,0.15); margin:0 0 0.6rem 0;">
         """, unsafe_allow_html=True)
 
         # Navigation
@@ -1020,7 +1019,24 @@ def render_home():
     st.markdown("""
     <div class="main-header">
         <div class="v-badge">v2.0 · Production Ready</div>
-        <h1>🚀 LinkedIn Optimization Engine</h1>
+
+        <div style="
+            font-size:3rem; font-weight:900; letter-spacing:-1px;
+            color:white; line-height:1.05; margin:0.4rem 0 0.1rem;
+            text-shadow:0 2px 12px rgba(0,0,0,0.2);
+        ">
+            ⚡ Linked<span style="
+                color:#7DD3FC;
+                text-shadow:0 0 30px rgba(125,211,252,0.6);
+            ">Edge</span>
+        </div>
+
+        <div style="
+            font-size:0.85rem; font-weight:600; letter-spacing:1.5px;
+            text-transform:uppercase; color:rgba(255,255,255,0.55);
+            margin-bottom:0.5rem;
+        ">LinkedIn Optimization Engine</div>
+
         <p>AI-powered toolkit to transform your LinkedIn presence from beginner to thought leader</p>
     </div>
     """, unsafe_allow_html=True)
