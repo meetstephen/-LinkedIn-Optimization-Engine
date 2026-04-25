@@ -117,578 +117,416 @@ st.set_page_config(
 # ─────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* ── Root & Global ── */
+    /* ════════════════════════════════════════════════════════
+       LINKEDIN OPTIMIZATION ENGINE — Master Stylesheet v2.1
+       Key fix: sidebar white text is scoped surgically so it
+       never bleeds into the main content area.
+       Streamlit's own dark-on-white rendering is preserved
+       everywhere outside the sidebar.
+    ════════════════════════════════════════════════════════ */
+
+    /* ── Design tokens ── */
     :root {
-        --linkedin-blue: #0A66C2;
-        --linkedin-dark: #004182;
-        --linkedin-light: #EAF4FF;
-        --accent-green: #00c851;
-        --accent-orange: #FF6B35;
-        --text-muted: #666;
+        --li-blue:    #0A66C2;
+        --li-dark:    #004182;
+        --li-light:   #EAF4FF;
+        --li-bg:      #F3F6FB;
+        --green:      #00c851;
+        --orange:     #FF6B35;
+        --text-main:  #1B1F23;
+        --text-soft:  #4A5568;
+        --text-muted: #718096;
+        --border:     #E2EAF4;
+        --card-bg:    #FFFFFF;
+        --shadow-sm:  0 1px 4px rgba(10,102,194,.08);
+        --shadow-md:  0 4px 16px rgba(10,102,194,.13);
+        --shadow-lg:  0 8px 32px rgba(10,102,194,.18);
+        --radius-sm:  8px;
+        --radius-md:  12px;
+        --radius-lg:  18px;
     }
 
-    /* ── Sidebar ── */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0A66C2 0%, #004182 100%);
+    /* ── Page background — off-white, easier on eyes ── */
+    .stApp, .main, [data-testid="stAppViewContainer"] {
+        background: var(--li-bg) !important;
     }
-    [data-testid="stSidebar"] * {
+    .block-container {
+        padding-top: 1.5rem !important;
+        max-width: 1200px;
+    }
+
+    /* ════════════════════════════════════════════════════════
+       SIDEBAR — white text scoped only inside the sidebar.
+       REMOVED the nuclear "[data-testid=stSidebar] *" rule
+       that was bleeding into the main area.
+    ════════════════════════════════════════════════════════ */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(175deg, #0A66C2 0%, #003570 100%) !important;
+        box-shadow: 4px 0 24px rgba(0,0,0,0.15);
+    }
+
+    /* Target only the specific elements that need white text */
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] span:not([data-baseweb]),
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] h4,
+    [data-testid="stSidebar"] small,
+    [data-testid="stSidebar"] li,
+    [data-testid="stSidebar"] a,
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] li,
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] strong,
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] em,
+    [data-testid="stSidebar"] .stRadio label,
+    [data-testid="stSidebar"] .stRadio p,
+    [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p,
+    [data-testid="stSidebar"] [data-testid="stWidgetLabel"] label,
+    [data-testid="stSidebar"] [data-testid="stMetricLabel"] p,
+    [data-testid="stSidebar"] [data-testid="stMetricValue"] div {
         color: white !important;
     }
+
+    /* Sidebar nav radio pills */
     [data-testid="stSidebar"] .stRadio label {
-        background: rgba(255,255,255,0.1);
-        border-radius: 8px;
-        padding: 8px 12px;
+        background: rgba(255,255,255,0.10);
+        border-radius: 9px;
+        padding: 9px 13px;
         margin: 3px 0;
         display: block;
-        transition: all 0.2s ease;
+        font-weight: 500;
+        transition: background 0.18s ease, transform 0.18s ease;
         cursor: pointer;
     }
     [data-testid="stSidebar"] .stRadio label:hover {
-        background: rgba(255,255,255,0.25);
-        transform: translateX(4px);
+        background: rgba(255,255,255,0.22);
+        transform: translateX(5px);
     }
 
-    /* ── Main Header ── */
+    /* Sidebar text inputs stay readable */
+    [data-testid="stSidebar"] input[type="password"],
+    [data-testid="stSidebar"] input[type="text"] {
+        background: rgba(255,255,255,0.92) !important;
+        color: #1B1F23 !important;
+        border-radius: 7px;
+        border: none !important;
+    }
+
+    /* ════════════════════════════════════════════════════════
+       MAIN CONTENT — Streamlit's native dark text is kept.
+       We only add polish here, no color overrides.
+    ════════════════════════════════════════════════════════ */
+
+    /* Hero header */
     .main-header {
-        background: linear-gradient(135deg, #0A66C2 0%, #004182 100%);
-        padding: 2rem;
-        border-radius: 16px;
+        background: linear-gradient(135deg, #0A66C2 0%, #003570 100%);
+        padding: 2.2rem 2.5rem;
+        border-radius: var(--radius-lg);
         margin-bottom: 2rem;
         text-align: center;
-        box-shadow: 0 8px 32px rgba(10,102,194,0.3);
+        box-shadow: var(--shadow-lg);
         position: relative;
         overflow: hidden;
     }
     .main-header::before {
         content: "";
         position: absolute;
-        top: -60px; right: -60px;
-        width: 200px; height: 200px;
+        top: -80px; right: -80px;
+        width: 260px; height: 260px;
         border-radius: 50%;
-        background: rgba(255,255,255,0.05);
+        background: rgba(255,255,255,0.06);
+        pointer-events: none;
+    }
+    .main-header::after {
+        content: "";
+        position: absolute;
+        bottom: -60px; left: -40px;
+        width: 180px; height: 180px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.04);
         pointer-events: none;
     }
     .main-header .v-badge {
         display: inline-block;
         background: rgba(255,255,255,0.18);
         color: white;
-        font-size: 0.7rem;
+        font-size: 0.68rem;
         font-weight: 700;
-        letter-spacing: 1px;
+        letter-spacing: 1.2px;
         text-transform: uppercase;
-        padding: 3px 10px;
-        border-radius: 20px;
-        margin-bottom: 0.6rem;
+        padding: 4px 12px;
+        border-radius: 99px;
+        margin-bottom: 0.7rem;
+        border: 1px solid rgba(255,255,255,0.25);
     }
     .main-header h1 {
         color: white !important;
-        font-size: 2.2rem !important;
+        font-size: 2.3rem !important;
         font-weight: 800 !important;
         margin: 0 !important;
+        letter-spacing: -0.5px;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.15);
     }
     .main-header p {
-        color: rgba(255,255,255,0.85) !important;
+        color: rgba(255,255,255,0.88) !important;
         font-size: 1.05rem !important;
-        margin: 0.5rem 0 0 !important;
+        margin: 0.6rem 0 0 !important;
     }
 
-    /* ── Feature Cards ── */
+    /* White cards on the off-white page bg stand out cleanly */
+    .feature-card, .post-card, .hook-preview-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sm);
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
     .feature-card {
-        background: white;
-        border: 1px solid #E1E9F5;
-        border-radius: 12px;
-        padding: 1.5rem;
+        padding: 1.5rem 1.2rem;
         text-align: center;
-        transition: all 0.2s ease;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        height: 100%;
         position: relative;
+        height: 100%;
     }
     .feature-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 8px 24px rgba(10,102,194,0.15);
-        border-color: #0A66C2;
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-md);
+        border-color: var(--li-blue);
     }
     .feature-card .new-badge {
-        position: absolute;
-        top: 10px; right: 10px;
-        background: #FF6B35;
+        position: absolute; top: 10px; right: 10px;
+        background: var(--orange);
         color: white;
-        font-size: 0.6rem;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        padding: 2px 7px;
-        border-radius: 10px;
+        font-size: 0.58rem; font-weight: 800;
+        text-transform: uppercase; letter-spacing: 0.6px;
+        padding: 3px 8px; border-radius: 99px;
     }
-    .feature-card .icon {
-        font-size: 2.5rem;
-        margin-bottom: 0.75rem;
-    }
-    .feature-card h3 {
-        color: #0A66C2;
-        font-weight: 700;
-        margin: 0 0 0.5rem 0;
-    }
-    .feature-card p {
-        color: #555;
-        font-size: 0.88rem;
-        margin: 0;
-    }
+    .feature-card .icon  { font-size: 2.4rem; margin-bottom: 0.7rem; display: block; }
+    .feature-card h3     { color: var(--li-blue); font-weight: 700; margin: 0 0 0.4rem; font-size: 0.93rem; }
+    .feature-card p      { color: var(--text-soft); font-size: 0.83rem; margin: 0; line-height: 1.45; }
 
-    /* ── Hook Analyzer — mobile preview card ── */
-    .hook-preview-card {
-        background: white;
-        border: 1px solid #E1E9F5;
-        border-radius: 12px;
-        padding: 1.2rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    /* Stat cards */
+    .stat-card {
+        background: linear-gradient(135deg, #0A66C2, #003570);
+        color: white;
+        padding: 1.3rem 1rem;
+        border-radius: var(--radius-md);
+        text-align: center;
+        box-shadow: var(--shadow-md);
+        transition: transform 0.2s ease;
     }
-    .hook-preview-header {
-        display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
-    }
-    .hook-preview-avatar {
-        width: 40px; height: 40px; border-radius: 50%;
-        background: linear-gradient(135deg, #0A66C2, #004182);
-        display: flex; align-items: center; justify-content: center;
-        color: white; font-weight: 800; font-size: 1rem; flex-shrink: 0;
-    }
-    .hook-preview-name  { font-weight: 600; font-size: 0.88rem; color: #191919; }
-    .hook-preview-title { font-size: 0.75rem; color: #666; }
-    .hook-preview-text  { font-size: 0.88rem; color: #191919; line-height: 1.55; }
-    .hook-see-more      { color: #0A66C2; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+    .stat-card:hover { transform: translateY(-3px); }
+    .stat-card .number { font-size: 2.1rem; font-weight: 800; line-height: 1; }
+    .stat-card .label  { font-size: 0.78rem; opacity: 0.82; margin-top: 4px; }
 
-    /* ── Post Library cards ── */
+    /* Resume banner */
+    .resume-banner {
+        background: linear-gradient(135deg, #e8f4ff, #d4ebff);
+        border: 1px solid #b8d8f5;
+        border-radius: var(--radius-md);
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
+        display: flex; align-items: center; gap: 1rem;
+        box-shadow: var(--shadow-sm);
+    }
+    .resume-banner .rb-icon { font-size: 2rem; }
+    .resume-banner h4 { color: var(--li-blue); margin: 0; font-size: 0.95rem; font-weight: 700; }
+    .resume-banner p  { color: var(--text-soft); margin: 3px 0 0; font-size: 0.83rem; }
+
+    /* Post cards */
     .post-card {
-        background: white;
-        border: 1px solid #E1E9F5;
-        border-radius: 12px;
         padding: 1.2rem 1.4rem;
-        margin-bottom: 0.75rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        transition: box-shadow 0.2s;
+        margin-bottom: 0.8rem;
     }
-    .post-card:hover { box-shadow: 0 6px 20px rgba(10,102,194,0.12); }
+    .post-card:hover { box-shadow: var(--shadow-md); }
     .post-card-meta {
-        font-size: 0.72rem; color: #888;
+        font-size: 0.72rem; color: var(--text-muted);
         margin-bottom: 0.5rem;
         display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
     }
     .post-card-meta .tag {
-        background: #EAF4FF; color: #0A66C2;
-        padding: 2px 8px; border-radius: 10px; font-weight: 600;
+        background: var(--li-light); color: var(--li-blue);
+        padding: 2px 8px; border-radius: 99px; font-weight: 600; font-size: 0.7rem;
     }
-    .post-card-body {
-        font-size: 0.88rem; color: #333;
-        line-height: 1.55; white-space: pre-wrap;
-    }
+    .post-card-body { font-size: 0.88rem; color: var(--text-main); line-height: 1.6; white-space: pre-wrap; }
 
-    /* ── Resume session banner ── */
-    .resume-banner {
-        background: linear-gradient(135deg, #e8f4ff 0%, #d0eaff 100%);
-        border: 1px solid #b3d4f0;
-        border-radius: 12px;
-        padding: 1rem 1.5rem;
-        margin-bottom: 1.5rem;
-        display: flex; align-items: center; gap: 1rem;
-    }
-    .resume-banner .rb-icon { font-size: 2rem; }
-    .resume-banner h4 { color: #0A66C2; margin: 0; font-size: 0.95rem; font-weight: 700; }
-    .resume-banner p  { color: #444; margin: 2px 0 0; font-size: 0.82rem; }
-
-    /* ── Stat Cards ── */
-    .stat-card {
-        background: linear-gradient(135deg, #0A66C2, #004182);
-        color: white;
+    /* Hook preview */
+    .hook-preview-card {
         padding: 1.2rem;
-        border-radius: 12px;
-        text-align: center;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
-    .stat-card .number {
-        font-size: 2rem;
-        font-weight: 800;
+    .hook-preview-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .hook-preview-avatar {
+        width: 42px; height: 42px; border-radius: 50%;
+        background: linear-gradient(135deg, #0A66C2, #003570);
+        display: flex; align-items: center; justify-content: center;
+        color: white; font-weight: 800; font-size: 1rem; flex-shrink: 0;
+        box-shadow: 0 2px 8px rgba(10,102,194,0.3);
     }
-    .stat-card .label {
-        font-size: 0.8rem;
-        opacity: 0.85;
-    }
+    .hook-preview-name  { font-weight: 700; font-size: 0.88rem; color: #1B1F23; }
+    .hook-preview-title { font-size: 0.74rem; color: #718096; }
+    .hook-preview-text  { font-size: 0.88rem; color: #2D3748; line-height: 1.6; }
+    .hook-see-more      { color: var(--li-blue); font-size: 0.85rem; font-weight: 600; cursor: pointer; }
 
-    /* ── Section Headers ── */
-    h1, h2, h3 { 
-        color: #0A66C2 !important; 
-    }
-    
-    /* ── Buttons ── */
+    /* ── Section headings ── */
+    h1, h2, h3 { color: var(--li-blue) !important; }
+
+    /* ── Primary buttons — richer gradient + glow ── */
     .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #0A66C2, #004182);
-        border: none;
-        border-radius: 8px;
-        font-weight: 600;
+        background: linear-gradient(135deg, #0A66C2, #003570) !important;
+        border: none !important;
+        border-radius: var(--radius-sm) !important;
+        font-weight: 600 !important;
         letter-spacing: 0.3px;
-        transition: all 0.2s ease;
-        box-shadow: 0 4px 12px rgba(10,102,194,0.3);
+        transition: all 0.22s ease !important;
+        box-shadow: 0 4px 14px rgba(10,102,194,0.35) !important;
+        color: white !important;
     }
     .stButton > button[kind="primary"]:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(10,102,194,0.4);
+        transform: translateY(-2px) !important;
+        box-shadow: 0 7px 22px rgba(10,102,194,0.45) !important;
     }
 
-    /* ── Expanders ── */
-    [data-testid="stExpander"] {
-        border: 1px solid #E1E9F5 !important;
-        border-radius: 10px !important;
+    /* Secondary buttons */
+    .stButton > button:not([kind="primary"]) {
+        border-radius: var(--radius-sm) !important;
+        border: 1.5px solid var(--border) !important;
+        transition: all 0.18s ease !important;
+    }
+    .stButton > button:not([kind="primary"]):hover {
+        border-color: var(--li-blue) !important;
+        box-shadow: 0 2px 8px rgba(10,102,194,0.12) !important;
     }
 
     /* ── Input fields ── */
     .stTextInput > div > div > input,
     .stTextArea > div > div > textarea {
-        border-radius: 8px;
-        border: 1.5px solid #C7D9F5;
+        border-radius: var(--radius-sm) !important;
+        border: 1.5px solid var(--border) !important;
+        background: white !important;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease;
     }
     .stTextInput > div > div > input:focus,
     .stTextArea > div > div > textarea:focus {
-        border-color: #0A66C2;
-        box-shadow: 0 0 0 2px rgba(10,102,194,0.15);
+        border-color: var(--li-blue) !important;
+        box-shadow: 0 0 0 3px rgba(10,102,194,0.12) !important;
     }
 
-    /* ── Metrics ── */
+    /* ── Select boxes ── */
+    [data-baseweb="select"] {
+        border-radius: var(--radius-sm) !important;
+    }
+    [data-baseweb="select"] > div {
+        border-color: var(--border) !important;
+        border-radius: var(--radius-sm) !important;
+        background: white !important;
+    }
+
+    /* ── Metrics — cleaner card style ── */
     [data-testid="stMetric"] {
-        background: #F0F7FF;
-        border-radius: 10px;
-        padding: 1rem;
-        border: 1px solid #D0E8FF;
+        background: white !important;
+        border-radius: var(--radius-md) !important;
+        padding: 1.1rem 1.2rem !important;
+        border: 1px solid var(--border) !important;
+        box-shadow: var(--shadow-sm) !important;
     }
 
-    /* ── Success/Warning/Error boxes ── */
-    .stSuccess, .stInfo, .stWarning, .stError {
-        border-radius: 10px;
-    }
-
-    /* ── Footer ── */
-    .footer {
-        text-align: center;
-        padding: 2rem 0;
-        color: #888;
-        font-size: 0.8rem;
-        border-top: 1px solid #eee;
-        margin-top: 3rem;
-    }
-
-    /* ── Hide only footer and hamburger menu — sidebar untouched ── */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-
-    /* ── Viral Analyzer Score Bars ── */
-    .score-bar-wrap {
-        margin: 0.6rem 0;
-    }
-    .score-bar-label {
-        display: flex;
-        justify-content: space-between;
-        font-size: 0.82rem;
-        font-weight: 600;
-        color: #333;
-        margin-bottom: 3px;
-    }
-    .score-bar-bg {
-        background: #E1E9F5;
-        border-radius: 99px;
-        height: 10px;
+    /* ── Expanders ── */
+    [data-testid="stExpander"] {
+        background: white !important;
+        border: 1px solid var(--border) !important;
+        border-radius: var(--radius-md) !important;
+        box-shadow: var(--shadow-sm) !important;
         overflow: hidden;
     }
-    .score-bar-fill {
-        height: 100%;
-        border-radius: 99px;
-        transition: width 0.8s ease;
+    [data-testid="stExpander"] summary {
+        padding: 0.9rem 1rem !important;
+        background: white !important;
     }
+    [data-testid="stExpander"] summary:hover {
+        background: #F7FAFF !important;
+    }
+
+    /* ── Tabs — pill style ── */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 6px;
+        background: var(--li-bg);
+        border-radius: var(--radius-sm);
+        padding: 4px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 7px;
+        padding: 7px 16px;
+        font-weight: 500;
+        transition: background 0.15s ease;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        background: rgba(10,102,194,0.08);
+    }
+    .stTabs [aria-selected="true"] {
+        background: white !important;
+        box-shadow: var(--shadow-sm) !important;
+        color: var(--li-blue) !important;
+        font-weight: 700 !important;
+    }
+
+    /* ── Alert / info boxes — keep Streamlit's text, just round the corners ── */
+    [data-testid="stAlert"] {
+        border-radius: var(--radius-sm) !important;
+        border-left-width: 4px !important;
+    }
+
+    /* ── Viral analyzer ── */
+    .score-bar-wrap  { margin: 0.6rem 0; }
+    .score-bar-label {
+        display: flex; justify-content: space-between;
+        font-size: 0.82rem; font-weight: 600; color: var(--text-main);
+        margin-bottom: 3px;
+    }
+    .score-bar-bg   { background: var(--border); border-radius: 99px; height: 10px; overflow: hidden; }
+    .score-bar-fill { height: 100%; border-radius: 99px; transition: width 0.8s ease; }
     .viral-panel {
-        background: #F8FBFF;
-        border: 1.5px solid #C7D9F5;
-        border-radius: 14px;
+        background: white;
+        border: 1.5px solid var(--border);
+        border-radius: var(--radius-md);
         padding: 1.5rem;
         margin-top: 1rem;
+        box-shadow: var(--shadow-sm);
     }
     .viral-score-circle {
-        width: 90px; height: 90px;
-        border-radius: 50%;
+        width: 92px; height: 92px; border-radius: 50%;
         display: flex; flex-direction: column;
         align-items: center; justify-content: center;
         font-weight: 800; color: white;
         margin: 0 auto 1rem auto;
-        font-size: 1.8rem;
-        box-shadow: 0 4px 16px rgba(10,102,194,0.3);
+        font-size: 1.85rem;
+        box-shadow: 0 6px 20px rgba(10,102,194,0.35);
     }
-    .copy-btn-wrap {
-        display: flex;
-        gap: 8px;
-        margin-top: 0.5rem;
-    }
-    /* ── Quick action badge ── */
+
+    /* ── Misc utilities ── */
+    .copy-btn-wrap  { display: flex; gap: 8px; margin-top: 0.5rem; }
     .badge-new {
-        background: #FF6B35;
-        color: white;
-        font-size: 0.65rem;
-        font-weight: 700;
-        padding: 2px 7px;
-        border-radius: 99px;
-        vertical-align: middle;
-        margin-left: 6px;
-        letter-spacing: 0.5px;
+        background: var(--orange); color: white;
+        font-size: 0.63rem; font-weight: 700;
+        padding: 2px 7px; border-radius: 99px;
+        vertical-align: middle; margin-left: 6px; letter-spacing: 0.5px;
     }
 
-    /* ── Tab styling ── */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        border-radius: 8px 8px 0 0;
-        padding: 8px 16px;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #EAF4FF;
-        border-bottom: 3px solid #0A66C2;
-    }
+    /* ── Scrollbar (WebKit) ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #C7D9F5; border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--li-blue); }
 
-    /* ══════════════════════════════════════════════════════════════
-       TEXT VISIBILITY FIX — force dark text on all main-area whites
-       The sidebar's "* { color: white !important }" can bleed into
-       Streamlit's shared component layer, making text invisible on
-       white/light tiles. Every rule below locks dark text on the
-       main content pane only.
-    ══════════════════════════════════════════════════════════════ */
-
-    /* ── Global main area text ── */
-    .main .block-container,
-    .main .block-container p,
-    .main .block-container span,
-    .main .block-container li,
-    .main .block-container label,
-    .main .block-container div,
-    section[data-testid="stMain"] p,
-    section[data-testid="stMain"] span,
-    section[data-testid="stMain"] label,
-    section[data-testid="stMain"] li,
-    [data-testid="stMarkdownContainer"] p,
-    [data-testid="stMarkdownContainer"] li,
-    [data-testid="stMarkdownContainer"] span,
-    [data-testid="stMarkdownContainer"] strong,
-    [data-testid="stMarkdownContainer"] em,
-    [data-testid="stMarkdownContainer"] td,
-    [data-testid="stMarkdownContainer"] th {
-        color: #1a1a1a !important;
+    /* ── Footer & chrome ── */
+    .footer {
+        text-align: center; padding: 2rem 0;
+        color: var(--text-muted); font-size: 0.78rem;
+        border-top: 1px solid var(--border); margin-top: 3rem;
     }
-
-    /* ── Headings in main area ── */
-    section[data-testid="stMain"] h1,
-    section[data-testid="stMain"] h2,
-    section[data-testid="stMain"] h3,
-    section[data-testid="stMain"] h4,
-    section[data-testid="stMain"] h5,
-    .main .block-container h1,
-    .main .block-container h2,
-    .main .block-container h3,
-    .main .block-container h4 {
-        color: #0A66C2 !important;
-    }
-
-    /* ── Metric tiles ── */
-    [data-testid="stMetric"] {
-        background: #F0F7FF !important;
-        border-radius: 10px;
-        padding: 1rem;
-        border: 1px solid #D0E8FF;
-    }
-    [data-testid="stMetric"] label,
-    [data-testid="stMetric"] [data-testid="stMetricLabel"],
-    [data-testid="stMetricLabel"] p,
-    [data-testid="stMetricLabel"] span {
-        color: #444 !important;
-        font-weight: 600 !important;
-    }
-    [data-testid="stMetric"] [data-testid="stMetricValue"],
-    [data-testid="stMetricValue"] div,
-    [data-testid="stMetricValue"] span {
-        color: #0A66C2 !important;
-        font-weight: 800 !important;
-    }
-    [data-testid="stMetricDelta"],
-    [data-testid="stMetricDelta"] span {
-        color: #444 !important;
-    }
-
-    /* ── Expander header & body ── */
-    [data-testid="stExpander"] {
-        border: 1px solid #E1E9F5 !important;
-        border-radius: 10px !important;
-        background: #ffffff !important;
-    }
-    [data-testid="stExpander"] summary,
-    [data-testid="stExpander"] summary p,
-    [data-testid="stExpander"] summary span,
-    [data-testid="stExpander"] summary svg {
-        color: #1a1a1a !important;
-    }
-    [data-testid="stExpander"] [data-testid="stMarkdownContainer"] p,
-    [data-testid="stExpander"] [data-testid="stMarkdownContainer"] li,
-    [data-testid="stExpander"] [data-testid="stMarkdownContainer"] span,
-    [data-testid="stExpander"] [data-testid="stMarkdownContainer"] strong {
-        color: #1a1a1a !important;
-    }
-
-    /* ── Alert / info / success / warning / error boxes ── */
-    [data-testid="stAlert"] p,
-    [data-testid="stAlert"] span,
-    [data-testid="stAlert"] li,
-    [data-testid="stAlert"] strong,
-    [data-testid="stNotification"] p,
-    [data-testid="stNotification"] span,
-    .stAlert p, .stAlert span, .stAlert li,
-    .element-container .stSuccess p,
-    .element-container .stInfo p,
-    .element-container .stWarning p,
-    .element-container .stError p {
-        color: #1a1a1a !important;
-    }
-
-    /* ── Input fields — text typed by user ── */
-    .stTextInput > div > div > input {
-        color: #1a1a1a !important;
-        background: #ffffff !important;
-        border-radius: 8px;
-        border: 1.5px solid #C7D9F5;
-    }
-    .stTextArea > div > div > textarea {
-        color: #1a1a1a !important;
-        background: #ffffff !important;
-        border-radius: 8px;
-        border: 1.5px solid #C7D9F5;
-    }
-    .stTextInput > div > div > input:focus,
-    .stTextArea > div > div > textarea:focus {
-        border-color: #0A66C2 !important;
-        box-shadow: 0 0 0 2px rgba(10,102,194,0.15);
-    }
-
-    /* ── Selectbox / dropdown ── */
-    [data-testid="stSelectbox"] div[data-baseweb="select"] div,
-    [data-testid="stSelectbox"] div[data-baseweb="select"] span,
-    [data-testid="stSelectbox"] > label,
-    [data-testid="stSelectbox"] > label p {
-        color: #1a1a1a !important;
-    }
-
-    /* ── Radio buttons ── */
-    [data-testid="stRadio"] > label,
-    [data-testid="stRadio"] > label p,
-    [data-testid="stRadio"] div[role="radiogroup"] label,
-    [data-testid="stRadio"] div[role="radiogroup"] p,
-    [data-testid="stRadio"] div[role="radiogroup"] span {
-        color: #1a1a1a !important;
-    }
-
-    /* ── Checkbox ── */
-    [data-testid="stCheckbox"] label,
-    [data-testid="stCheckbox"] label p,
-    [data-testid="stCheckbox"] label span {
-        color: #1a1a1a !important;
-    }
-
-    /* ── Slider labels ── */
-    [data-testid="stSlider"] label,
-    [data-testid="stSlider"] label p,
-    [data-testid="stSlider"] div[data-testid="stTickBarMin"],
-    [data-testid="stSlider"] div[data-testid="stTickBarMax"] {
-        color: #1a1a1a !important;
-    }
-
-    /* ── Number input ── */
-    [data-testid="stNumberInput"] label,
-    [data-testid="stNumberInput"] label p,
-    [data-testid="stNumberInput"] input {
-        color: #1a1a1a !important;
-    }
-
-    /* ── Multiselect ── */
-    [data-testid="stMultiSelect"] label,
-    [data-testid="stMultiSelect"] label p,
-    [data-testid="stMultiSelect"] div[data-baseweb="tag"] span,
-    [data-testid="stMultiSelect"] div[data-baseweb="select"] div {
-        color: #1a1a1a !important;
-    }
-
-    /* ── Dataframe / table ── */
-    [data-testid="stDataFrame"] td,
-    [data-testid="stDataFrame"] th,
-    [data-testid="stTable"] td,
-    [data-testid="stTable"] th {
-        color: #1a1a1a !important;
-        background: #ffffff !important;
-    }
-
-    /* ── Caption / small text ── */
-    [data-testid="stCaptionContainer"] p,
-    .stCaption p {
-        color: #555 !important;
-    }
-
-    /* ── Tab labels ── */
-    .stTabs [data-baseweb="tab"] p,
-    .stTabs [data-baseweb="tab"] span {
-        color: #1a1a1a !important;
-    }
-    .stTabs [aria-selected="true"] p,
-    .stTabs [aria-selected="true"] span {
-        color: #0A66C2 !important;
-        font-weight: 700 !important;
-    }
-
-    /* ── Download button ── */
-    [data-testid="stDownloadButton"] button p,
-    [data-testid="stDownloadButton"] button span {
-        color: #1a1a1a !important;
-    }
-
-    /* ── Code blocks ── */
-    [data-testid="stCode"] code,
-    .stCode code,
-    pre, pre span, pre code {
-        color: #1a1a1a !important;
-        background: #f5f7fa !important;
-    }
-
-    /* ── Sidebar — keep white text, override everything above ── */
-    [data-testid="stSidebar"],
-    [data-testid="stSidebar"] *,
-    [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] span,
-    [data-testid="stSidebar"] label,
-    [data-testid="stSidebar"] div,
-    [data-testid="stSidebar"] li {
-        color: white !important;
-    }
-    [data-testid="stSidebar"] .stRadio label {
-        background: rgba(255,255,255,0.1);
-        border-radius: 8px;
-        padding: 8px 12px;
-        margin: 3px 0;
-        display: block;
-        transition: all 0.2s ease;
-        cursor: pointer;
-    }
-    [data-testid="stSidebar"] .stRadio label:hover {
-        background: rgba(255,255,255,0.25);
-        transform: translateX(4px);
-    }
-    [data-testid="stSidebar"] .stTextInput input,
-    [data-testid="stSidebar"] .stTextInput input::placeholder {
-        color: #1a1a1a !important;
-        background: rgba(255,255,255,0.95) !important;
-    }
-    [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] div {
-        color: #1a1a1a !important;
-        background: rgba(255,255,255,0.95) !important;
-    }
+    #MainMenu { visibility: hidden; }
+    footer     { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
 
