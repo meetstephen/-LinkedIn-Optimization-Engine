@@ -1,0 +1,23 @@
+# ─────────────────────────────────────────────────────────────────
+# Streamlit Theme Configuration — LinkedIn Optimization Engine
+#
+# This file locks the app to a light theme at the framework level,
+# BEFORE any custom CSS loads. This means every native Streamlit
+# widget (inputs, selects, charts, tables) automatically gets
+# dark text on a light background — no CSS hacks needed.
+#
+# HOW TO DEPLOY THIS FILE
+# ───────────────────────
+# Place this file at:   <your-project-root>/.streamlit/config.toml
+#
+# On Streamlit Cloud, also paste these values into:
+#   App Settings → Customize theme
+# ─────────────────────────────────────────────────────────────────
+
+[theme]
+base                   = "light"
+primaryColor           = "#0A66C2"   # brand blue  — buttons, links, highlights
+backgroundColor        = "#F3F6FB"   # app background
+secondaryBackgroundColor = "#EAF4FF" # sidebar + input backgrounds
+textColor              = "#111827"   # all body text
+font                   = "sans serif"
