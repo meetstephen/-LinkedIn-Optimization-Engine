@@ -16,8 +16,8 @@
 
 [theme]
 base                   = "light"
-primaryColor           = "#0A66C2"   # brand blue  — buttons, links, highlights
-backgroundColor        = "#F3F6FB"   # app background
-secondaryBackgroundColor = "#EAF4FF" # sidebar + input backgrounds
-textColor              = "#111827"   # all body text
+primaryColor           = "#0323a0"   # brand blue  — buttons, links, highlights
+backgroundColor        = "#98b3dfc2"   # app background
+secondaryBackgroundColor = "#cadff4c5" # sidebar + input backgrounds
+textColor              = "#14161a69"   # all body text
 font                   = "sans serif"
