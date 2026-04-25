@@ -804,47 +804,13 @@ def render_sidebar():
     with st.sidebar:
         # Logo & Title
         st.markdown("""
-        <div style="text-align:center; padding:1.2rem 0.5rem 0.8rem;">
-            <!-- Icon mark -->
-            <div style="
-                display:inline-flex; align-items:center; justify-content:center;
-                width:56px; height:56px; border-radius:14px;
-                background:linear-gradient(135deg,rgba(255,255,255,0.28),rgba(255,255,255,0.10));
-                border:1.5px solid rgba(255,255,255,0.3);
-                font-size:1.8rem; margin-bottom:0.7rem;
-                box-shadow:0 4px 16px rgba(0,0,0,0.15);
-            ">⚡</div>
-
-            <!-- WordMark -->
-            <div style="
-                font-size:1.7rem; font-weight:900; letter-spacing:-0.5px;
-                color:white; line-height:1;
-                text-shadow:0 2px 8px rgba(0,0,0,0.2);
-            ">
-                Linked<span style="
-                    color:#7DD3FC;
-                    text-shadow:0 0 20px rgba(125,211,252,0.5);
-                ">Edge</span>
-            </div>
-
-            <!-- Subtitle -->
-            <div style="
-                margin-top:5px;
-                font-size:0.67rem; font-weight:600; letter-spacing:0.8px;
-                text-transform:uppercase;
-                color:rgba(255,255,255,0.6);
-            ">LinkedIn Optimization Engine</div>
-
-            <!-- Tagline pill -->
-            <div style="
-                display:inline-block; margin-top:10px;
-                background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2);
-                border-radius:20px; padding:3px 12px;
-                font-size:0.65rem; color:rgba(255,255,255,0.8);
-                letter-spacing:0.3px;
-            ">AI-Powered · Production Ready</div>
+        <div style="text-align:center;padding:1.2rem 0.5rem 0.8rem;">
+            <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,rgba(255,255,255,0.28),rgba(255,255,255,0.10));border:1.5px solid rgba(255,255,255,0.3);font-size:1.8rem;margin-bottom:0.7rem;box-shadow:0 4px 16px rgba(0,0,0,0.15);">⚡</div>
+            <div style="font-size:1.7rem;font-weight:900;letter-spacing:-0.5px;color:white;line-height:1;text-shadow:0 2px 8px rgba(0,0,0,0.2);">Linked<span style="color:#7DD3FC;text-shadow:0 0 20px rgba(125,211,252,0.5);">Edge</span></div>
+            <div style="margin-top:5px;font-size:0.67rem;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:rgba(255,255,255,0.6);">LinkedIn Optimization Engine</div>
+            <div style="display:inline-block;margin-top:10px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:3px 12px;font-size:0.65rem;color:rgba(255,255,255,0.8);letter-spacing:0.3px;">AI-Powered · Production Ready</div>
         </div>
-        <hr style="border-color:rgba(255,255,255,0.15); margin:0 0 0.6rem 0;">
+        <hr style="border-color:rgba(255,255,255,0.15);margin:0 0 0.6rem 0;">
         """, unsafe_allow_html=True)
 
         # Navigation
@@ -1019,24 +985,10 @@ def render_home():
     st.markdown("""
     <div class="main-header">
         <div class="v-badge">v2.0 · Production Ready</div>
-
-        <div style="
-            font-size:3rem; font-weight:900; letter-spacing:-1px;
-            color:white; line-height:1.05; margin:0.4rem 0 0.1rem;
-            text-shadow:0 2px 12px rgba(0,0,0,0.2);
-        ">
-            ⚡ Linked<span style="
-                color:#7DD3FC;
-                text-shadow:0 0 30px rgba(125,211,252,0.6);
-            ">Edge</span>
+        <div style="font-size:3rem;font-weight:900;letter-spacing:-1px;color:white;line-height:1.05;margin:0.4rem 0 0.1rem;text-shadow:0 2px 12px rgba(0,0,0,0.2);">
+            ⚡ Linked<span style="color:#7DD3FC;text-shadow:0 0 30px rgba(125,211,252,0.6);">Edge</span>
         </div>
-
-        <div style="
-            font-size:0.85rem; font-weight:600; letter-spacing:1.5px;
-            text-transform:uppercase; color:rgba(255,255,255,0.55);
-            margin-bottom:0.5rem;
-        ">LinkedIn Optimization Engine</div>
-
+        <div style="font-size:0.82rem;font-weight:600;letter-spacing:1.8px;text-transform:uppercase;color:rgba(255,255,255,0.55);margin-bottom:0.5rem;">LinkedIn Optimization Engine</div>
         <p>AI-powered toolkit to transform your LinkedIn presence from beginner to thought leader</p>
     </div>
     """, unsafe_allow_html=True)
