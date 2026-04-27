@@ -1,0 +1,15 @@
+name: Keep LinkedEdge Awake
+
+on:
+  schedule:
+    # Runs every 6 hours at minute 12 (avoids top-of-hour GitHub traffic spikes)
+    - cron: '12 */6 * * *'
+  workflow_dispatch: # Lets you trigger it manually from GitHub to test
+
+jobs:
+  ping-app:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping LinkedEdge
+        run: |
+          curl -I https://linkededge-ai.streamlit.app
