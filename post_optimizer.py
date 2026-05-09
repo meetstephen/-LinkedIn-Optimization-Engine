@@ -3,7 +3,7 @@ Post Optimizer Module — Rewrites and scores existing LinkedIn posts
 for maximum engagement and virality potential.
 """
 import streamlit as st
-from utils.gemini_client import generate_text
+from utils.gemini_client import generate_text, get_profile_context
 
 
 OPTIMIZATION_GOALS = {
@@ -24,8 +24,9 @@ NEVER use: "game-changer", "dive in", "leverage", "synergy", "actionable", "thou
 
 
 def build_optimizer_prompt(original_post: str, goal: str) -> str:
-    goal_desc = OPTIMIZATION_GOALS.get(goal, goal)
-    return f"""You edit LinkedIn posts the way a great editor improves a first draft — you keep the writer's voice, cut what doesn't serve the reader, and make every line do more work.
+    goal_desc   = OPTIMIZATION_GOALS.get(goal, goal)
+    profile_ctx = get_profile_context()
+    return f"""You edit LinkedIn posts the way a great editor improves a first draft — you keep the writer's voice, cut what doesn't serve the reader, and make every line do more work.{profile_ctx}
 
 ORIGINAL POST:
 \"\"\"
