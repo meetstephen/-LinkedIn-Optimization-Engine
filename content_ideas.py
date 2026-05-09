@@ -3,7 +3,7 @@ Content Idea Generator — Generates a full content calendar and
 post ideas by niche using proven LinkedIn content pillars.
 """
 import streamlit as st
-from utils.gemini_client import generate_text
+from utils.gemini_client import generate_text, get_profile_context
 
 
 CONTENT_PILLARS = {
@@ -21,9 +21,10 @@ CONTENT_PILLARS = {
 
 def build_ideas_prompt(niche, role, pillars, count, timeframe):
     pillar_list = "\n".join([f"- {p}: {CONTENT_PILLARS[p]}" for p in pillars])
+    profile_ctx = get_profile_context()
     return f"""You generate LinkedIn content ideas the way a sharp editor would — specific, usable, and grounded in how real people actually talk on LinkedIn.
 
-Not generic. Not "share your journey". Real angles a real person in {niche} would actually post about.
+Not generic. Not "share your journey". Real angles a real person in {niche} would actually post about.{profile_ctx}
 
 CREATOR:
 - Niche: {niche}
@@ -63,12 +64,24 @@ def render_content_ideas():
     st.header("💡 Content Idea Generator")
     st.markdown("Generate a full content calendar with real, usable post ideas tailored to your niche.")
 
+    _p = st.session_state.get("user_profile", {})
+
     col1, col2 = st.columns(2)
 
     with col1:
-        niche     = st.text_input("🎯 Your Niche", placeholder="e.g., Product Management, Data Science, Sales Leadership")
-        role      = st.text_input("👤 Your Role/Background", placeholder="e.g., Senior PM at a fintech startup, 5 years experience")
-        count     = st.slider("📊 Number of Ideas", min_value=5, max_value=20, value=10)
+        niche = st.text_input(
+            "🎯 Your Niche",
+            value=st.session_state.get("ci_niche", _p.get("industry", "")),
+            placeholder="e.g., Product Management, Data Science, Sales Leadership",
+            key="ci_niche",
+        )
+        role  = st.text_input(
+            "👤 Your Role/Background",
+            value=st.session_state.get("ci_role", _p.get("role", "")),
+            placeholder="e.g., Senior PM at a fintech startup, 5 years experience",
+            key="ci_role",
+        )
+        count = st.slider("📊 Number of Ideas", min_value=5, max_value=20, value=10)
 
     with col2:
         timeframe = st.selectbox("📅 Content Timeframe", ["1 Week", "2 Weeks", "1 Month", "3 Months (90-day plan)"])
