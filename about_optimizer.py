@@ -3,7 +3,7 @@ About Section Optimizer — Transforms LinkedIn About sections into
 powerful personal brand stories with keyword optimization.
 """
 import streamlit as st
-from utils.gemini_client import generate_text
+from utils.gemini_client import generate_text, get_profile_context
 
 
 INDUSTRY_KEYWORDS = {
@@ -22,8 +22,9 @@ INDUSTRY_KEYWORDS = {
 
 
 def build_about_prompt(current_about, name, role, industry, superpowers, achievements, goal):
-    keywords = INDUSTRY_KEYWORDS.get(industry, INDUSTRY_KEYWORDS["Other"])
-    return f"""You write LinkedIn About sections that read like a person wrote them at midnight after a long honest conversation — not like a resume, not like a brand deck.
+    keywords    = INDUSTRY_KEYWORDS.get(industry, INDUSTRY_KEYWORDS["Other"])
+    profile_ctx = get_profile_context()
+    return f"""You write LinkedIn About sections that read like a person wrote them at midnight after a long honest conversation — not like a resume, not like a brand deck.{profile_ctx}
 
 PERSON:
 - Name: {name}
@@ -93,14 +94,31 @@ def render_about_optimizer():
     st.header("💼 LinkedIn 'About' Section Optimizer")
     st.markdown("Transform your About section into a personal brand story that attracts the right opportunities.")
 
+    _p = st.session_state.get("user_profile", {})
+
+    # Match profile industry to the nearest selectbox option
+    _ind_options = list(INDUSTRY_KEYWORDS.keys())
+    _prof_ind    = _p.get("industry", "").lower()
+    _ind_default = next(
+        (opt for opt in _ind_options if _prof_ind and _prof_ind in opt.lower()),
+        "Other",
+    )
+    _ind_idx = _ind_options.index(_ind_default)
+
     col1, col2 = st.columns(2)
 
     with col1:
-        name      = st.text_input("👤 Your Name", placeholder="e.g., Sarah Johnson")
-        role      = st.text_input("💼 Current Role/Title", placeholder="e.g., Senior Product Manager at Fintech Co.")
-        industry  = st.selectbox("🏢 Industry", list(INDUSTRY_KEYWORDS.keys()))
-        goal      = st.text_input("🎯 What Do You Want to Achieve?",
-                                   placeholder="e.g., Land a VP role, attract clients, build my personal brand")
+        name     = st.text_input("👤 Your Name",
+                                  value=st.session_state.get("ao_name", _p.get("name", "")),
+                                  placeholder="e.g., Sarah Johnson", key="ao_name")
+        role     = st.text_input("💼 Current Role/Title",
+                                  value=st.session_state.get("ao_role", _p.get("role", "")),
+                                  placeholder="e.g., Senior Product Manager at Fintech Co.", key="ao_role")
+        industry = st.selectbox("🏢 Industry", _ind_options, index=_ind_idx)
+        goal     = st.text_input("🎯 What Do You Want to Achieve?",
+                                  value=st.session_state.get("ao_goal", ""),
+                                  placeholder="e.g., Land a VP role, attract clients, build my personal brand",
+                                  key="ao_goal")
 
     with col2:
         superpowers  = st.text_area("⚡ Your Top 3–5 Strengths",
