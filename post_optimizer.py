@@ -76,8 +76,9 @@ def render_post_optimizer():
 
     original_post = st.text_area(
         "📝 Paste Your LinkedIn Post Here",
-        placeholder="Paste your existing LinkedIn post here...",
+        placeholder="Paste your existing LinkedIn post here… or send one directly from the Post Generator →",
         height=200,
+        key="po_content",
     )
 
     col1, col2 = st.columns(2)
@@ -125,6 +126,49 @@ def render_post_optimizer():
                 st.markdown("---")
                 st.markdown(result)
                 st.session_state["last_generated_post"] = result
+
+                # ── Pipeline: send optimised post onwards ──────────────────
+                st.markdown("---")
+                st.markdown("**Send the optimized post to:**")
+                pipe1, pipe2 = st.columns(2)
+                with pipe1:
+                    if st.button(
+                        "🔥 Check Hook in Analyzer",
+                        use_container_width=True,
+                        key="opt_to_hook",
+                        help="Run the rewritten hook through the Viral Hook Analyzer",
+                    ):
+                        # Extract the rewritten post section from the result
+                        _lines   = result.split("\n")
+                        _in, _rw = False, []
+                        for _line in _lines:
+                            if "REWRITTEN VERSION" in _line.upper():
+                                _in = True; continue
+                            if _in and _line.startswith("##"):
+                                break
+                            if _in:
+                                _rw.append(_line)
+                        _rewritten = "\n".join(_rw).strip() or original_post
+                        st.session_state["hook_analyzer_input"] = _rewritten
+                        st.session_state["current_page"]        = "🔥 Viral Hook Analyzer"
+                        st.rerun()
+                with pipe2:
+                    if st.button(
+                        "📚 Save to Post Library",
+                        use_container_width=True,
+                        key="opt_to_library",
+                        help="Save the full optimization report to your Post Library",
+                    ):
+                        st.session_state.setdefault("post_library", []).insert(0, {
+                            "id":         int(__import__("time").time() * 1000),
+                            "content":    result,
+                            "module":     "🔧 Post Optimizer",
+                            "score":      0,
+                            "tags":       ["optimized"],
+                            "created_at": __import__("datetime").datetime.now().strftime("%b %d, %Y · %I:%M %p"),
+                            "starred":    False,
+                        })
+                        st.success("✅ Saved to Post Library!")
 
             except Exception as e:
                 st.error(f"Optimization failed: {str(e)}")
