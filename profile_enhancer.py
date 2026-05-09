@@ -3,13 +3,14 @@ Profile Enhancer Module — Transforms beginner LinkedIn profiles into
 PRO-level profiles with a comprehensive score and action plan.
 """
 import streamlit as st
-from utils.gemini_client import generate_text
+from utils.gemini_client import generate_text, get_profile_context
 
 
 def build_profile_prompt(profile_data):
+    profile_ctx = get_profile_context()
     return f"""You review LinkedIn profiles the way a hiring manager or premium client does — quickly, honestly, and looking for specific signals. You've seen what works and what kills opportunities.
 
-Review this profile and give an honest, specific improvement plan.
+Review this profile and give an honest, specific improvement plan.{profile_ctx}
 
 PROFILE:
 - Name: {profile_data['name']}
@@ -118,18 +119,31 @@ def render_profile_enhancer():
     st.header("🌟 Profile Enhancer: Beginner → PRO")
     st.markdown("Get your LinkedIn profile scored honestly — and a specific plan to fix what's holding you back.")
 
+    _p = st.session_state.get("user_profile", {})
+
     st.subheader("📋 Enter Your Profile Details")
 
     col1, col2 = st.columns(2)
     with col1:
-        name             = st.text_input("👤 Full Name", placeholder="Your full name")
-        headline         = st.text_input("📌 Current Headline", placeholder="e.g., Software Engineer at Company | Python | ML")
-        industry         = st.text_input("🏢 Industry/Field", placeholder="e.g., SaaS, Finance, Marketing")
+        name     = st.text_input("👤 Full Name",
+                                  value=st.session_state.get("pe_name", _p.get("name", "")),
+                                  placeholder="Your full name", key="pe_name")
+        headline = st.text_input("📌 Current Headline",
+                                  value=st.session_state.get("pe_headline", _p.get("headline", "")),
+                                  placeholder="e.g., Software Engineer at Company | Python | ML",
+                                  key="pe_headline")
+        industry = st.text_input("🏢 Industry/Field",
+                                  value=st.session_state.get("pe_industry", _p.get("industry", "")),
+                                  placeholder="e.g., SaaS, Finance, Marketing", key="pe_industry")
         experience_years = st.selectbox("📅 Years of Experience",
-                                         ["0–1 year (Student/New Grad)", "1–3 years", "3–7 years", "7–15 years", "15+ years"])
-        connections      = st.selectbox("🔗 LinkedIn Connections", ["< 100", "100–500", "500–1000", "1000–5000", "5000+"])
-        goal             = st.text_input("🎯 Primary Goal",
-                                          placeholder="e.g., Get hired at FAANG, grow my consulting business, become a speaker")
+                                         ["0–1 year (Student/New Grad)", "1–3 years", "3–7 years",
+                                          "7–15 years", "15+ years"])
+        connections = st.selectbox("🔗 LinkedIn Connections",
+                                    ["< 100", "100–500", "500–1000", "1000–5000", "5000+"])
+        goal = st.text_input("🎯 Primary Goal",
+                              value=st.session_state.get("pe_goal", ""),
+                              placeholder="e.g., Get hired at FAANG, grow my consulting business, become a speaker",
+                              key="pe_goal")
 
     with col2:
         achievements  = st.text_area("🏆 Top 3 Career Achievements",
