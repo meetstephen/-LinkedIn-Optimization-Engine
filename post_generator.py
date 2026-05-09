@@ -3,7 +3,7 @@ Post Generator Module — Generates high-performing LinkedIn posts
 using proven content frameworks powered by Gemini.
 """
 import streamlit as st
-from utils.gemini_client import generate_text
+from utils.gemini_client import generate_text, get_profile_context
 
 
 TONE_DESCRIPTIONS = {
@@ -67,8 +67,9 @@ VOICE & STYLE RULES — follow these without exception:
 
 
 def build_post_prompt(topic: str, niche: str, tone: str, framework: str, audience: str) -> str:
-    tone_desc = TONE_DESCRIPTIONS.get(tone, tone)
+    tone_desc      = TONE_DESCRIPTIONS.get(tone, tone)
     framework_desc = FRAMEWORK_DESCRIPTIONS.get(framework, framework)
+    profile_ctx    = get_profile_context()
 
     return f"""You write LinkedIn posts for a specific type of creator: someone who has real experience, has made real mistakes, and doesn't need to impress anyone. Their posts feel like they came from a person, not a content team.
 
@@ -77,7 +78,7 @@ WHAT YOU'RE WRITING:
 - Niche: {niche}
 - Audience: {audience}
 - Tone: {tone} — {tone_desc}
-- Framework: {framework} — {framework_desc}
+- Framework: {framework} — {framework_desc}{profile_ctx}
 
 Write 2 completely different post variations on this topic. Same message, different angle, different structure.
 
@@ -104,6 +105,8 @@ def render_post_generator():
     st.header("🚀 LinkedIn Post Generator")
     st.markdown("Generate scroll-stopping posts using proven viral frameworks powered by Gemini AI.")
 
+    _p = st.session_state.get("user_profile", {})
+
     col1, col2 = st.columns(2)
 
     with col1:
@@ -114,12 +117,15 @@ def render_post_generator():
         )
         niche = st.text_input(
             "🎯 Your Niche / Industry",
+            value=st.session_state.get("pg_niche", _p.get("industry", "")),
             placeholder="e.g., Tech, Marketing, Finance, HR, Coaching",
+            key="pg_niche",
         )
         audience = st.text_input(
             "👥 Target Audience",
+            value=st.session_state.get("pg_audience", _p.get("audience", "") or "Professionals on LinkedIn"),
             placeholder="e.g., Early-career professionals, CTOs, Entrepreneurs",
-            value="Professionals on LinkedIn",
+            key="pg_audience",
         )
 
     with col2:
