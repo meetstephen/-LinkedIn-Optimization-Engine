@@ -3,7 +3,7 @@ Creator Strategy Insights — Simulates top LinkedIn creator tactics,
 hook formulas, post structures, and engagement frameworks.
 """
 import streamlit as st
-from utils.gemini_client import generate_text
+from utils.gemini_client import generate_text, get_profile_context
 
 
 CREATOR_ARCHETYPES = {
@@ -30,11 +30,12 @@ HOOK_FORMULAS = [
 
 
 def build_strategy_prompt(creator_type, niche, goal):
-    archetype_desc = CREATOR_ARCHETYPES.get(creator_type, "")
+    archetype_desc  = CREATOR_ARCHETYPES.get(creator_type, "")
     hooks_formatted = "\n".join([f"{i+1}. {h}" for i, h in enumerate(HOOK_FORMULAS)])
+    profile_ctx     = get_profile_context()
     return f"""You study what actually works on LinkedIn — not the theory, the real patterns. You've watched thousands of posts succeed and fail. You know the difference between a creator who posts and one who grows.
 
-Build a strategy playbook for this creator:
+Build a strategy playbook for this creator:{profile_ctx}
 
 - Archetype: {creator_type} — {archetype_desc}
 - Niche: {niche}
@@ -111,12 +112,19 @@ def render_strategy_insights():
         for archetype, desc in CREATOR_ARCHETYPES.items():
             st.markdown(f"**{archetype}**: {desc}")
 
+    _p = st.session_state.get("user_profile", {})
+
     col1, col2 = st.columns(2)
 
     with col1:
         creator_type = st.selectbox("🎭 Your Creator Archetype", list(CREATOR_ARCHETYPES.keys()),
                                      help="Choose the style that feels most like you")
-        niche = st.text_input("🎯 Your Niche", placeholder="e.g., B2B SaaS, Career Coaching, Data Engineering")
+        niche = st.text_input(
+            "🎯 Your Niche",
+            value=st.session_state.get("si_niche", _p.get("industry", "")),
+            placeholder="e.g., B2B SaaS, Career Coaching, Data Engineering",
+            key="si_niche",
+        )
 
     with col2:
         goal = st.selectbox("🎯 Primary Growth Goal", [
