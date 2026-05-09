@@ -148,30 +148,87 @@ def render_post_generator():
                 prompt = build_post_prompt(topic, niche, tone, framework, audience)
                 result = generate_text(prompt, temperature=0.88)
 
-                st.success("✅ Posts generated!")
-                st.markdown("---")
-                st.subheader("📝 Your Post Variations")
-
+                # Parse and persist variations so pipeline buttons survive reruns
+                var1 = var2 = analysis = ""
                 parts = result.split("---")
                 for part in parts:
                     part = part.strip()
                     if part.startswith("VARIATION 1"):
-                        with st.expander("📄 Variation 1", expanded=True):
-                            content = part.replace("VARIATION 1", "").strip()
-                            st.markdown(content)
-                            if st.button("📋 Copy Variation 1", key="copy_v1"):
-                                st.code(content)
+                        var1 = part.replace("VARIATION 1", "").strip()
                     elif part.startswith("VARIATION 2"):
-                        with st.expander("📄 Variation 2", expanded=True):
-                            content = part.replace("VARIATION 2", "").strip()
-                            st.markdown(content)
-                            if st.button("📋 Copy Variation 2", key="copy_v2"):
-                                st.code(content)
+                        var2 = part.replace("VARIATION 2", "").strip()
                     elif part.startswith("ANALYSIS"):
-                        with st.expander("📊 AI Analysis", expanded=True):
-                            st.markdown(part.replace("ANALYSIS", "").strip())
+                        analysis = part.replace("ANALYSIS", "").strip()
 
+                st.session_state["pg_var1"]     = var1
+                st.session_state["pg_var2"]     = var2
+                st.session_state["pg_analysis"] = analysis
                 st.session_state["last_generated_post"] = result
 
             except Exception as e:
                 st.error(f"Generation failed: {str(e)}")
+
+    # ── Persistent output — renders after generation and survives button reruns ──
+    var1     = st.session_state.get("pg_var1", "")
+    var2     = st.session_state.get("pg_var2", "")
+    analysis = st.session_state.get("pg_analysis", "")
+
+    if var1 or var2:
+        st.success("✅ Posts generated!")
+        st.markdown("---")
+        st.subheader("📝 Your Post Variations")
+
+        for idx, (label, content) in enumerate(
+            [("Variation 1", var1), ("Variation 2", var2)], start=1
+        ):
+            if not content:
+                continue
+            with st.expander(f"📄 {label}", expanded=True):
+                st.markdown(content)
+
+                # Character count warning
+                char_count = len(content)
+                char_color = "#00c851" if char_count <= 3000 else "#e63946"
+                st.markdown(
+                    f"<div style='font-size:0.75rem;color:{char_color};text-align:right;'>"
+                    f"{char_count:,} / 3,000 chars</div>",
+                    unsafe_allow_html=True,
+                )
+
+                st.markdown("**Send this post to:**")
+                btn_col1, btn_col2, btn_col3 = st.columns(3)
+
+                with btn_col1:
+                    if st.button(
+                        "📋 Copy Post",
+                        key=f"copy_v{idx}",
+                        use_container_width=True,
+                        help="Expand to copy the text",
+                    ):
+                        st.code(content, language=None)
+
+                with btn_col2:
+                    if st.button(
+                        "🔧 Optimize This Post",
+                        key=f"opt_v{idx}",
+                        use_container_width=True,
+                        help="Send directly to Post Optimizer",
+                    ):
+                        st.session_state["po_content"]   = content
+                        st.session_state["current_page"] = "🔧 Post Optimizer"
+                        st.rerun()
+
+                with btn_col3:
+                    if st.button(
+                        "🔥 Check Hook",
+                        key=f"hook_v{idx}",
+                        use_container_width=True,
+                        help="Send directly to Viral Hook Analyzer",
+                    ):
+                        st.session_state["hook_analyzer_input"] = content
+                        st.session_state["current_page"]        = "🔥 Viral Hook Analyzer"
+                        st.rerun()
+
+        if analysis:
+            with st.expander("📊 AI Analysis", expanded=True):
+                st.markdown(analysis)
