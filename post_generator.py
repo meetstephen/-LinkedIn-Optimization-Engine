@@ -196,7 +196,7 @@ def render_post_generator():
                 )
 
                 st.markdown("**Send this post to:**")
-                btn_col1, btn_col2, btn_col3 = st.columns(3)
+                btn_col1, btn_col2, btn_col3, btn_col4 = st.columns(4)
 
                 with btn_col1:
                     if st.button(
@@ -209,7 +209,7 @@ def render_post_generator():
 
                 with btn_col2:
                     if st.button(
-                        "🔧 Optimize This Post",
+                        "🔧 Optimize",
                         key=f"opt_v{idx}",
                         use_container_width=True,
                         help="Send directly to Post Optimizer",
@@ -227,6 +227,17 @@ def render_post_generator():
                     ):
                         st.session_state["hook_analyzer_input"] = content
                         st.session_state["current_page"]        = "🔥 Viral Hook Analyzer"
+                        st.rerun()
+
+                with btn_col4:
+                    if st.button(
+                        "🎨 Make Visual",
+                        key=f"img_v{idx}",
+                        use_container_width=True,
+                        help="Generate a LinkedIn image for this post",
+                    ):
+                        st.session_state["ig_post_content"] = content[:500]
+                        st.session_state["current_page"]    = "🎨 Image Generator"
                         st.rerun()
 
         if analysis:
