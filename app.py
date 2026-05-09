@@ -147,6 +147,18 @@ st.markdown("""
         background: rgba(255,255,255,0.25);
         transform: translateX(4px);
     }
+    /* ── Sidebar inputs & selects — keep legible on blue background ── */
+    [data-testid="stSidebar"] .stTextInput input,
+    [data-testid="stSidebar"] .stTextInput input::placeholder,
+    [data-testid="stSidebar"] .stTextArea textarea,
+    [data-testid="stSidebar"] .stTextArea textarea::placeholder {
+        color: #1a1a1a !important;
+        background: rgba(255,255,255,0.95) !important;
+    }
+    [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] div {
+        color: #1a1a1a !important;
+        background: rgba(255,255,255,0.95) !important;
+    }
 
     /* ── Main Header ── */
     .main-header {
@@ -667,28 +679,6 @@ st.markdown("""
     [data-testid="stSidebar"] li {
         color: white !important;
     }
-    [data-testid="stSidebar"] .stRadio label {
-        background: rgba(255,255,255,0.1);
-        border-radius: 8px;
-        padding: 8px 12px;
-        margin: 3px 0;
-        display: block;
-        transition: all 0.2s ease;
-        cursor: pointer;
-    }
-    [data-testid="stSidebar"] .stRadio label:hover {
-        background: rgba(255,255,255,0.25);
-        transform: translateX(4px);
-    }
-    [data-testid="stSidebar"] .stTextInput input,
-    [data-testid="stSidebar"] .stTextInput input::placeholder {
-        color: #1a1a1a !important;
-        background: rgba(255,255,255,0.95) !important;
-    }
-    [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] div {
-        color: #1a1a1a !important;
-        background: rgba(255,255,255,0.95) !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -757,6 +747,34 @@ def save_to_library(content: str, module: str, score: int = 0, tags: list = None
     save_to_history(module, content)
 
 
+def inject_profile_context() -> str:
+    """
+    Returns a formatted profile block to inject into any AI prompt.
+    When the user has filled their profile, every module's AI output becomes
+    personalised to their role, industry, audience, and voice automatically.
+    Returns an empty string when no profile data exists (safe to concatenate).
+    """
+    p = st.session_state.get("user_profile", {})
+    parts = []
+    if p.get("name"):            parts.append(f"- Name: {p['name']}")
+    if p.get("headline"):        parts.append(f"- LinkedIn Headline: {p['headline']}")
+    if p.get("role"):            parts.append(f"- Current Role / Position: {p['role']}")
+    if p.get("industry"):        parts.append(f"- Industry / Niche: {p['industry']}")
+    if p.get("audience"):        parts.append(f"- Target Audience: {p['audience']}")
+    if p.get("content_pillars"): parts.append(f"- Content Pillars: {', '.join(p['content_pillars'])}")
+    if p.get("tone"):            parts.append(f"- Preferred Writing Tone: {p['tone']}")
+    if p.get("voice_sample"):    parts.append(
+        f"- Writing Voice Sample (match this style closely):\n\"\"\"\n{p['voice_sample'][:400].strip()}\n\"\"\""
+    )
+    if not parts:
+        return ""
+    return (
+        "\n\nUSER PROFILE — tailor ALL output specifically and concretely to this person. "
+        "Use their industry, role, and audience in every example and suggestion:\n"
+        + "\n".join(parts)
+    )
+
+
 # ─────────────────────────────────────────────
 # SESSION STATE INITIALIZATION
 # ─────────────────────────────────────────────
@@ -790,6 +808,17 @@ def init_session_state():
         "hooks_analyzed": 0,
         "viral_analyzer_result": None,
         "hook_analysis_result": None,
+        # ── Persistent user profile — feeds every AI module ────────────────
+        "user_profile": {
+            "name": "",
+            "headline": "",
+            "role": "",
+            "industry": "",
+            "audience": "",
+            "content_pillars": [],
+            "tone": "Professional & Authoritative",
+            "voice_sample": "",
+        },
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -817,7 +846,7 @@ def render_sidebar():
         st.markdown("**📍 Navigation**")
         pages = [
             "🏠 Home",
-            "🔥 Viral Hook Analyzer",    # NEW — dedicated full-featured hook tool
+            "🔥 Viral Hook Analyzer",
             "🚀 Post Generator",
             "🔧 Post Optimizer",
             "💼 About Optimizer",
@@ -826,8 +855,7 @@ def render_sidebar():
             "🧠 Strategy Insights",
             "🎨 Image Generator",
             "⚡ Engagement Toolkit",
-            "📚 Post Library",           # auto-saved posts with search/export
-            "🗄️ Data Manager",           # backup export & restore
+            "📚 Post Library",
         ]
         selected_page = st.radio(
             "Navigate to",
@@ -836,6 +864,78 @@ def render_sidebar():
             label_visibility="collapsed",
         )
         st.session_state["current_page"] = selected_page
+
+        st.markdown("<hr style='border-color:rgba(255,255,255,0.2);'>", unsafe_allow_html=True)
+
+        # ── User Profile — context for every AI module ────────────────────
+        st.markdown("**👤 Your Profile**")
+        _p = st.session_state.get("user_profile", {})
+        _profile_complete = bool(_p.get("role") and _p.get("industry"))
+        _badge = "✅ Profile Set" if _profile_complete else "⚙️ Set Up Profile"
+        with st.expander(_badge, expanded=not _profile_complete):
+            _name = st.text_input(
+                "Your Name", value=_p.get("name", ""),
+                placeholder="e.g. Stephen Chukwu", key="sp_name",
+            )
+            _headline = st.text_input(
+                "LinkedIn Headline", value=_p.get("headline", ""),
+                placeholder="e.g. AI Builder | Legal Tech Founder", key="sp_headline",
+            )
+            _role = st.text_input(
+                "Current Role *", value=_p.get("role", ""),
+                placeholder="e.g. Product Manager at Fintech", key="sp_role",
+            )
+            _industry = st.text_input(
+                "Industry / Niche *", value=_p.get("industry", ""),
+                placeholder="e.g. Legal Tech, SaaS, Finance", key="sp_industry",
+            )
+            _audience = st.text_input(
+                "Target Audience", value=_p.get("audience", ""),
+                placeholder="e.g. Nigerian lawyers, startup founders", key="sp_audience",
+            )
+            _pillars_raw = st.text_input(
+                "Content Pillars (comma-separated)",
+                value=", ".join(_p.get("content_pillars", [])),
+                placeholder="e.g. Leadership, AI, Career", key="sp_pillars",
+            )
+            _tone_opts = [
+                "Professional & Authoritative", "Conversational & Warm",
+                "Bold & Provocative", "Story-Driven", "Data-Led",
+            ]
+            _tone = st.selectbox(
+                "Preferred Tone", _tone_opts,
+                index=_tone_opts.index(_p.get("tone", "Professional & Authoritative"))
+                      if _p.get("tone") in _tone_opts else 0,
+                key="sp_tone",
+            )
+            _voice = st.text_area(
+                "Voice Sample (optional)",
+                value=_p.get("voice_sample", ""), height=70,
+                placeholder="Paste 1-2 of your own LinkedIn posts — AI will match your authentic writing style...",
+                key="sp_voice",
+            )
+            st.caption("* Required for personalised AI output")
+            if st.button("💾 Save Profile", key="sp_save", use_container_width=True):
+                st.session_state["user_profile"] = {
+                    "name": _name.strip(),
+                    "headline": _headline.strip(),
+                    "role": _role.strip(),
+                    "industry": _industry.strip(),
+                    "audience": _audience.strip(),
+                    "content_pillars": [x.strip() for x in _pillars_raw.split(",") if x.strip()],
+                    "tone": _tone,
+                    "voice_sample": _voice.strip(),
+                }
+                st.rerun()
+        if _profile_complete:
+            _role_short = _p.get("role", "")[:32]
+            _ind_short  = _p.get("industry", "")[:24]
+            st.markdown(
+                f"<div style='font-size:0.7rem;color:rgba(255,255,255,0.72);margin-top:-4px;margin-bottom:4px;'>"
+                f"{'👤 ' + _p['name'] + ' · ' if _p.get('name') else ''}{_role_short}"
+                f"{'<br>🏭 ' + _ind_short if _ind_short else ''}</div>",
+                unsafe_allow_html=True,
+            )
 
         st.markdown("<hr style='border-color:rgba(255,255,255,0.2);'>", unsafe_allow_html=True)
 
@@ -1120,187 +1220,74 @@ def render_home():
         """)
 
     st.markdown("---")
-    st.info("👈 **Select a module from the sidebar** to get started. Or try the **Viral Analyzer** below — paste any LinkedIn post for an instant AI score!")
+    st.info("👈 **Select a module from the sidebar to get started.** Your profile is now active — every module uses it to personalise AI output for your role and industry.")
 
-    # ════════════════════════════════════════════════════════
-    # 🔥 WOW FEATURE: LinkedIn Viral Post Analyzer
-    # ════════════════════════════════════════════════════════
-    st.markdown("""
-    <div style="display:flex; align-items:center; margin-bottom:0.5rem;">
-        <span style="font-size:1.5rem; margin-right:0.5rem;">🔥</span>
-        <h2 style="margin:0;">Viral Post Analyzer</h2>
-        <span class="badge-new">NEW</span>
-    </div>
-    <p style="color:#555; margin-bottom:1rem; font-size:0.93rem;">
-        Paste any LinkedIn post — yours or a top creator's — and get an instant AI-powered virality breakdown
-        across 5 dimensions. Understand <em>exactly</em> why posts go viral.
-    </p>
-    """, unsafe_allow_html=True)
+    # ── LinkedIn Health Dashboard ──────────────────────────────────────────
+    st.markdown("### 📊 Your LinkedIn Health Dashboard")
 
-    analyze_col, result_col = st.columns([1, 1], gap="large")
+    _p          = st.session_state.get("user_profile", {})
+    _profile_ok = bool(_p.get("role") and _p.get("industry"))
+    _posts_gen  = st.session_state.get("session_posts_generated", 0)
+    _hooks_done = st.session_state.get("hooks_analyzed", 0)
+    _lib_count  = (
+        _db.get_stats()["total"] if _CORE_AVAILABLE
+        else len(st.session_state.get("post_library", []))
+    )
+    _hook_result    = st.session_state.get("hook_analysis_result")
+    _avg_hook_score = _hook_result.get("overall_score", 0) if _hook_result else 0
 
-    with analyze_col:
-        post_to_analyze = st.text_area(
-            "Paste a LinkedIn post here",
-            height=220,
-            placeholder="Paste any LinkedIn post to analyze...\n\nExample:\n'I got rejected by 12 companies before landing my dream job.\nHere's what I learned:\n...'",
-            key="viral_analyzer_input",
-        )
+    # Weighted health score
+    _health = (
+        (25 if _profile_ok else 0)
+        + min(_hooks_done * 10, 20)
+        + min(_posts_gen * 5, 20)
+        + min(_lib_count * 2, 15)
+        + (20 if _avg_hook_score >= 70 else 10 if _avg_hook_score >= 40 else 0)
+    )
+    _h_color = "#00c851" if _health >= 70 else "#FF6B35" if _health >= 40 else "#e63946"
+    _h_label = "🔥 Strong Presence" if _health >= 70 else "👍 Building Up" if _health >= 40 else "🚀 Just Getting Started"
 
-        char_count = len(post_to_analyze)
-        char_color = "#08df5e" if char_count <= 3000 else "#F31A0E"
-        st.markdown(
-            f"<div style='font-size:0.75rem; color:{char_color}; text-align:right;'>"
-            f"{char_count:,} / 3,000 chars</div>",
-            unsafe_allow_html=True,
-        )
+    _hd1, _hd2, _hd3 = st.columns([0.22, 0.38, 0.40])
 
-        analyze_btn = st.button(
-            "🔥 Analyze Virality",
-            type="primary",
-            disabled=not bool(st.session_state.get("gemini_api_key")),
-            key="viral_analyze_btn",
-        )
-        if not st.session_state.get("gemini_api_key"):
-            st.caption("⚠️ Add your Gemini API key in the sidebar to enable this.")
+    with _hd1:
+        st.markdown(f"""
+        <div style="background:white;border:2px solid {_h_color};border-radius:16px;
+                    padding:1.5rem 1rem;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06);">
+            <div style="font-size:3rem;font-weight:900;color:{_h_color};line-height:1;">{_health}</div>
+            <div style="font-size:0.7rem;color:#888;margin-top:4px;">out of 100</div>
+            <div style="font-size:0.85rem;font-weight:700;color:{_h_color};margin-top:8px;">{_h_label}</div>
+            <div style="font-size:0.68rem;color:#aaa;margin-top:4px;">LinkedIn Health Score</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    with result_col:
-        if analyze_btn and post_to_analyze.strip():
-            if len(post_to_analyze.strip()) < 30:
-                st.warning("Post is too short to analyze. Please paste a real LinkedIn post.")
-            else:
-                with st.spinner("🤖 Scoring your post with AI..."):
-                    analysis_prompt = f"""You are a LinkedIn virality expert. Analyze this LinkedIn post and return ONLY a valid JSON object — no markdown, no explanation, no backticks.
+    with _hd2:
+        st.markdown("**Profile Checklist**")
+        _checks = [
+            ("👤 Profile configured",   _profile_ok),
+            ("🔥 Hook analyzed",        _hooks_done > 0),
+            ("🚀 Posts generated",      _posts_gen > 0),
+            ("📚 Library started",      _lib_count > 0),
+            ("⚡ Hook quality ≥ 70",    _avg_hook_score >= 70),
+        ]
+        for _lbl, _done in _checks:
+            st.markdown(f"{'✅' if _done else '⬜'} {_lbl}")
 
-POST TO ANALYZE:
-\"\"\"{post_to_analyze[:3000]}\"\"\"
-
-Return this exact JSON structure:
-{{
-  "overall_score": <integer 0-100>,
-  "verdict": "<one punchy sentence verdict, max 15 words>",
-  "dimensions": {{
-    "hook_power": {{"score": <0-100>, "comment": "<max 20 words>"}},
-    "storytelling": {{"score": <0-100>, "comment": "<max 20 words>"}},
-    "cta_strength": {{"score": <0-100>, "comment": "<max 20 words>"}},
-    "formatting": {{"score": <0-100>, "comment": "<max 20 words>"}},
-    "emotional_pull": {{"score": <0-100>, "comment": "<max 20 words>"}}
-  }},
-  "top_strength": "<what is working best, max 25 words>",
-  "top_fix": "<the single most impactful change to make, max 25 words>",
-  "improved_hook": "<rewrite only the first 1-2 lines to be more viral, max 30 words>"
-}}"""
-                    try:
-                        if _CORE_AVAILABLE:
-                            result = _ai.generate_json(
-                                analysis_prompt,
-                                st.session_state["gemini_api_key"],
-                                model=st.session_state.get("gemini_model", "gemini-2.5-flash"),
-                                temperature=0.4,
-                                max_tokens=1024,
-                                required_keys=["overall_score", "dimensions"],
-                            )
-                        else:
-                            from google import genai as _genai
-                            from google.genai import types as _gtypes
-                            _c  = _genai.Client(api_key=st.session_state["gemini_api_key"])
-                            _r  = _c.models.generate_content(
-                                model=st.session_state.get("gemini_model", "gemini-2.5-flash"),
-                                contents=analysis_prompt,
-                                config=_gtypes.GenerateContentConfig(temperature=0.4, max_output_tokens=1024),
-                            )
-                            raw = _r.text.strip()
-                            if raw.startswith("```"):
-                                raw = raw.split("```")[1]
-                                if raw.startswith("json"):
-                                    raw = raw[4:]
-                            result = json.loads(raw.strip())
-                        st.session_state["viral_analyzer_result"] = result
-                    except Exception:
-                        st.error("⚠️ Something went wrong. Please try again.")
-                        with st.expander("🔍 Details (for debugging)"):
-                            st.code(traceback.format_exc())
-                        st.session_state["viral_analyzer_result"] = None
-
-        
-
-        # ── Render results ──────────────────────────────────
-        result = st.session_state.get("viral_analyzer_result")
-        if result:
-            score = result.get("overall_score", 0)
-            # Color: red < 40, orange < 65, green >= 65
-            if score >= 65:
-                score_color = "linear-gradient(135deg,#00c851,#007a32)"
-                score_label = "🚀 High Viral Potential"
-            elif score >= 40:
-                score_color = "linear-gradient(135deg,#FF6B35,#cc4a00)"
-                score_label = "⚠️ Moderate Potential"
-            else:
-                score_color = "linear-gradient(135deg,#FF3B30,#990000)"
-                score_label = "❌ Low Viral Potential"
-
-            st.markdown(f"""
-            <div class="viral-panel">
-                <div class="viral-score-circle" style="background:{score_color};">
-                    {score}
-                    <div style="font-size:0.55rem; font-weight:600; opacity:0.9; margin-top:-4px;">/ 100</div>
-                </div>
-                <div style="text-align:center; font-weight:700; color:#0A66C2; margin-bottom:1rem;">{score_label}</div>
-                <div style="font-style:italic; color:#444; text-align:center; font-size:0.9rem; margin-bottom:1.2rem;">
-                    "{result.get('verdict', '')}"
-                </div>
-            """, unsafe_allow_html=True)
-
-            dim_labels = {
-                "hook_power":    ("🎣 Hook Power",     "#05396C"),
-                "storytelling":  ("📖 Storytelling",   "#4D0988"),
-                "cta_strength":  ("📣 CTA Strength",   "#067934"),
-                "formatting":    ("🗂️ Formatting",     "#7A2607"),
-                "emotional_pull":("❤️ Emotional Pull", "#800830"),
-            }
-
-            dims = result.get("dimensions", {})
-            for dim_key, (dim_name, bar_color) in dim_labels.items():
-                dim_data = dims.get(dim_key, {})
-                s = dim_data.get("score", 0)
-                comment = dim_data.get("comment", "")
-                st.markdown(f"""
-                <div class="score-bar-wrap">
-                    <div class="score-bar-label">
-                        <span>{dim_name}</span>
-                        <span style="color:{bar_color}; font-weight:800;">{s}/100</span>
-                    </div>
-                    <div class="score-bar-bg">
-                        <div class="score-bar-fill" style="width:{s}%; background:{bar_color};"></div>
-                    </div>
-                    <div style="font-size:0.74rem; color:#666; margin-top:2px;">{comment}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-            st.markdown("</div>", unsafe_allow_html=True)
-
-            # Strength / Fix / Improved Hook
-            st.markdown("<br>", unsafe_allow_html=True)
-            c1, c2 = st.columns(2)
-            with c1:
-                st.success(f"✅ **What's working:** {result.get('top_strength', '')}")
-            with c2:
-                st.warning(f"🔧 **Top fix:** {result.get('top_fix', '')}")
-
-            improved_hook = result.get("improved_hook", "")
-            if improved_hook:
-                st.markdown("**✨ AI-Improved Opening Hook:**")
-                st.info(f'*"{improved_hook}"*')
-                copy_to_clipboard_button(improved_hook, "📋 Copy Improved Hook", key="hook_copy")
-
-        elif not analyze_btn:
-            st.markdown("""
-            <div style="text-align:center; padding:3rem 1rem; color:#aaa; border:2px dashed #D0E8FF; border-radius:12px; margin-top:0.5rem;">
-                <div style="font-size:2.5rem;">📊</div>
-                <div style="font-weight:600; color:#888; margin-top:0.5rem;">Your viral score will appear here</div>
-                <div style="font-size:0.8rem; margin-top:0.3rem;">Paste a post and click Analyze</div>
-            </div>
-            """, unsafe_allow_html=True)
+    with _hd3:
+        st.markdown("**🎯 Your Top Actions**")
+        _actions = []
+        if not _profile_ok:
+            _actions.append(("🔴", "**Complete your profile** in the sidebar — all AI output immediately improves"))
+        if _hooks_done == 0:
+            _actions.append(("🟠", "Run **Viral Hook Analyzer** on your best post to find what's working"))
+        if _posts_gen == 0:
+            _actions.append(("🟠", "Use **Post Generator** to create your first AI-powered LinkedIn post"))
+        if _avg_hook_score > 0 and _avg_hook_score < 60:
+            _actions.append(("🟡", "Hook scored below 60 — try one of the 5 power rewrites from the analyzer"))
+        if not _actions:
+            _actions.append(("🟢", "You're on track! Keep posting consistently — **3× per week** is the LinkedIn sweet spot"))
+            _actions.append(("🟢", "Use **Content Ideas** to fill your next 30 days of content in one click"))
+        for _dot, _action in _actions[:3]:
+            st.markdown(f"{_dot} {_action}")
 
     # Footer
     st.markdown("---")
@@ -1340,11 +1327,56 @@ def render_viral_hook_analyzer():
 
     st.markdown("---")
 
+    # ── Hook Formula Bank ─────────────────────────────────────────────────────
+    with st.expander("📖 Hook Formula Bank — 20 proven templates (click any to load into editor)"):
+        _HOOK_BANK = {
+            "🪤 Curiosity Gap": [
+                "Nobody talks about [X]. Here's what they're missing:",
+                "Most people think [common belief]. They're completely wrong.",
+                "I spent [X years] doing [Y] before I discovered this:",
+                "What [industry] won't tell you about [topic]:",
+            ],
+            "📊 Data & Stats": [
+                "[X]% of [target audience] fail at [Y]. Here's why:",
+                "I analyzed [X] [posts/profiles/companies]. This pattern shows up every time:",
+                "In [timeframe], I went from [bad state] to [good state]. The numbers:",
+            ],
+            "📖 Story Opening": [
+                "At [age], I [did something bold]. Nobody believed me.",
+                "[Year]. I had [nothing/everything]. Then [event] changed everything.",
+                "My [boss/mentor/client] told me I'd never [achieve X]. I proved them wrong.",
+            ],
+            "💥 Bold Claim": [
+                "[Popular advice] is terrible advice. Here's what actually works:",
+                "Stop doing [common thing]. It's silently killing your [career/results].",
+                "The [industry] is lying to you about [topic]. Here's the truth:",
+            ],
+            "❓ Question Hook": [
+                "What would you do if [challenging scenario]? Most people pick the wrong answer.",
+                "Can you spot the mistake in this [post/resume/strategy]?",
+                "How do the top [1%/performers] actually [achieve goal]? (Hint: not what you think.)",
+            ],
+        }
+        for _cat, _templates in _HOOK_BANK.items():
+            st.markdown(f"**{_cat}**")
+            for _tmpl in _templates:
+                _tc, _bc = st.columns([0.85, 0.15])
+                with _tc:
+                    st.markdown(
+                        f"<div style='font-size:0.83rem;color:#444;padding:3px 0;'>{_tmpl}</div>",
+                        unsafe_allow_html=True,
+                    )
+                with _bc:
+                    if st.button("Use ↗", key=f"hb_{abs(hash(_tmpl))}", help="Load into editor"):
+                        st.session_state["hook_analyzer_input"] = _tmpl
+                        st.rerun()
+            st.markdown("<div style='margin-bottom:0.3rem;'></div>", unsafe_allow_html=True)
+
+    # ── Input + Live Preview ────────────────────────────────────────────────
     if not st.session_state.get("gemini_api_key"):
         st.error("🔑 **Gemini API key required.** Add it in the sidebar to unlock Hook Analysis.")
         st.stop()
 
-    # ── Input + Live Preview ────────────────────────────────────────────────
     col_input, col_preview = st.columns([1.1, 0.9])
 
     with col_input:
@@ -1416,12 +1448,13 @@ def render_viral_hook_analyzer():
     # ── AI Analysis ─────────────────────────────────────────────────────────
     if analyze_btn and user_text.strip():
         with st.spinner("🔥 Analyzing across 5 LinkedIn dimensions…"):
-            prompt = f"""You are a world-class LinkedIn content strategist. Analyze the hook/opening of this post.
+            _profile_ctx = inject_profile_context()
+            prompt = f"""You are a world-class LinkedIn content strategist. Analyze the hook/opening of this post.{_profile_ctx}
 
-HOOK (first 210 chars):
+HOOK (first 210 chars — what LinkedIn shows before '…see more'):
 \"\"\"{user_text[:210].strip()}\"\"\"
 
-FULL POST (context):
+FULL POST (context only):
 \"\"\"{user_text}\"\"\"
 
 Return ONLY a JSON object — no markdown, no backticks, no preamble:
@@ -1722,24 +1755,53 @@ def render_post_library():
     st.markdown(f"**Showing {len(filtered)} of {total_count} posts**")
     st.markdown("---")
 
-    # ── Bulk export ───────────────────────────────────────────────────────────
-    with st.expander("📤 Export Options"):
-        ex1, ex2 = st.columns(2)
-        all_text = ("\n\n" + "═" * 60 + "\n\n").join(
-            f"[{p['created_at']}] {p['module']}\n\n{p['content']}" for p in filtered
-        )
-        with ex1:
-            st.download_button(
-                "⬇️ Download as .txt", data=all_text,
-                file_name=f"linkedin_posts_{datetime.now().strftime('%Y%m%d')}.txt",
-                mime="text/plain", use_container_width=True,
+    # ── Bulk export & backup ───────────────────────────────────────────────
+    with st.expander("📤 Export & Backup"):
+        _ex_tabs = st.tabs(["⬇️ Export Posts", "🔄 Import / Restore"])
+        with _ex_tabs[0]:
+            ex1, ex2 = st.columns(2)
+            all_text = ("\n\n" + "═" * 60 + "\n\n").join(
+                f"[{p['created_at']}] {p['module']}\n\n{p['content']}" for p in filtered
             )
-        with ex2:
-            st.download_button(
-                "⬇️ Download as .json", data=json.dumps(filtered, indent=2),
-                file_name=f"linkedin_posts_{datetime.now().strftime('%Y%m%d')}.json",
-                mime="application/json", use_container_width=True,
+            with ex1:
+                st.download_button(
+                    "⬇️ Download as .txt", data=all_text,
+                    file_name=f"linkedin_posts_{datetime.now().strftime('%Y%m%d')}.txt",
+                    mime="text/plain", use_container_width=True,
+                )
+            with ex2:
+                st.download_button(
+                    "⬇️ Download as .json", data=json.dumps(filtered, indent=2),
+                    file_name=f"linkedin_posts_{datetime.now().strftime('%Y%m%d')}.json",
+                    mime="application/json", use_container_width=True,
+                )
+            st.caption(f"Exporting {len(filtered)} post(s) matching current filters.")
+        with _ex_tabs[1]:
+            st.info(
+                "**Restore from a previous .json export:**\n\n"
+                "Paste the contents of your downloaded `.json` file below and click **Import**."
             )
+            _import_text = st.text_area("Paste JSON here", height=120, key="lib_import_json",
+                                        placeholder='[{"content": "...", "module": "...", ...}, ...]')
+            if st.button("📥 Import Posts", key="lib_import_btn", use_container_width=True):
+                try:
+                    _imported = json.loads(_import_text.strip())
+                    if not isinstance(_imported, list):
+                        st.error("Invalid format — expected a JSON array.")
+                    else:
+                        _count = 0
+                        for _item in _imported:
+                            _content = _item.get("content", "").strip()
+                            _module  = _item.get("module", "Imported")
+                            if _content:
+                                save_to_library(_content, _module,
+                                                score=_item.get("score", 0),
+                                                tags=_item.get("tags", []))
+                                _count += 1
+                        st.success(f"✅ Imported {_count} post(s) successfully!")
+                        st.rerun()
+                except json.JSONDecodeError:
+                    st.error("⚠️ Could not parse JSON. Make sure you pasted a valid .json export.")
 
     if not filtered:
         st.warning("No posts match your filters.")
@@ -1859,16 +1921,6 @@ def main():
         render_viral_hook_analyzer()
     elif selected_page == "📚 Post Library":
         render_post_library()
-    elif selected_page == "🗄️ Data Manager":
-        try:
-            dm = load_module("data_manager", "data_manager.py")
-            dm.render_data_manager()
-        except FileNotFoundError:
-            st.error("⚠️ `data_manager.py` not found. Make sure it exists in your project root.")
-        except Exception:
-            st.error("⚠️ Something went wrong loading the Data Manager.")
-            with st.expander("🔍 Details"):
-                st.code(traceback.format_exc())
     elif selected_page in MODULE_MAP:
         mod_name, mod_file, render_fn = MODULE_MAP[selected_page]
         try:
