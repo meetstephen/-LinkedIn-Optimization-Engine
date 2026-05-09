@@ -1753,29 +1753,31 @@ def render_post_library():
         st.metric("🏆 Most Used", stats["top_module"])
 
     st.markdown(f"**Showing {len(filtered)} of {total_count} posts**")
-    st.markdown("---")
 
-    # ── Bulk export & backup ───────────────────────────────────────────────
-    with st.expander("📤 Export & Backup"):
+    # ── Export & Backup — always visible, not conditional on posts existing ──
+    with st.expander("📤 Export & Backup", expanded=False):
         _ex_tabs = st.tabs(["⬇️ Export Posts", "🔄 Import / Restore"])
         with _ex_tabs[0]:
-            ex1, ex2 = st.columns(2)
-            all_text = ("\n\n" + "═" * 60 + "\n\n").join(
-                f"[{p['created_at']}] {p['module']}\n\n{p['content']}" for p in filtered
-            )
-            with ex1:
-                st.download_button(
-                    "⬇️ Download as .txt", data=all_text,
-                    file_name=f"linkedin_posts_{datetime.now().strftime('%Y%m%d')}.txt",
-                    mime="text/plain", use_container_width=True,
+            if filtered:
+                ex1, ex2 = st.columns(2)
+                all_text = ("\n\n" + "═" * 60 + "\n\n").join(
+                    f"[{p['created_at']}] {p['module']}\n\n{p['content']}" for p in filtered
                 )
-            with ex2:
-                st.download_button(
-                    "⬇️ Download as .json", data=json.dumps(filtered, indent=2),
-                    file_name=f"linkedin_posts_{datetime.now().strftime('%Y%m%d')}.json",
-                    mime="application/json", use_container_width=True,
-                )
-            st.caption(f"Exporting {len(filtered)} post(s) matching current filters.")
+                with ex1:
+                    st.download_button(
+                        "⬇️ Download as .txt", data=all_text,
+                        file_name=f"linkedin_posts_{datetime.now().strftime('%Y%m%d')}.txt",
+                        mime="text/plain", use_container_width=True,
+                    )
+                with ex2:
+                    st.download_button(
+                        "⬇️ Download as .json", data=json.dumps(filtered, indent=2),
+                        file_name=f"linkedin_posts_{datetime.now().strftime('%Y%m%d')}.json",
+                        mime="application/json", use_container_width=True,
+                    )
+                st.caption(f"Exporting {len(filtered)} post(s) matching current filters.")
+            else:
+                st.info("No posts to export yet. Generate some posts first!")
         with _ex_tabs[1]:
             st.info(
                 "**Restore from a previous .json export:**\n\n"
@@ -1802,6 +1804,8 @@ def render_post_library():
                         st.rerun()
                 except json.JSONDecodeError:
                     st.error("⚠️ Could not parse JSON. Make sure you pasted a valid .json export.")
+
+    st.markdown("---")
 
     if not filtered:
         st.warning("No posts match your filters.")
