@@ -62,6 +62,7 @@ def render_image_generator():
         "with Hugging Face as fallback."
     )
 
+    # ── API key status ─────────────────────────────────────────────────────
     stability_key = st.session_state.get("stability_api_key", "")
     hf_key        = st.session_state.get("hf_api_key", "")
 
@@ -83,44 +84,143 @@ def render_image_generator():
 
     st.markdown("---")
 
+    # ── Profile context ────────────────────────────────────────────────────
+    _p          = st.session_state.get("user_profile", {})
+    _industry   = _p.get("industry", "")
+    _role       = _p.get("role", "")
+    _audience   = _p.get("audience", "")
+
+    # Profile banner — shows the user their images will be industry-tailored
+    if _industry or _role:
+        _profile_hint = " · ".join(filter(None, [_role, _industry]))
+        st.info(
+            f"🎯 **Profile active:** Images will be styled for **{_profile_hint}** "
+            f"{'targeting ' + _audience if _audience else ''}. "
+            "Style is pre-selected based on your industry."
+        )
+
+    # ── Industry → best style mapping ─────────────────────────────────────
+    # Maps industry keywords to style preset keywords. Matches at runtime
+    # against whatever STYLE_PRESETS keys are defined in image_client.py.
+    _INDUSTRY_STYLE_MAP = {
+        "tech": ["digital", "futuristic", "minimal", "abstract", "corporate"],
+        "legal": ["corporate", "professional", "minimal", "clean", "formal"],
+        "finance": ["corporate", "professional", "minimal", "clean", "abstract"],
+        "marketing": ["creative", "vibrant", "bold", "colorful", "dynamic"],
+        "healthcare": ["clean", "minimal", "professional", "calm", "soft"],
+        "hr": ["warm", "people", "professional", "clean", "friendly"],
+        "sales": ["bold", "dynamic", "vibrant", "energetic", "corporate"],
+        "education": ["clean", "friendly", "bright", "minimal", "warm"],
+        "creative": ["artistic", "vibrant", "bold", "abstract", "colorful"],
+        "startup": ["modern", "bold", "dynamic", "minimal", "digital"],
+        "consulting": ["professional", "corporate", "clean", "minimal", "formal"],
+        "engineering": ["technical", "minimal", "clean", "digital", "abstract"],
+    }
+
+    def _best_style_for_industry(industry: str, style_keys: list) -> int:
+        """Return index of the best matching style preset for the user's industry."""
+        _ind_lower = industry.lower()
+        _keywords  = []
+        for _key, _words in _INDUSTRY_STYLE_MAP.items():
+            if _key in _ind_lower:
+                _keywords = _words
+                break
+        if not _keywords:
+            return 0
+        for _kw in _keywords:
+            for _i, _sk in enumerate(style_keys):
+                if _kw in _sk.lower():
+                    return _i
+        return 0
+
+    _style_keys    = list(STYLE_PRESETS.keys())
+    _style_default = _best_style_for_industry(_industry, _style_keys) if _industry else 0
+
+    # ── Pipeline: pick the best available post content ─────────────────────
+    # Priority: explicitly piped variation > last clean variation > raw last post
+    _piped_content = (
+        st.session_state.get("pg_var1")        # clean variation from Post Generator
+        or st.session_state.get("last_generated_post", "")
+    )
+    # Trim to 500 chars — image_client only needs the theme, not the full post
+    _piped_content = _piped_content[:500] if _piped_content else ""
+
+    # ── Input section ──────────────────────────────────────────────────────
     col1, col2 = st.columns([3, 2])
+
     with col1:
         post_content = st.text_area(
-            "📝 LinkedIn Post Content (for auto-prompt generation)",
-            value=(
-                st.session_state.get("last_generated_post", "")[:500]
-                if st.session_state.get("last_generated_post") else ""
-            ),
+            "📝 LinkedIn Post Content",
+            value=st.session_state.get("ig_post_content", _piped_content),
             placeholder=(
-                "Paste your LinkedIn post here — AI will extract the key theme "
-                "and create the perfect visual prompt.\n\n"
-                "Or use 'Custom Prompt' to write your own."
+                "Paste your LinkedIn post here — AI extracts the key theme "
+                "and builds the perfect visual prompt.\n\n"
+                "Tip: Send a post directly from Post Generator using '🎨 Make Visual'."
             ),
             height=150,
+            key="ig_post_content",
         )
+
+        # Profile-enriched prompt hint
+        if _industry and post_content.strip():
+            _profile_suffix = (
+                f", tailored for {_industry} professionals"
+                + (f" targeting {_audience}" if _audience else "")
+            )
+            st.caption(
+                f"💡 Profile context will enrich the image prompt with: "
+                f"**{_profile_suffix.strip(', ')}**"
+            )
 
     with col2:
         style = st.selectbox(
             "🎨 Visual Style",
-            list(STYLE_PRESETS.keys()),
+            _style_keys,
+            index=_style_default,
+            help="Auto-selected based on your profile industry. Change any time.",
         )
         st.caption(f"**Style:** {STYLE_PRESETS[style][:100]}...")
+
         use_custom_prompt = st.checkbox("✏️ Use Custom Prompt Instead")
         custom_prompt = ""
         if use_custom_prompt:
+            # Pre-seed custom prompt with profile context so the user
+            # gets a relevant starting point rather than a blank box
+            _custom_default = ""
+            if _industry or _role:
+                _custom_default = (
+                    f"Professional LinkedIn visual for a {_role or _industry} "
+                    f"{'in ' + _industry if _role and _industry else ''}. "
+                    f"{'Audience: ' + _audience + '. ' if _audience else ''}"
+                    "Style: "
+                )
             custom_prompt = st.text_area(
                 "Custom Prompt",
+                value=_custom_default,
                 placeholder="Describe your image in detail...",
                 height=100,
             )
 
+    # ── Auto-prompt preview ────────────────────────────────────────────────
     if post_content.strip() and not use_custom_prompt:
         with st.expander("👁️ Preview Auto-Generated Image Prompt", expanded=False):
-            st.code(build_image_prompt(post_content, style), language="text")
-            st.caption("Enable 'Use Custom Prompt' to override.")
+            # Enrich the preview with profile context
+            _enriched_content = post_content
+            if _industry or _audience:
+                _enriched_content += (
+                    f"\n\n[Context: {_industry or ''}"
+                    f"{' professional' if _industry else ''}"
+                    f"{', audience: ' + _audience if _audience else ''}]"
+                )
+            st.code(build_image_prompt(_enriched_content, style), language="text")
+            st.caption(
+                "Profile context has been added to sharpen the prompt. "
+                "Enable 'Use Custom Prompt' to fully override."
+            )
 
     st.markdown("---")
 
+    # ── Generation options ─────────────────────────────────────────────────
     col_opt1, col_opt2, col_opt3 = st.columns(3)
     with col_opt1:
         num_images = st.selectbox("🖼️ Number of Images", [1, 2, 3], index=0)
@@ -145,6 +245,13 @@ def render_image_generator():
             custom_prompt if (use_custom_prompt and custom_prompt.strip())
             else post_content
         )
+        # Append profile context to enrich the image prompt
+        if not use_custom_prompt and (_industry or _audience):
+            final_content += (
+                f"\n\n[Profile context: {_industry or ''}"
+                f"{' professional' if _industry else ''}"
+                f"{', audience: ' + _audience if _audience else ''}]"
+            )
         if not final_content.strip():
             st.error("Please provide post content or a custom prompt.")
             return
@@ -154,7 +261,7 @@ def render_image_generator():
         generated_images = []
 
         for i in range(num_images):
-            status_text.text(f"Generating image {i+1}/{num_images}...")
+            status_text.text(f"Generating image {i + 1}/{num_images}…")
             progress_bar.progress(i / num_images)
             try:
                 img_bytes, source, message = generate_image(
@@ -166,42 +273,69 @@ def render_image_generator():
                 if img_bytes:
                     generated_images.append((img_bytes, source, message))
                 else:
-                    st.error(f"Image {i+1} failed: {message}")
+                    st.error(f"Image {i + 1} failed: {message}")
             except Exception as e:
-                st.error(f"Unexpected error for image {i+1}: {e}")
+                st.error(f"Unexpected error for image {i + 1}: {e}")
 
         progress_bar.progress(1.0)
         status_text.empty()
         progress_bar.empty()
 
         if generated_images:
-            st.success(f"✅ {len(generated_images)} image(s) generated!")
+            # Persist as base64 so images survive reruns without re-generating
+            st.session_state["ig_generated"] = [
+                {
+                    "b64":     image_bytes_to_base64(img),
+                    "bytes":   img,
+                    "source":  src,
+                    "message": msg,
+                    "style":   style,
+                }
+                for img, src, msg in generated_images
+            ]
+            st.session_state["ig_style"] = style
 
-            if len(generated_images) == 1:
-                img_bytes, _, message = generated_images[0]
-                st.markdown(f"**Source:** {message}")
-                st.image(img_bytes, caption=f"LinkedIn Visual — {style}", use_column_width=True)
-                st.download_button(
-                    "📥 Download Image",
-                    data=img_bytes,
-                    file_name=f"linkedin_visual_{style.replace(' ','_').lower()}.png",
-                    mime="image/png",
-                    use_container_width=True,
-                )
-            else:
-                cols = st.columns(len(generated_images))
-                for idx, (img_bytes, _, message) in enumerate(generated_images):
-                    with cols[idx]:
-                        st.markdown(f"**Image {idx+1}**")
-                        st.image(img_bytes, caption=f"Variation {idx+1}", use_column_width=True)
-                        st.download_button(
-                            f"📥 Download {idx+1}",
-                            data=img_bytes,
-                            file_name=f"linkedin_visual_{idx+1}.png",
-                            mime="image/png",
-                            use_container_width=True,
-                            key=f"dl_{idx}",
-                        )
+    # ── Persistent output — always renders from session state ──────────────
+    _saved = st.session_state.get("ig_generated", [])
+    if _saved:
+        _saved_style = st.session_state.get("ig_style", style)
+        st.success(f"✅ {len(_saved)} image(s) generated!")
+
+        if len(_saved) == 1:
+            _img = _saved[0]
+            st.markdown(f"**Source:** {_img['message']}")
+            st.image(_img["bytes"], caption=f"LinkedIn Visual — {_saved_style}", use_column_width=True)
+            st.download_button(
+                "📥 Download Image",
+                data=_img["bytes"],
+                file_name=f"linkedin_visual_{_saved_style.replace(' ', '_').lower()}.png",
+                mime="image/png",
+                use_container_width=True,
+                key="dl_single",
+            )
+        else:
+            cols = st.columns(len(_saved))
+            for idx, _img in enumerate(_saved):
+                with cols[idx]:
+                    st.markdown(f"**Image {idx + 1}**")
+                    st.image(
+                        _img["bytes"],
+                        caption=f"Variation {idx + 1} — {_saved_style}",
+                        use_column_width=True,
+                    )
+                    st.download_button(
+                        f"📥 Download {idx + 1}",
+                        data=_img["bytes"],
+                        file_name=f"linkedin_visual_{idx + 1}_{_saved_style.replace(' ', '_').lower()}.png",
+                        mime="image/png",
+                        use_container_width=True,
+                        key=f"dl_{idx}",
+                    )
+
+        # Clear button so user can start fresh
+        if st.button("🔄 Generate New Images", key="ig_clear", use_container_width=False):
+            del st.session_state["ig_generated"]
+            st.rerun()
 
     st.markdown("---")
     with st.expander("💡 Tips for Better LinkedIn Visuals", expanded=False):
