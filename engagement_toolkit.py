@@ -3,7 +3,7 @@ Engagement Toolkit — Hook generator, CTA generator, hashtag optimizer,
 and posting time analyzer all in one.
 """
 import streamlit as st
-from utils.gemini_client import generate_text
+from utils.gemini_client import generate_text, get_profile_context
 
 
 POSTING_TIMES = {
@@ -41,7 +41,8 @@ NEVER use: "game-changer", "dive in", "leverage", "synergy", "I'm excited",
 
 
 def build_hooks_prompt(topic, tone, count):
-    return f"""You write LinkedIn hooks the way a great headline writer works — every word earns its place, and the reader has no choice but to keep reading.
+    profile_ctx = get_profile_context()
+    return f"""You write LinkedIn hooks the way a great headline writer works — every word earns its place, and the reader has no choice but to keep reading.{profile_ctx}
 
 Write {count} hooks for this topic: {topic}
 Tone: {tone}
@@ -66,7 +67,8 @@ Number them 1 through {count}.
 
 
 def build_cta_prompt(post_context, cta_goal):
-    return f"""You write CTAs for LinkedIn posts that feel like a natural end to the conversation — not a sales pitch, not a desperate ask.
+    profile_ctx = get_profile_context()
+    return f"""You write CTAs for LinkedIn posts that feel like a natural end to the conversation — not a sales pitch, not a desperate ask.{profile_ctx}
 
 Post context: {post_context}
 Goal: {cta_goal}
@@ -101,7 +103,8 @@ Rules:
 
 
 def build_hashtag_prompt(post_content, industry):
-    return f"""You know how LinkedIn hashtags actually work — not in theory, in practice. Most people either use 30 generic ones or none at all. You find the specific combination that puts a post in front of the right people.
+    profile_ctx = get_profile_context()
+    return f"""You know how LinkedIn hashtags actually work — not in theory, in practice. Most people either use 30 generic ones or none at all. You find the specific combination that puts a post in front of the right people.{profile_ctx}
 
 Post: {post_content}
 Industry: {industry}
