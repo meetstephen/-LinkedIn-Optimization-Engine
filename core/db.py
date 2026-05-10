@@ -1,193 +1,171 @@
 """
-core/db.py — SQLite + SQLAlchemy persistence layer for the Post Library.
+core/db.py — Supabase persistence layer for LinkedBoost AI.
 
-Tables
-------
-posts : id, user_id, content, module, score, tags (JSON), created_at, starred
+Replaces SQLite with Supabase Postgres so that:
+  • Data survives every app reboot, sleep cycle, and redeploy
+  • Each user's posts and profile are fully isolated by user_id
 
-User isolation strategy (no auth):
-  • user_id = SHA-256(api_key)[:16]  when a Gemini key is present
-  • user_id = "anon_<session_uuid>"   otherwise
-  Both values are stored in session_state["user_id"] by core.state.init_session_state().
+Tables (lb_ prefix — no conflict with LexiAssist):
+  lb_posts    : id, user_id, content, module, score, tags, created_at, starred
+  lb_profiles : user_id (PK), name, headline, role, industry, audience,
+                content_pillars, tone, voice_sample, updated_at
 
-Usage
------
-    from core.db import save_post, get_posts, delete_post, toggle_star, get_stats
+Required in .streamlit/secrets.toml:
+  SUPABASE_URL = "https://muywyqrcogqprziijugl.supabase.co"
+  SUPABASE_KEY = "<your-anon-public-key>"
+
+Public API (identical to old SQLite version — all callers unchanged):
+  save_post, get_posts, delete_post, toggle_star, get_stats
+  save_profile (NEW), load_profile (NEW)
 """
-
 from __future__ import annotations
 
 import json
-import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 import streamlit as st
-from sqlalchemy import create_engine, text
-
-# ── Database path ──────────────────────────────────────────────────────────────
-DB_PATH = os.environ.get("LINKEDIN_DB_PATH", "linkedin_engine.db")
 
 
-# ── Engine (cached once per server process) ────────────────────────────────────
 @st.cache_resource
-def _get_engine():
-    engine = create_engine(
-        f"sqlite:///{DB_PATH}",
-        connect_args={"check_same_thread": False},
-        pool_pre_ping=True,
-    )
-    _create_tables(engine)
-    return engine
+def _get_client():
+    try:
+        from supabase import create_client
+    except ImportError:
+        raise RuntimeError("Add 'supabase' to requirements.txt and redeploy.")
+    url = st.secrets.get("SUPABASE_URL", "")
+    key = st.secrets.get("SUPABASE_KEY", "")
+    if not url or not key:
+        raise RuntimeError("SUPABASE_URL and SUPABASE_KEY missing from secrets.toml")
+    return create_client(url, key)
 
 
-def _create_tables(engine) -> None:
-    with engine.begin() as conn:
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS posts (
-                id          INTEGER PRIMARY KEY,
-                user_id     TEXT    NOT NULL DEFAULT 'default',
-                content     TEXT    NOT NULL,
-                module      TEXT    NOT NULL,
-                score       INTEGER NOT NULL DEFAULT 0,
-                tags        TEXT    NOT NULL DEFAULT '[]',
-                created_at  TEXT    NOT NULL,
-                starred     INTEGER NOT NULL DEFAULT 0
-            )
-        """))
-        # Migration: add user_id column if it was missing from an older DB
-        try:
-            conn.execute(text("ALTER TABLE posts ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default'"))
-        except Exception:
-            pass  # column already exists
-
-
-# ── Helpers ────────────────────────────────────────────────────────────────────
 def _user_id() -> str:
-    """Return the current session's user identifier."""
     return st.session_state.get("user_id", "default")
 
 
+def _now() -> str:
+    return datetime.now().strftime("%b %d, %Y · %I:%M %p")
+
+
 def _row_to_dict(row: dict) -> dict:
+    tags = row.get("tags", "[]")
+    if isinstance(tags, str):
+        try:
+            tags = json.loads(tags)
+        except Exception:
+            tags = []
     return {
         "id":         row["id"],
         "content":    row["content"],
         "module":     row["module"],
         "score":      row.get("score", 0),
-        "tags":       json.loads(row.get("tags", "[]")),
+        "tags":       tags,
         "created_at": row["created_at"],
-        "starred":    bool(row.get("starred", 0)),
+        "starred":    bool(row.get("starred", False)),
     }
 
 
-# ── Public API ─────────────────────────────────────────────────────────────────
-
-def save_post(
-    content: str,
-    module: str,
-    score: int = 0,
-    tags: Optional[list] = None,
-) -> dict:
-    """Persist a new post and return it as a dict."""
-    engine  = _get_engine()
+def save_post(content: str, module: str, score: int = 0, tags: Optional[list] = None) -> dict:
+    client  = _get_client()
     post_id = int(time.time() * 1000)
-    created = datetime.now().strftime("%b %d, %Y · %I:%M %p")
     row = {
-        "id":         post_id,
-        "user_id":    _user_id(),
-        "content":    content.strip(),
-        "module":     module,
-        "score":      score,
-        "tags":       json.dumps(tags or []),
-        "created_at": created,
-        "starred":    0,
+        "id": post_id, "user_id": _user_id(), "content": content.strip(),
+        "module": module, "score": score,
+        "tags": json.dumps(tags or []), "created_at": _now(), "starred": False,
     }
-    with engine.begin() as conn:
-        conn.execute(text("""
-            INSERT INTO posts (id, user_id, content, module, score, tags, created_at, starred)
-            VALUES (:id, :user_id, :content, :module, :score, :tags, :created_at, :starred)
-        """), row)
+    client.table("lb_posts").insert(row).execute()
     return _row_to_dict(row)
 
 
-def get_posts(
-    search: str = "",
-    module: str = "",
-    sort: str = "newest",
-) -> list[dict]:
-    """Fetch and filter posts for the current user."""
-    engine = _get_engine()
-    with engine.connect() as conn:
-        rows = conn.execute(
-            text("SELECT * FROM posts WHERE user_id = :uid ORDER BY id DESC"),
-            {"uid": _user_id()},
-        ).fetchall()
-
-    posts = [_row_to_dict(dict(r._mapping)) for r in rows]
-
+def get_posts(search: str = "", module: str = "", sort: str = "newest") -> list[dict]:
+    client = _get_client()
+    resp   = client.table("lb_posts").select("*").eq("user_id", _user_id()).order("id", desc=True).execute()
+    posts  = [_row_to_dict(r) for r in (resp.data or [])]
     if search:
         needle = search.lower()
-        posts = [p for p in posts if needle in p["content"].lower()]
-
+        posts  = [p for p in posts if needle in p["content"].lower()]
     if module and module not in ("", "All Modules"):
         posts = [p for p in posts if p["module"] == module]
-
-    if sort == "oldest":
-        posts = list(reversed(posts))
-    elif sort == "score":
-        posts = sorted(posts, key=lambda x: x.get("score", 0), reverse=True)
-    elif sort == "starred":
-        posts = [p for p in posts if p.get("starred")]
-
+    if sort == "oldest":       posts = list(reversed(posts))
+    elif sort == "score":      posts = sorted(posts, key=lambda x: x.get("score", 0), reverse=True)
+    elif sort == "starred":    posts = [p for p in posts if p.get("starred")]
     return posts
 
 
 def delete_post(post_id: int) -> None:
-    """Hard-delete a post by id (for the current user)."""
-    engine = _get_engine()
-    with engine.begin() as conn:
-        conn.execute(
-            text("DELETE FROM posts WHERE id = :id AND user_id = :uid"),
-            {"id": post_id, "uid": _user_id()},
-        )
+    client = _get_client()
+    client.table("lb_posts").delete().eq("id", post_id).eq("user_id", _user_id()).execute()
 
 
 def toggle_star(post_id: int) -> bool:
-    """Flip the starred flag; return the new value."""
-    engine = _get_engine()
-    with engine.connect() as conn:
-        result = conn.execute(
-            text("SELECT starred FROM posts WHERE id = :id AND user_id = :uid"),
-            {"id": post_id, "uid": _user_id()},
-        ).fetchone()
-    if result is None:
+    client = _get_client()
+    uid    = _user_id()
+    resp   = client.table("lb_posts").select("starred").eq("id", post_id).eq("user_id", uid).execute()
+    if not resp.data:
         return False
-    new_val = 0 if result[0] else 1
-    with engine.begin() as conn:
-        conn.execute(
-            text("UPDATE posts SET starred = :val WHERE id = :id AND user_id = :uid"),
-            {"val": new_val, "id": post_id, "uid": _user_id()},
-        )
-    return bool(new_val)
+    new_val = not bool(resp.data[0].get("starred", False))
+    client.table("lb_posts").update({"starred": new_val}).eq("id", post_id).eq("user_id", uid).execute()
+    return new_val
 
 
 def get_stats() -> dict:
-    """Return aggregate stats for the current user's library."""
-    engine = _get_engine()
-    uid = _user_id()
-    with engine.connect() as conn:
-        total   = conn.execute(text("SELECT COUNT(*) FROM posts WHERE user_id=:uid"), {"uid": uid}).scalar() or 0
-        starred = conn.execute(text("SELECT COUNT(*) FROM posts WHERE user_id=:uid AND starred=1"), {"uid": uid}).scalar() or 0
-        scored  = conn.execute(text("SELECT score FROM posts WHERE user_id=:uid AND score > 0"), {"uid": uid}).fetchall()
-        top_mod = conn.execute(text(
-            "SELECT module, COUNT(*) AS cnt FROM posts WHERE user_id=:uid GROUP BY module ORDER BY cnt DESC LIMIT 1"
-        ), {"uid": uid}).fetchone()
+    client = _get_client()
+    resp   = client.table("lb_posts").select("score, starred, module").eq("user_id", _user_id()).execute()
+    rows   = resp.data or []
+    total  = len(rows)
+    starred= sum(1 for r in rows if r.get("starred"))
+    scores = [r["score"] for r in rows if r.get("score", 0) > 0]
+    avg_score = (sum(scores) // len(scores)) if scores else 0
+    counts: dict[str, int] = {}
+    for r in rows:
+        m = r.get("module", ""); counts[m] = counts.get(m, 0) + 1
+    top = max(counts, key=counts.get) if counts else "—"
+    return {"total": total, "starred": starred, "avg_score": avg_score,
+            "top_module": top.split()[-1] if top != "—" else "—"}
 
-    avg_score = (sum(r[0] for r in scored) // len(scored)) if scored else 0
-    return {
-        "total":      int(total),
-        "starred":    int(starred),
-        "avg_score":  avg_score,
-        "top_module": (top_mod[0].split()[-1] if top_mod else "—"),
+
+def save_profile(profile: dict) -> None:
+    """Upsert user profile to Supabase. Survives all reboots."""
+    client = _get_client()
+    row = {
+        "user_id":         _user_id(),
+        "name":            profile.get("name", ""),
+        "headline":        profile.get("headline", ""),
+        "role":            profile.get("role", ""),
+        "industry":        profile.get("industry", ""),
+        "audience":        profile.get("audience", ""),
+        "content_pillars": json.dumps(profile.get("content_pillars", [])),
+        "tone":            profile.get("tone", "Professional & Authoritative"),
+        "voice_sample":    profile.get("voice_sample", ""),
+        "updated_at":      datetime.now(timezone.utc).isoformat(),
     }
+    client.table("lb_profiles").upsert(row, on_conflict="user_id").execute()
+
+
+def load_profile() -> dict:
+    """Load profile from Supabase on startup. Returns empty dict if none found."""
+    _empty = {
+        "name": "", "headline": "", "role": "", "industry": "", "audience": "",
+        "content_pillars": [], "tone": "Professional & Authoritative", "voice_sample": "",
+    }
+    try:
+        client = _get_client()
+        resp   = client.table("lb_profiles").select("*").eq("user_id", _user_id()).limit(1).execute()
+        if not resp.data:
+            return _empty
+        row     = resp.data[0]
+        pillars = row.get("content_pillars", "[]")
+        if isinstance(pillars, str):
+            try: pillars = json.loads(pillars)
+            except: pillars = []
+        return {
+            "name": row.get("name",""), "headline": row.get("headline",""),
+            "role": row.get("role",""), "industry": row.get("industry",""),
+            "audience": row.get("audience",""), "content_pillars": pillars,
+            "tone": row.get("tone","Professional & Authoritative"),
+            "voice_sample": row.get("voice_sample",""),
+        }
+    except Exception:
+        return _empty
