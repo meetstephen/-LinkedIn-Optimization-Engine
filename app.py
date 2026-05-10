@@ -916,16 +916,23 @@ def render_sidebar():
             )
             st.caption("* Required for personalised AI output")
             if st.button("💾 Save Profile", key="sp_save", use_container_width=True):
-                st.session_state["user_profile"] = {
-                    "name": _name.strip(),
-                    "headline": _headline.strip(),
-                    "role": _role.strip(),
-                    "industry": _industry.strip(),
-                    "audience": _audience.strip(),
+                _new_profile = {
+                    "name":            _name.strip(),
+                    "headline":        _headline.strip(),
+                    "role":            _role.strip(),
+                    "industry":        _industry.strip(),
+                    "audience":        _audience.strip(),
                     "content_pillars": [x.strip() for x in _pillars_raw.split(",") if x.strip()],
-                    "tone": _tone,
-                    "voice_sample": _voice.strip(),
+                    "tone":            _tone,
+                    "voice_sample":    _voice.strip(),
                 }
+                st.session_state["user_profile"] = _new_profile
+                # Persist to Supabase so profile survives refresh & reboot
+                try:
+                    if _CORE_AVAILABLE:
+                        _db.save_profile(_new_profile)
+                except Exception:
+                    pass   # Silently degrade — profile still works in-session
                 st.rerun()
         if _profile_complete:
             _role_short = _p.get("role", "")[:32]
