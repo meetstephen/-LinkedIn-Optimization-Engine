@@ -1,15 +1,107 @@
-name: Keep LinkedEdge Awake
+name: Keep LinkedBoost Awake
 
 on:
   schedule:
-    # Runs every 6 hours at minute 12 (avoids top-of-hour GitHub traffic spikes)
-    - cron: '12 */6 * * *'
-  workflow_dispatch: # Lets you trigger it manually from GitHub to test
+    # Every 10 min — Streamlit Cloud sleeps after ~10 min idle.
+    # 144 runs/day stays well within GitHub's 2,000 free minutes/month.
+    - cron: '*/10 * * * *'
+  workflow_dispatch:   # Keep this — lets you test manually from GitHub UI
 
 jobs:
-  ping-app:
+  ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 5   # Kill the job if something hangs — don't waste minutes
+
     steps:
-      - name: Ping LinkedEdge
+      # ── No checkout needed — script runs inline ──────────────────────────
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Puppeteer
+        run: npm install puppeteer@22 --silent
+
+      - name: Wake app with real browser
+        id: browser_ping
         run: |
-          curl -I https://linkededge-ai.streamlit.app
+          node << 'EOF'
+          const puppeteer = require('puppeteer');
+          (async () => {
+            const browser = await puppeteer.launch({
+              headless: 'new',
+              args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu'
+              ]
+            });
+            try {
+              const page = await browser.newPage();
+
+              // Mimic a real browser so Streamlit Cloud doesn't block bots
+              await page.setUserAgent(
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ' +
+                'AppleWebKit/537.36 (KHTML, like Gecko) ' +
+                'Chrome/124.0.0.0 Safari/537.36'
+              );
+
+              const url = process.env.APP_URL;
+              console.log(`[${new Date().toISOString()}] Pinging: ${url}`);
+
+              const response = await page.goto(url, {
+                waitUntil: 'networkidle2',  // Wait until network is quiet
+                timeout: 60000
+              });
+
+              console.log(`HTTP Status : ${response.status()}`);
+
+              // Give Streamlit time to fully hydrate
+              await new Promise(r => setTimeout(r, 6000));
+
+              const title   = await page.title();
+              const content = await page.content();
+
+              console.log(`Page title  : ${title}`);
+
+              // Streamlit injects 'stApp' into the DOM — reliable health signal
+              if (content.includes('stApp') || content.includes('streamlit')) {
+                console.log('✅ App is alive — Streamlit loaded successfully');
+              } else if (response.status() === 200) {
+                console.log('⚠️  Got 200 but Streamlit may still be waking up — this is normal on cold start');
+              } else {
+                console.error(`❌ Unexpected status: ${response.status()}`);
+                process.exit(1);
+              }
+
+            } catch (err) {
+              console.error(`❌ Browser error: ${err.message}`);
+              process.exit(1);
+            } finally {
+              await browser.close();
+            }
+          })();
+          EOF
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+
+      # ── Fallback: if Puppeteer fails for any reason, curl as backup ──────
+      - name: Fallback curl ping
+        if: failure() && steps.browser_ping.outcome == 'failure'
+        run: |
+          echo "Puppeteer failed — trying curl fallback..."
+          curl -L \
+            --max-time 45 \
+            --retry 2 \
+            --retry-delay 5 \
+            -A "Mozilla/5.0 LinkedBoostKeepAlive/1.0" \
+            -H "Accept: text/html" \
+            "${{ secrets.APP_URL }}" \
+            -o /dev/null \
+            -w "HTTP Status: %{http_code} | Time: %{time_total}s\n" \
+          && echo "✅ Curl fallback succeeded" \
+          || echo "⚠️  App may be cold-starting — it will be ready on the next ping"
+        # Don't fail the job on curl fallback — cold starts are normal
+        continue-on-error: true
