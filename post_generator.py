@@ -358,28 +358,46 @@ def render_post_generator():
 
         with st.spinner("Writing your posts..."):
             try:
+                import re as _re
+
                 prompt = build_post_prompt(topic, niche, tone, framework, audience)
                 result = generate_text(prompt, temperature=0.88)
 
-                # Parse and persist variations so pipeline buttons survive reruns
-                var1 = var2 = analysis = ""
-                parts = result.split("---")
-                for part in parts:
-                    part = part.strip()
-                    if part.startswith("VARIATION 1"):
-                        var1 = part.replace("VARIATION 1", "").strip()
-                    elif part.startswith("VARIATION 2"):
-                        var2 = part.replace("VARIATION 2", "").strip()
-                    elif part.startswith("ANALYSIS"):
-                        analysis = part.replace("ANALYSIS", "").strip()
+                # ── Robust regex parser ────────────────────────────────────
+                # The prompt uses ---VARIATION 1--- / ---VARIATION 2--- /
+                # ---ANALYSIS--- as section delimiters.  Splitting on "---"
+                # puts each label and its content in *separate* chunks, so a
+                # simple split+startswith parser always yields empty strings.
+                # Regex with look-ahead correctly captures every section body.
+                # ──────────────────────────────────────────────────────────
+                def _extract(pattern: str) -> str:
+                    m = _re.search(pattern, result, _re.DOTALL | _re.IGNORECASE)
+                    return m.group(1).strip() if m else ""
 
-                st.session_state["pg_var1"]     = var1
-                st.session_state["pg_var2"]     = var2
-                st.session_state["pg_analysis"] = analysis
+                var1     = _extract(r"-+\s*VARIATION\s*1\s*-+(.*?)(?=-+\s*VARIATION\s*2|-+\s*ANALYSIS|$)")
+                var2     = _extract(r"-+\s*VARIATION\s*2\s*-+(.*?)(?=-+\s*ANALYSIS|$)")
+                analysis = _extract(r"-+\s*ANALYSIS\s*-+(.*?)$")
+
+                # ── Fallback: if AI ignored delimiters, split on blank lines ──
+                # Some models return "Variation 1:\n...\nVariation 2:\n..." instead.
+                if not var1 and not var2:
+                    var1 = _extract(r"(?:variation\s*1[:\s]*)(.*?)(?=variation\s*2|analysis|$)")
+                    var2 = _extract(r"(?:variation\s*2[:\s]*)(.*?)(?=analysis|$)")
+
+                # ── Last resort: treat the whole response as one variation ──
+                if not var1 and result.strip():
+                    var1 = result.strip()
+
+                st.session_state["pg_var1"]             = var1
+                st.session_state["pg_var2"]             = var2
+                st.session_state["pg_analysis"]         = analysis
                 st.session_state["last_generated_post"] = result
 
             except Exception as e:
                 st.error(f"Generation failed: {str(e)}")
+                with st.expander("🔍 Error details"):
+                    import traceback as _tb
+                    st.code(_tb.format_exc())
 
     # ── Persistent output — renders after generation and survives button reruns ──
     var1     = st.session_state.get("pg_var1", "")
