@@ -679,6 +679,185 @@ st.markdown("""
     [data-testid="stSidebar"] li {
         color: white !important;
     }
+
+    /* ══════════════════════════════════════════════
+       MOBILE RESPONSIVENESS — stack columns on small screens
+    ══════════════════════════════════════════════ */
+    @media (max-width: 768px) {
+        /* Stack Streamlit columns vertically on mobile */
+        [data-testid="stHorizontalBlock"] {
+            flex-direction: column !important;
+        }
+        [data-testid="column"] {
+            width: 100% !important;
+            flex: 0 0 100% !important;
+            min-width: 100% !important;
+        }
+        /* Shrink the hero heading on mobile */
+        .main-header h1 { font-size: 1.5rem !important; }
+        .main-header p  { font-size: 0.9rem !important; }
+        /* Tighten padding on mobile */
+        .main-header { padding: 1.2rem !important; }
+        .block-container { padding: 0.8rem !important; }
+        /* Carousel slides stack nicely */
+        .carousel-slide { margin-bottom: 1rem; }
+        /* Dimension score cards on mobile */
+        .viral-panel { padding: 0.9rem; }
+    }
+
+    /* ── WAT Clock / Posting Time Badge ── */
+    .wat-badge {
+        background: linear-gradient(135deg, #004182, #0A66C2);
+        color: white;
+        border-radius: 10px;
+        padding: 0.8rem 1rem;
+        font-size: 0.82rem;
+        margin-top: 0.5rem;
+        text-align: center;
+    }
+    .wat-badge .wat-time {
+        font-size: 1.4rem;
+        font-weight: 900;
+        letter-spacing: 1px;
+    }
+    .wat-badge .wat-label {
+        font-size: 0.65rem;
+        opacity: 0.75;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+    }
+    .wat-window {
+        background: #F8FBFF;
+        border: 1.5px solid #C7D9F5;
+        border-radius: 12px;
+        padding: 1rem 1.2rem;
+        margin: 0.5rem 0;
+    }
+    .wat-window .slot {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+        border-bottom: 1px solid #E1E9F5;
+        font-size: 0.85rem;
+    }
+    .wat-window .slot:last-child { border-bottom: none; }
+    .wat-window .slot .day { font-weight: 700; color: #0A66C2; }
+    .wat-window .slot .time-range { color: #444; }
+    .wat-window .slot .reach-badge {
+        background: #EAF4FF; color: #0A66C2;
+        padding: 2px 8px; border-radius: 8px;
+        font-size: 0.72rem; font-weight: 700;
+    }
+    .wat-window .slot .reach-badge.hot {
+        background: #FFF0EA; color: #FF6B35;
+    }
+
+    /* ── Onboarding Wizard ── */
+    .onboarding-wrap {
+        background: linear-gradient(135deg, #EAF4FF 0%, #F0F7FF 100%);
+        border: 2px solid #B3D4F0;
+        border-radius: 16px;
+        padding: 1.8rem;
+        margin-bottom: 2rem;
+    }
+    .onboarding-step {
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        padding: 1rem 0;
+        border-bottom: 1px solid #D0E8FF;
+    }
+    .onboarding-step:last-child { border-bottom: none; padding-bottom: 0; }
+    .step-circle {
+        width: 36px; height: 36px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #0A66C2, #004182);
+        color: white;
+        font-weight: 900;
+        font-size: 1rem;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+        box-shadow: 0 2px 8px rgba(10,102,194,0.3);
+    }
+    .step-circle.done { background: linear-gradient(135deg, #00c851, #009d3e); }
+    .step-body h4 { margin: 0 0 4px; color: #0A66C2; font-size: 0.95rem; }
+    .step-body p  { margin: 0; color: #555; font-size: 0.82rem; }
+
+    /* ── Nigerian Mode Badge ── */
+    .ng-badge {
+        display: inline-flex; align-items: center; gap: 5px;
+        background: rgba(0,200,81,0.12);
+        border: 1px solid rgba(0,200,81,0.35);
+        color: #009d3e;
+        border-radius: 20px;
+        padding: 3px 10px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+    }
+
+    /* ══════════════════════════════════════════════
+       CAROUSEL PLANNER
+    ══════════════════════════════════════════════ */
+    .carousel-slide-preview {
+        background: white;
+        border: 2px solid #0A66C2;
+        border-radius: 14px;
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 4px 16px rgba(10,102,194,0.12);
+        position: relative;
+        overflow: hidden;
+    }
+    .carousel-slide-preview .slide-number {
+        position: absolute;
+        top: 10px; right: 14px;
+        font-size: 0.7rem;
+        color: #aaa;
+        font-weight: 700;
+    }
+    .carousel-slide-preview .slide-title {
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: #0A66C2;
+        margin-bottom: 0.5rem;
+        line-height: 1.3;
+    }
+    .carousel-slide-preview .slide-body {
+        font-size: 0.82rem;
+        color: #333;
+        line-height: 1.5;
+    }
+    .carousel-slide-preview .slide-swipe {
+        position: absolute;
+        bottom: 10px;
+        font-size: 0.68rem;
+        color: #aaa;
+        letter-spacing: 0.5px;
+    }
+    .carousel-nav-dots {
+        display: flex;
+        justify-content: center;
+        gap: 6px;
+        margin: 0.5rem 0;
+    }
+    .carousel-nav-dots .dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: #C7D9F5;
+    }
+    .carousel-nav-dots .dot.active {
+        background: #0A66C2;
+        width: 20px;
+        border-radius: 4px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -768,11 +947,40 @@ def inject_profile_context() -> str:
     )
     if not parts:
         return ""
-    return (
+
+    base = (
         "\n\nUSER PROFILE — tailor ALL output specifically and concretely to this person. "
         "Use their industry, role, and audience in every example and suggestion:\n"
         + "\n".join(parts)
     )
+
+    # ── Nigerian Professional Voice Mode ──────────────────────────────────────
+    if st.session_state.get("nigerian_mode", False):
+        base += """
+
+NIGERIAN PROFESSIONAL VOICE MODE — ACTIVE:
+You are writing for a Nigerian LinkedIn professional audience. Apply ALL of the following:
+
+1. CULTURAL TONE: Warm, confident, community-oriented. Nigerian professionals value earned respect,
+   resilience narratives, and collective uplift — not just personal wins.
+2. LOCAL CONTEXT: Reference Nigerian business realities naturally — NAIRA pricing, Lagos traffic
+   hustle, Abuja government contracting dynamics, power supply constraints, fintech disruption
+   (e.g. Flutterwave, Paystack, Moniepoint), and telco penetration.
+3. NIGERIAN INDUSTRIES: Ground examples in: fintech/banking, legal practice, oil & gas,
+   agribusiness, real estate, healthcare, education-tech, government/civil service, media.
+4. INSTITUTIONS: Reference where relevant — NCC, CBN, CAC, NBA (Nigerian Bar Association),
+   SEC, NAFDAC, EFCC, Lagos State Government, federal MDAs.
+5. UNIVERSITIES & CREDENTIALS: Mention Nigerian universities (UNILAG, OAU, Unilorin, ABSU)
+   and professional certifications (ICAN, CIBN, NIM, CISA-NG, SAN) where fitting.
+6. LANGUAGE FLAVOUR: Posts should FEEL written by a Nigerian professional — not a Silicon Valley
+   content team. Use occasional Pidgin-inflected phrasing where culturally appropriate (e.g.
+   "e no easy" in a story hook, "we move" as a CTA) — but keep it professional overall.
+7. WAT TIME AWARENESS: Posting time advice must be in West Africa Time (WAT, UTC+1).
+   Best windows for Nigerian LinkedIn: Tue & Thu 7-9am WAT, Wed 12-2pm WAT, Fri 6-8pm WAT.
+8. AVOID: Silicon Valley jargon ("disrupting", "10x your growth"), dollar-centric examples,
+   US-centric statistics or cultural references as primary examples."""
+
+    return base
 
 
 # ─────────────────────────────────────────────
@@ -819,6 +1027,10 @@ def init_session_state():
             "tone": "Professional & Authoritative",
             "voice_sample": "",
         },
+        # ── New v2.1 state ──────────────────────────────────────────────────
+        "nigerian_mode":       True,   # ON by default for Nigerian audience
+        "onboarding_complete": False,  # show 3-step wizard until dismissed
+        "carousel_slides":     [],     # [{title, body, emoji}]
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -855,6 +1067,7 @@ def render_sidebar():
             "🧠 Strategy Insights",
             "🎨 Image Generator",
             "⚡ Engagement Toolkit",
+            "🎠 Carousel Planner",
             "📚 Post Library",
         ]
         selected_page = st.radio(
@@ -885,8 +1098,24 @@ def render_sidebar():
                 "Current Role *", value=_p.get("role", ""),
                 placeholder="e.g. Product Manager at Fintech", key="sp_role",
             )
+            # ── Nigerian Industry Quickfill ────────────────────────────────
+            NG_INDUSTRIES = [
+                "Legal Practice (Nigeria)", "Fintech / Banking", "Oil & Gas",
+                "Agribusiness", "Real Estate", "Healthcare", "EdTech",
+                "Government / Civil Service", "Media & Communications", "Consulting",
+            ]
+            st.caption("🇳🇬 Quick-fill your industry:")
+            _qf_cols = st.columns(2)
+            for _qi, _qind in enumerate(NG_INDUSTRIES[:8]):
+                with _qf_cols[_qi % 2]:
+                    if st.button(_qind, key=f"qf_{_qi}", use_container_width=True):
+                        st.session_state["_qf_industry"] = _qind
+                        st.rerun()
+            # Apply quickfill if triggered
+            _qf_val = st.session_state.pop("_qf_industry", None)
+            _industry_default = _qf_val if _qf_val else _p.get("industry", "")
             _industry = st.text_input(
-                "Industry / Niche *", value=_p.get("industry", ""),
+                "Industry / Niche *", value=_industry_default,
                 placeholder="e.g. Legal Tech, SaaS, Finance", key="sp_industry",
             )
             _audience = st.text_input(
@@ -943,6 +1172,67 @@ def render_sidebar():
                 f"{'<br>🏭 ' + _ind_short if _ind_short else ''}</div>",
                 unsafe_allow_html=True,
             )
+
+        st.markdown("<hr style='border-color:rgba(255,255,255,0.2);'>", unsafe_allow_html=True)
+
+        # ── 🇳🇬 Nigerian Professional Voice Mode ─────────────────────────
+        st.markdown("**🇳🇬 Nigerian Voice Mode**")
+        _ng_on = st.toggle(
+            "Activate Nigerian Context",
+            value=st.session_state.get("nigerian_mode", True),
+            key="ng_mode_toggle",
+            help="Makes all AI output sound like it was written by a Nigerian professional — Lagos culture, naira context, local institutions, WAT posting times.",
+        )
+        st.session_state["nigerian_mode"] = _ng_on
+        if _ng_on:
+            st.markdown(
+                "<div style='font-size:0.7rem;color:rgba(255,255,255,0.75);margin-top:-4px;'>"
+                "🟢 Active — AI uses Lagos business culture, WAT times & Nigerian context"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                "<div style='font-size:0.7rem;color:rgba(255,255,255,0.55);margin-top:-4px;'>"
+                "⚪ Off — Generic global English mode"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("<hr style='border-color:rgba(255,255,255,0.2);'>", unsafe_allow_html=True)
+
+        # ── ⏰ WAT Posting Schedule ────────────────────────────────────────
+        st.markdown("**⏰ Best Time to Post (WAT)**")
+        from datetime import timezone, timedelta
+        _wat_now = datetime.now(timezone(timedelta(hours=1)))
+        _wat_str = _wat_now.strftime("%I:%M %p")
+        _wat_day = _wat_now.strftime("%A")
+        st.markdown(
+            f"<div class='wat-badge'>"
+            f"<div class='wat-label'>Current WAT Time</div>"
+            f"<div class='wat-time'>{_wat_str}</div>"
+            f"<div class='wat-label'>{_wat_day}</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        _WAT_SLOTS = [
+            ("Tue & Thu", "7:00 – 9:00 AM", "🔥 Peak"),
+            ("Wednesday", "12:00 – 2:00 PM", "🔥 Peak"),
+            ("Mon & Fri", "8:00 – 10:00 AM", "Good"),
+            ("Friday",    "6:00 – 8:00 PM",  "Good"),
+            ("Weekend",   "10:00 AM – 12 PM", "Moderate"),
+        ]
+        _slot_html = "".join(
+            f"<div class='slot'><span class='day'>{d}</span>"
+            f"<span class='time-range'>{t}</span>"
+            f"<span class='reach-badge{' hot' if 'Peak' in r else ''}'>{r}</span></div>"
+            for d, t, r in _WAT_SLOTS
+        )
+        st.markdown(
+            f"<div class='wat-window'>{_slot_html}</div>",
+            unsafe_allow_html=True,
+        )
+        st.caption("⏰ All times in West Africa Time (WAT, UTC+1)")
 
         st.markdown("<hr style='border-color:rgba(255,255,255,0.2);'>", unsafe_allow_html=True)
 
@@ -1089,9 +1379,11 @@ def render_sidebar():
 def render_home():
     """Renders the home/landing page."""
     # Hero section
-    st.markdown("""
+    _ng_active = st.session_state.get("nigerian_mode", False)
+    _ng_suffix  = " — 🇳🇬 Nigerian Voice Active" if _ng_active else ""
+    st.markdown(f"""
     <div class="main-header">
-        <div class="v-badge">v2.0 · Production Ready</div>
+        <div class="v-badge">v2.1 · Production Ready{_ng_suffix}</div>
         <div style="font-size:3rem;font-weight:900;letter-spacing:-1px;color:white;line-height:1.05;margin:0.4rem 0 0.1rem;text-shadow:0 2px 12px rgba(0,0,0,0.2);">
             ⚡ Linked<span style="color:#7DD3FC;text-shadow:0 0 30px rgba(125,211,252,0.6);">Edge</span>
         </div>
@@ -1099,6 +1391,62 @@ def render_home():
         <p>AI-powered toolkit to transform your LinkedIn presence from beginner to thought leader</p>
     </div>
     """, unsafe_allow_html=True)
+
+    # ── 3-Step Onboarding Wizard (shown until dismissed) ─────────────────
+    if not st.session_state.get("onboarding_complete", False):
+        _p_ob = st.session_state.get("user_profile", {})
+        _step1_done = bool(_p_ob.get("role") and _p_ob.get("industry"))
+        _step2_done = st.session_state.get("session_posts_generated", 0) > 0
+        _step3_done = st.session_state.get("hooks_analyzed", 0) > 0
+
+        def _step_circle(done: bool, num: int) -> str:
+            cls = "done" if done else ""
+            icon = "✓" if done else str(num)
+            return f"<div class='step-circle {cls}'>{icon}</div>"
+
+        st.markdown(f"""
+        <div class="onboarding-wrap">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem;">
+                <div>
+                    <h3 style="margin:0;color:#0A66C2;">👋 Welcome to LinkedEdge</h3>
+                    <p style="margin:4px 0 0;color:#555;font-size:0.85rem;">
+                        Complete these 3 steps to unlock personalised AI output for your profile.
+                    </p>
+                </div>
+            </div>
+            <div class="onboarding-step">
+                {_step_circle(_step1_done, 1)}
+                <div class="step-body">
+                    <h4>{'✅ ' if _step1_done else ''}Set Up Your Profile</h4>
+                    <p>Open the sidebar → <strong>Your Profile</strong>. Add your role, industry and audience.
+                    Every AI module will instantly personalise output to you.</p>
+                </div>
+            </div>
+            <div class="onboarding-step">
+                {_step_circle(_step2_done, 2)}
+                <div class="step-body">
+                    <h4>{'✅ ' if _step2_done else ''}Generate Your First Post</h4>
+                    <p>Go to <strong>🚀 Post Generator</strong> and create your first AI-powered LinkedIn post.
+                    It auto-saves to your Post Library.</p>
+                </div>
+            </div>
+            <div class="onboarding-step">
+                {_step_circle(_step3_done, 3)}
+                <div class="step-body">
+                    <h4>{'✅ ' if _step3_done else ''}Analyse Your Hook</h4>
+                    <p>Go to <strong>🔥 Viral Hook Analyzer</strong>. 90% of LinkedIn reach is won or lost
+                    in your first 2 lines. Score and rewrite yours.</p>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if _step1_done and _step2_done and _step3_done:
+            if st.button("🎉 All steps done! Dismiss onboarding", type="primary", key="dismiss_onboarding"):
+                st.session_state["onboarding_complete"] = True
+                st.rerun()
+        else:
+            st.caption("Complete all 3 steps to dismiss this guide. You can always find it by refreshing the page.")
 
     # ── Resume session banner (shown only when library has posts) ─────────
     library = st.session_state.get("post_library", [])
@@ -1116,22 +1464,19 @@ def render_home():
         </div>
         """, unsafe_allow_html=True)
 
-    # Stats row
-    col1, col2, col3, col4 = st.columns(4)
-    stats = [
-        ("10", "Powerful Modules"),
-        ("∞",  "Post Variations"),
-        ("100","Profile Score"),
-        ("3",  "AI APIs"),
-    ]
-    for col, (number, label) in zip([col1, col2, col3, col4], stats):
-        with col:
-            st.markdown(f"""
-            <div class="stat-card">
-                <div class="number">{number}</div>
-                <div class="label">{label}</div>
-            </div>
-            """, unsafe_allow_html=True)
+    # Stats row — responsive HTML grid (safe on mobile, no st.columns collapse)
+    st.markdown("""
+<style>
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.2rem;}
+@media(max-width:768px){.stat-grid{grid-template-columns:repeat(2,1fr);}}
+</style>
+<div class="stat-grid">
+    <div class="stat-card"><div class="number">11</div><div class="label">Powerful Modules</div></div>
+    <div class="stat-card"><div class="number">∞</div><div class="label">Post Variations</div></div>
+    <div class="stat-card"><div class="number">100</div><div class="label">Profile Score</div></div>
+    <div class="stat-card"><div class="number">3</div><div class="label">AI APIs</div></div>
+</div>
+""", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -1149,7 +1494,8 @@ def render_home():
         ("\U0001f4a1", "Content Ideas",       "Generate a full content calendar with hooks, angles, and hashtags", False),
         ("\U0001f9e0", "Strategy Insights",   "Reverse-engineered playbooks from top LinkedIn creators", False),
         ("\U0001f3a8", "Image Generator",     "AI-generated professional visuals using SDXL and Hugging Face", False),
-        ("\u26a1", "Engagement Toolkit",      "Hooks, CTAs, hashtag optimizer, and perfect posting times", False),
+        ("\u26a1", "Engagement Toolkit",      "Hooks, CTAs, hashtag optimizer, and WAT-aware posting times", False),
+        ("\U0001f3a0", "Carousel Planner",    "Slide-by-slide text planner for LinkedIn carousels — 3&times; more reach than text posts", True),
         ("\U0001f4da", "Post Library",        "Every generated post auto-saved &mdash; search, star, filter, and export", True),
     ]
 
@@ -1183,48 +1529,52 @@ def render_home():
 """, unsafe_allow_html=True)
 
 
-    # Getting started guide
+    # Getting started guide — responsive HTML grid (no st.columns collapse on mobile)
     st.markdown("---")
     st.markdown("### 🏁 Getting Started in 3 Steps")
-
-    step1, step2, step3 = st.columns(3)
-    with step1:
-        st.markdown("""
-        **Step 1: Configure API Keys** 🔑
-        
-        Open the sidebar → **Configure API Keys**:
-        - **Gemini API** (required for all text features): Free at [aistudio.google.com](https://aistudio.google.com)
-        - **Stability AI** (for image generation): Free tier at [platform.stability.ai](https://platform.stability.ai)
-        - **Hugging Face** (fallback images): Free at [huggingface.co](https://huggingface.co/settings/tokens)
-
-        *Pro tip: set `GEMINI_API_KEY` as an env variable and it loads automatically.*
-        """)
-
-    with step2:
-        st.markdown("""
-        **Step 2: Analyze Your Hooks** 🔥
-
-        Start with **Viral Hook Analyzer** (new!):
-        - Paste any post you've written
-        - Get a live hook score (0–100) across 5 dimensions
-        - Receive 5 power-rewritten alternatives
-        - Preview exactly how it looks on mobile
-
-        *90% of LinkedIn reach is won or lost in the first 2 lines.*
-        """)
-
-    with step3:
-        st.markdown("""
-        **Step 3: Create Consistent Content** 🚀
-        
-        Use **Content Ideas** to fill your content calendar, then:
-        - **Post Generator** to write each post
-        - **Image Generator** to create visuals
-        - **Engagement Toolkit** for hooks, CTAs, hashtags
-        - **Post Library** → everything auto-saved for you
-        
-        Post consistently 3× per week for best results!
-        """)
+    st.markdown("""
+<style>
+.gs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;}
+@media(max-width:768px){.gs-grid{grid-template-columns:1fr;}}
+.gs-card{background:#F8FBFF;border:1.5px solid #C7D9F5;border-radius:12px;padding:1.4rem;}
+.gs-card h4{color:#0A66C2;margin:0 0 0.5rem;font-size:0.95rem;}
+.gs-card p,.gs-card li{color:#444;font-size:0.83rem;line-height:1.6;}
+</style>
+<div class="gs-grid">
+<div class="gs-card">
+  <h4>Step 1: Configure API Keys 🔑</h4>
+  <p>Open the sidebar → <strong>Configure API Keys</strong>:</p>
+  <ul>
+    <li><strong>Gemini API</strong> (required): Free at aistudio.google.com</li>
+    <li><strong>Stability AI</strong> (images): platform.stability.ai</li>
+    <li><strong>Hugging Face</strong> (fallback): huggingface.co</li>
+  </ul>
+  <p><em>Pro tip: set GEMINI_API_KEY as an env variable — it loads automatically.</em></p>
+</div>
+<div class="gs-card">
+  <h4>Step 2: Analyse Your Hooks 🔥</h4>
+  <p>Start with <strong>Viral Hook Analyzer</strong>:</p>
+  <ul>
+    <li>Paste any post you've written</li>
+    <li>Get a live hook score (0–100) across 5 dimensions</li>
+    <li>Receive 5 power-rewritten alternatives</li>
+    <li>Preview exactly how it looks on mobile</li>
+  </ul>
+  <p><em>90% of LinkedIn reach is won or lost in the first 2 lines.</em></p>
+</div>
+<div class="gs-card">
+  <h4>Step 3: Create Consistent Content 🚀</h4>
+  <p>Use <strong>Content Ideas</strong> to fill your calendar, then:</p>
+  <ul>
+    <li><strong>Post Generator</strong> to write each post</li>
+    <li><strong>Carousel Planner</strong> for 3× reach slides</li>
+    <li><strong>Engagement Toolkit</strong> for hooks, CTAs, hashtags</li>
+    <li><strong>Post Library</strong> — everything auto-saved</li>
+  </ul>
+  <p>Post consistently <strong>3× per week</strong> for best results!</p>
+</div>
+</div>
+""", unsafe_allow_html=True)
 
     st.markdown("---")
     st.info("👈 **Select a module from the sidebar to get started.** Your profile is now active — every module uses it to personalise AI output for your role and industry.")
@@ -1905,6 +2255,254 @@ def render_post_library():
 
 
 # ─────────────────────────────────────────────
+# 🎠 CAROUSEL PLANNER — Slide-by-slide text planner
+#
+# LinkedIn carousels (PDFs) get 3× more reach than text posts.
+# This module lets users plan each slide's title + body, preview
+# them in a LinkedIn-style card, and generate AI-written content.
+# ─────────────────────────────────────────────
+def render_carousel_planner():
+    st.markdown("""
+    <div class="main-header">
+        <div class="v-badge">3× More Reach Than Text Posts</div>
+        <h1>🎠 LinkedIn Carousel Planner</h1>
+        <p>Plan your carousel slide-by-slide, preview each frame, and generate AI copy — ready to turn into a PDF</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Education strip
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.info("**📊 Why Carousels?**\n\nLinkedIn carousels (multi-image PDFs) generate 3× more impressions than plain text. Each swipe is a dwell signal that the algorithm loves.")
+    with c2:
+        st.warning("**🎯 Best Carousel Structure**\n\nSlide 1: Bold hook claim. Slides 2–8: One insight each. Final slide: CTA + your offer. 6–10 slides is the sweet spot.")
+    with c3:
+        st.success("**🇳🇬 Nigerian Carousel Themes That Work**\n\nLegal rights explainers, fintech guides, hustle-to-success stories, 'X things I learnt' frameworks, and sector breakdowns.")
+
+    st.markdown("---")
+
+    if not st.session_state.get("gemini_api_key"):
+        st.error("🔑 **Gemini API key required.** Add it in the sidebar to enable AI slide generation.")
+        st.stop()
+
+    # ── AI Topic Generator ────────────────────────────────────────────────
+    with st.expander("🤖 Generate Carousel with AI", expanded=True):
+        ai_topic = st.text_input(
+            "Carousel topic",
+            placeholder="e.g. '5 rights every Nigerian employee must know' or 'How Paystack changed Nigerian fintech'",
+            key="carousel_ai_topic",
+        )
+        ai_slides_count = st.slider("Number of slides", 4, 12, 7, key="carousel_slide_count")
+        ai_col1, ai_col2 = st.columns(2)
+        with ai_col1:
+            carousel_tone = st.selectbox(
+                "Tone", ["Educational & Clear", "Inspirational", "Bold & Direct",
+                         "Story-Driven", "Data-Led"], key="carousel_tone"
+            )
+        with ai_col2:
+            carousel_cta = st.text_input(
+                "CTA (last slide)", placeholder="e.g. Follow me for more | DM me 'LEGAL' for a free consult",
+                key="carousel_cta"
+            )
+
+        if st.button("🤖 Generate Carousel Slides", type="primary",
+                     disabled=not bool(ai_topic.strip()), key="carousel_gen_btn", use_container_width=True):
+            _profile_ctx = inject_profile_context()
+            prompt = f"""You are a world-class LinkedIn carousel content strategist.{_profile_ctx}
+
+Create a {ai_slides_count}-slide LinkedIn carousel on: "{ai_topic}"
+Tone: {carousel_tone}
+Final slide CTA: {carousel_cta or 'Follow me for more insights like this.'}
+
+Return ONLY a JSON array — no markdown, no backticks, no preamble:
+[
+  {{"slide": 1, "emoji": "🎯", "title": "<hook title ≤8 words>", "body": "<body text ≤40 words — punchy, single idea>"}},
+  ...
+  {{"slide": {ai_slides_count}, "emoji": "👇", "title": "<CTA title>", "body": "<CTA body with the specified CTA>"}}
+]
+
+Rules:
+- Slide 1: Bold hook claim or curiosity-gap statement that makes people swipe
+- Middle slides: ONE clear insight per slide — no padding
+- Each title ≤8 words, each body ≤40 words
+- Body text should feel written by a human professional, not a bot
+- Last slide: compelling CTA with clear next action"""
+
+            with st.spinner("🎠 Building your carousel…"):
+                try:
+                    if _CORE_AVAILABLE:
+                        slides_data = _ai.generate_json(
+                            prompt,
+                            st.session_state["gemini_api_key"],
+                            model=st.session_state.get("gemini_model", "gemini-2.5-flash"),
+                            temperature=0.7,
+                            max_tokens=2000,
+                        )
+                        if isinstance(slides_data, dict):
+                            slides_data = list(slides_data.values())[0]
+                    else:
+                        from google import genai as _genai
+                        from google.genai import types as _gtypes
+                        _c = _genai.Client(api_key=st.session_state["gemini_api_key"])
+                        _res = _c.models.generate_content(
+                            model=st.session_state.get("gemini_model", "gemini-2.5-flash"),
+                            contents=prompt,
+                            config=_gtypes.GenerateContentConfig(temperature=0.7, max_output_tokens=2000),
+                        )
+                        raw = _res.text.strip()
+                        if raw.startswith("```"):
+                            raw = raw.split("```")[1]
+                            if raw.startswith("json"): raw = raw[4:]
+                        slides_data = json.loads(raw.strip())
+
+                    if isinstance(slides_data, list) and slides_data:
+                        st.session_state["carousel_slides"] = [
+                            {
+                                "title": s.get("title", f"Slide {s.get('slide', i+1)}"),
+                                "body":  s.get("body", ""),
+                                "emoji": s.get("emoji", "📌"),
+                            }
+                            for i, s in enumerate(slides_data)
+                        ]
+                        st.success(f"✅ {len(slides_data)} slides generated! Scroll down to preview and edit.")
+                        st.rerun()
+                    else:
+                        st.error("⚠️ AI returned an unexpected format. Try again.")
+                except Exception:
+                    st.error("⚠️ Generation failed. Please try again.")
+                    with st.expander("🔍 Details"):
+                        st.code(traceback.format_exc())
+
+    # ── Manual Slide Editor ───────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### ✏️ Slide Editor & Preview")
+
+    slides = st.session_state.get("carousel_slides", [])
+
+    # Add / remove buttons
+    ctrl_c1, ctrl_c2, ctrl_c3 = st.columns([1, 1, 2])
+    with ctrl_c1:
+        if st.button("➕ Add Slide", key="carousel_add", use_container_width=True):
+            st.session_state["carousel_slides"].append(
+                {"title": f"Slide {len(slides)+1}", "body": "", "emoji": "📌"}
+            )
+            st.rerun()
+    with ctrl_c2:
+        if slides and st.button("➖ Remove Last", key="carousel_del", use_container_width=True):
+            st.session_state["carousel_slides"].pop()
+            st.rerun()
+    with ctrl_c3:
+        if slides:
+            # Export all slides as plain text
+            _export_text = "\n\n".join(
+                f"── SLIDE {i+1} ──\n{s['emoji']} {s['title']}\n\n{s['body']}"
+                for i, s in enumerate(slides)
+            )
+            st.download_button(
+                "⬇️ Export All Slides (.txt)",
+                data=_export_text,
+                file_name=f"carousel_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                mime="text/plain",
+                use_container_width=True,
+                key="carousel_export",
+            )
+
+    if not slides:
+        st.markdown("""
+        <div style="text-align:center; padding:3rem 1rem; color:#aaa;
+                    border:2px dashed #D0E8FF; border-radius:12px; margin-top:1rem;">
+            <div style="font-size:2.5rem;">🎠</div>
+            <div style="font-weight:600; color:#888; margin-top:0.5rem;">No slides yet</div>
+            <div style="font-size:0.8rem; margin-top:0.3rem;">Use AI to generate or click ➕ Add Slide to start manually</div>
+        </div>
+        """, unsafe_allow_html=True)
+        return
+
+    # Navigation dot indicator
+    _dot_html = "".join(
+        f"<div class='dot{'  active' if i == 0 else ''}'></div>" for i in range(len(slides))
+    )
+    st.markdown(
+        f"<div class='carousel-nav-dots'>{_dot_html}</div>",
+        unsafe_allow_html=True,
+    )
+    st.caption(f"📎 {len(slides)} slides — swipe indicator shown above")
+
+    # ── Slide cards: editor on left, preview on right ─────────────────────
+    for i, slide in enumerate(slides):
+        st.markdown(f"<div style='margin-top:1.2rem;'>", unsafe_allow_html=True)
+        ed_col, pv_col = st.columns([1.1, 0.9])
+
+        with ed_col:
+            st.markdown(f"**Slide {i+1}**")
+            new_emoji = st.text_input(
+                "Emoji", value=slide.get("emoji", "📌"),
+                key=f"cs_emoji_{i}", max_chars=4,
+            )
+            new_title = st.text_input(
+                "Title (≤8 words)", value=slide.get("title", ""),
+                placeholder=f"Slide {i+1} headline…", key=f"cs_title_{i}",
+            )
+            new_body = st.text_area(
+                "Body (≤40 words)", value=slide.get("body", ""),
+                height=100, placeholder="One clear insight per slide…",
+                key=f"cs_body_{i}",
+            )
+            # Persist edits back to session state immediately
+            st.session_state["carousel_slides"][i] = {
+                "emoji": new_emoji, "title": new_title, "body": new_body
+            }
+            _body_words = len(new_body.split()) if new_body.strip() else 0
+            if _body_words > 40:
+                st.warning(f"⚠️ {_body_words} words — aim for ≤40 for best readability")
+            else:
+                st.caption(f"✅ {_body_words}/40 words")
+
+        with pv_col:
+            st.markdown("**Preview**")
+            _swipe_hint = "Swipe →" if i < len(slides) - 1 else "Last slide"
+            st.markdown(f"""
+            <div class="carousel-slide-preview">
+                <div class="slide-number">{i+1} / {len(slides)}</div>
+                <div style="font-size:2rem;margin-bottom:0.4rem;">{new_emoji or '📌'}</div>
+                <div class="slide-title">{new_title or 'Your title here'}</div>
+                <div class="slide-body">{(new_body or 'Your insight here…').replace(chr(10), '<br>')}</div>
+                <div class="slide-swipe">{_swipe_hint}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            if st.button(f"💾 Save Slide {i+1} to Library", key=f"carousel_save_{i}"):
+                _slide_content = f"[Carousel Slide {i+1}/{len(slides)}]\n\n{new_emoji} {new_title}\n\n{new_body}"
+                save_to_library(_slide_content, "🎠 Carousel Planner",
+                                tags=["carousel", f"slide-{i+1}"])
+                st.success("✅ Saved to Post Library!")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("<hr style='margin:0.8rem 0; border-color:#f0f0f0;'>", unsafe_allow_html=True)
+
+    # Save all slides at once
+    st.markdown("---")
+    if st.button("💾 Save Full Carousel to Post Library", type="primary",
+                 use_container_width=True, key="carousel_save_all"):
+        full_text = f"[LinkedIn Carousel — {len(slides)} slides]\n\n" + "\n\n".join(
+            f"── Slide {i+1} ──\n{s['emoji']} {s['title']}\n\n{s['body']}"
+            for i, s in enumerate(slides)
+        )
+        save_to_library(full_text, "🎠 Carousel Planner",
+                        tags=["carousel", "full-carousel"])
+        st.success(f"✅ Full {len(slides)}-slide carousel saved to Post Library!")
+
+    # Footer
+    st.markdown("---")
+    st.markdown("""
+    <div class="footer">
+        Built with ❤️ using Streamlit · Gemini AI · Stability AI (SDXL) · Hugging Face<br>
+        <em>Not affiliated with LinkedIn. No scraping. All content is AI-generated.</em>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────
 # MAIN APP ROUTER
 # ─────────────────────────────────────────────
 def main():
@@ -1930,6 +2528,8 @@ def main():
         render_home()
     elif selected_page == "🔥 Viral Hook Analyzer":
         render_viral_hook_analyzer()
+    elif selected_page == "🎠 Carousel Planner":
+        render_carousel_planner()
     elif selected_page == "📚 Post Library":
         render_post_library()
     elif selected_page in MODULE_MAP:
