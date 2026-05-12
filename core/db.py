@@ -126,30 +126,43 @@ def get_stats() -> dict:
             "top_module": top.split()[-1] if top != "—" else "—"}
 
 
-def save_profile(profile: dict) -> None:
-    """Upsert user profile to Supabase. Survives all reboots."""
+def save_profile(profile: dict, onboarding_complete: bool = False, nigerian_mode: bool = True) -> None:
+    """Upsert user profile + preferences to Supabase. Survives all reboots."""
     client = _get_client()
     row = {
-        "user_id":         _user_id(),
-        "name":            profile.get("name", ""),
-        "headline":        profile.get("headline", ""),
-        "role":            profile.get("role", ""),
-        "industry":        profile.get("industry", ""),
-        "audience":        profile.get("audience", ""),
-        "content_pillars": json.dumps(profile.get("content_pillars", [])),
-        "tone":            profile.get("tone", "Professional & Authoritative"),
-        "voice_sample":    profile.get("voice_sample", ""),
-        "updated_at":      datetime.now(timezone.utc).isoformat(),
+        "user_id":             _user_id(),
+        "name":                profile.get("name", ""),
+        "headline":            profile.get("headline", ""),
+        "role":                profile.get("role", ""),
+        "industry":            profile.get("industry", ""),
+        "audience":            profile.get("audience", ""),
+        "content_pillars":     json.dumps(profile.get("content_pillars", [])),
+        "tone":                profile.get("tone", "Professional & Authoritative"),
+        "voice_sample":        profile.get("voice_sample", ""),
+        "onboarding_complete": onboarding_complete,
+        "nigerian_mode":       nigerian_mode,
+        "updated_at":          datetime.now(timezone.utc).isoformat(),
     }
     client.table("lb_profiles").upsert(row, on_conflict="user_id").execute()
 
 
 def load_profile() -> dict:
-    """Load profile from Supabase on startup. Returns empty dict if none found."""
-    _empty = {
+    """
+    Load profile + preferences from Supabase on startup.
+    Returns a structured dict:
+      {
+        "profile": { name, headline, role, ... },
+        "onboarding_complete": bool,
+        "nigerian_mode": bool,
+      }
+    Returns safe empty defaults if no row found or Supabase is unavailable.
+    """
+    _empty_profile = {
         "name": "", "headline": "", "role": "", "industry": "", "audience": "",
         "content_pillars": [], "tone": "Professional & Authoritative", "voice_sample": "",
     }
+    _empty = {"profile": _empty_profile, "onboarding_complete": False, "nigerian_mode": True}
+
     try:
         client = _get_client()
         resp   = client.table("lb_profiles").select("*").eq("user_id", _user_id()).limit(1).execute()
@@ -158,14 +171,23 @@ def load_profile() -> dict:
         row     = resp.data[0]
         pillars = row.get("content_pillars", "[]")
         if isinstance(pillars, str):
-            try: pillars = json.loads(pillars)
+            try:    pillars = json.loads(pillars)
             except: pillars = []
+
+        profile = {
+            "name":            row.get("name", ""),
+            "headline":        row.get("headline", ""),
+            "role":            row.get("role", ""),
+            "industry":        row.get("industry", ""),
+            "audience":        row.get("audience", ""),
+            "content_pillars": pillars,
+            "tone":            row.get("tone", "Professional & Authoritative"),
+            "voice_sample":    row.get("voice_sample", ""),
+        }
         return {
-            "name": row.get("name",""), "headline": row.get("headline",""),
-            "role": row.get("role",""), "industry": row.get("industry",""),
-            "audience": row.get("audience",""), "content_pillars": pillars,
-            "tone": row.get("tone","Professional & Authoritative"),
-            "voice_sample": row.get("voice_sample",""),
+            "profile":             profile,
+            "onboarding_complete": bool(row.get("onboarding_complete", False)),
+            "nigerian_mode":       bool(row.get("nigerian_mode", True)),
         }
     except Exception:
         return _empty
