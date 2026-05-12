@@ -1159,7 +1159,11 @@ def render_sidebar():
                 # Persist to Supabase so profile survives refresh & reboot
                 try:
                     if _CORE_AVAILABLE:
-                        _db.save_profile(_new_profile)
+                        _db.save_profile(
+                            _new_profile,
+                            onboarding_complete=st.session_state.get("onboarding_complete", False),
+                            nigerian_mode=st.session_state.get("nigerian_mode", True),
+                        )
                 except Exception:
                     pass   # Silently degrade — profile still works in-session
                 st.rerun()
@@ -1184,6 +1188,16 @@ def render_sidebar():
             help="Makes all AI output sound like it was written by a Nigerian professional — Lagos culture, naira context, local institutions, WAT posting times.",
         )
         st.session_state["nigerian_mode"] = _ng_on
+        # Persist preference immediately so it survives reboots
+        try:
+            if _CORE_AVAILABLE and st.session_state.get("user_profile", {}).get("role"):
+                _db.save_profile(
+                    st.session_state["user_profile"],
+                    onboarding_complete=st.session_state.get("onboarding_complete", False),
+                    nigerian_mode=_ng_on,
+                )
+        except Exception:
+            pass
         if _ng_on:
             st.markdown(
                 "<div style='font-size:0.7rem;color:rgba(255,255,255,0.75);margin-top:-4px;'>"
@@ -1444,6 +1458,16 @@ def render_home():
         if _step1_done and _step2_done and _step3_done:
             if st.button("🎉 All steps done! Dismiss onboarding", type="primary", key="dismiss_onboarding"):
                 st.session_state["onboarding_complete"] = True
+                # Persist so it never shows again after reboot
+                try:
+                    if _CORE_AVAILABLE:
+                        _db.save_profile(
+                            st.session_state.get("user_profile", {}),
+                            onboarding_complete=True,
+                            nigerian_mode=st.session_state.get("nigerian_mode", True),
+                        )
+                except Exception:
+                    pass
                 st.rerun()
         else:
             st.caption("Complete all 3 steps to dismiss this guide. You can always find it by refreshing the page.")
