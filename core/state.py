@@ -54,31 +54,41 @@ def _derive_user_id(api_key: str) -> str:
 
 def _ensure_user_id() -> str:
     """
-    Derive a stable user_id WITHOUT using the shared/pre-filled secrets key.
+    Derive a STABLE user_id that survives reboots and page refreshes.
 
-    Logic:
-      1. If a user_id already exists in session_state, keep it (avoids re-deriving mid-session).
-      2. If the user has manually entered a key that differs from the secrets key, use that hash.
-      3. Otherwise mint a fresh anonymous UUID for this browser session.
+    Priority order:
+      1. Already set this session and not anonymous  → keep it (never re-derive mid-session).
+      2. User entered their OWN Gemini key (≠ shared secrets key) → SHA-256(their_key)[:16].
+      3. No personal key entered → SHA-256(SUPABASE_URL)[:16] as the stable owner identity.
 
-    This ensures two different users both relying on the same pre-filled shared key
-    get different session identities until they each enter their own key.
+    WHY #3 matters: the shared GEMINI_API_KEY from st.secrets pre-fills the sidebar input,
+    so entered_key == shared_key for most users of a single-owner deployment. The old code
+    fell through to uuid.uuid4() — a NEW random ID every reboot — so the profile saved under
+    session A was invisible to session B. Using the Supabase URL as the stable seed gives the
+    app owner a consistent identity across every reboot without exposing the API key.
     """
-    # Keep whatever was already set this session
+    # Keep whatever was already set this session (and is stable, non-anonymous)
     existing = st.session_state.get("user_id", "")
     if existing and not existing.startswith("anon_"):
-        return existing   # already a keyed user — don't re-derive
+        return existing
 
-    # Check if user has entered a key that is NOT the shared secrets key
-    entered_key  = st.session_state.get("gemini_api_key", "")
-    shared_key   = get_secret("GEMINI_API_KEY")
-    user_has_own_key = entered_key and entered_key != shared_key
+    entered_key = st.session_state.get("gemini_api_key", "")
+    shared_key  = get_secret("GEMINI_API_KEY")
+    user_has_own_key = bool(entered_key and entered_key != shared_key)
 
     if user_has_own_key:
+        # Visitor/user with their own API key → unique stable ID per person
         uid = _derive_user_id(entered_key)
     else:
-        # Use / mint an anonymous UUID — stable within this browser session
-        uid = st.session_state.get("user_id") or f"anon_{uuid.uuid4().hex[:12]}"
+        # App owner (or anyone using the shared pre-filled key) → stable owner ID.
+        # Use SUPABASE_URL as seed: it never changes between reboots.
+        # Fall back to shared_key hash, then a literal constant — always stable.
+        stable_seed = (
+            get_secret("SUPABASE_URL")
+            or shared_key
+            or "linkedboost_owner"
+        )
+        uid = _derive_user_id(stable_seed)
 
     st.session_state["user_id"] = uid
     return uid
@@ -88,23 +98,32 @@ def _ensure_user_id() -> str:
 
 def _load_profile_once() -> None:
     """
-    Load the user's saved profile from Supabase exactly once per session.
-    Sets session_state['user_profile'] so every module gets personalised output
-    immediately — even after a full page refresh or app reboot.
-    Skips if profile is already in memory (idempotent).
+    Load the user's saved profile AND preferences from Supabase exactly once per session.
+    Sets session_state['user_profile'], ['onboarding_complete'], ['nigerian_mode'] so every
+    module gets personalised output immediately — even after a full page refresh or reboot.
+    Skips if already loaded this session (idempotent).
     """
     if st.session_state.get("_profile_loaded"):
         return   # already loaded this session — don't hit Supabase again
 
     try:
         from core import db as _db
-        profile = _db.load_profile()
+        data = _db.load_profile()
+
+        profile = data.get("profile", {})
         if profile.get("role") or profile.get("name"):
             # Only restore if there's real data — don't overwrite a just-set profile
             if not st.session_state.get("user_profile", {}).get("role"):
                 st.session_state["user_profile"] = profile
+
+        # Always restore persisted preferences (even if empty profile)
+        if "onboarding_complete" in data:
+            st.session_state["onboarding_complete"] = data["onboarding_complete"]
+        if "nigerian_mode" in data:
+            st.session_state["nigerian_mode"] = data["nigerian_mode"]
+
     except Exception:
-        pass   # Supabase unavailable — silently fall back to session-only profile
+        pass   # Supabase unavailable — silently fall back to session-only values
 
     st.session_state["_profile_loaded"] = True
 
@@ -132,6 +151,10 @@ def init_session_state() -> None:
         "viral_analyzer_result":   None,
         "hook_analysis_result":    None,
         "last_generated_post":     "",
+        # Persisted preferences — overwritten below by Supabase load if available
+        "nigerian_mode":           True,
+        "onboarding_complete":     False,
+        "carousel_slides":         [],
         "user_profile": {
             "name": "", "headline": "", "role": "", "industry": "",
             "audience": "", "content_pillars": [],
@@ -146,5 +169,5 @@ def init_session_state() -> None:
     # Derive user_id (must happen before profile load)
     _ensure_user_id()
 
-    # Restore profile from Supabase — the persistence fix
+    # Restore profile + preferences from Supabase — the persistence fix
     _load_profile_once()
