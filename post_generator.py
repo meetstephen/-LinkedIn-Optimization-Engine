@@ -6,6 +6,7 @@ import html as _html
 import streamlit as st
 import streamlit.components.v1 as _components
 from utils.gemini_client import generate_text, get_profile_context
+from industry_profiles import get_industry_voice_block
 
 
 # ── Unicode formatting helpers ─────────────────────────────────────────────
@@ -238,79 +239,128 @@ FRAMEWORK_DESCRIPTIONS = {
     "Personal Story Arc":              "Specific moment → what you felt → what you did → what you now know",
 }
 
-# Global voice rules injected into every post generation prompt
-_VOICE_RULES = """
-VOICE & STYLE RULES — follow these without exception:
+# ── Banned phrases — injected into every generation prompt ─────────────────
+_BANNED_PHRASES = """
+BANNED WORDS & PHRASES — writing any of these means the post fails:
+  "game-changer", "game-changing", "dive in", "let's dive in", "let's dive into",
+  "let's unpack", "unpack this", "leverage", "synergy", "actionable", "actionable insights",
+  "thought leader", "passionate about", "journey", "transformation", "transformative",
+  "crushing it", "hustle", "hustle culture", "grind", "disrupt", "disruption",
+  "innovative", "cutting-edge", "best practices",
+  "I'm excited to share", "I'm thrilled to announce", "I'm proud to share",
+  "in today's fast-paced world", "in today's digital landscape", "in today's world",
+  "at the end of the day", "needless to say", "it goes without saying",
+  "in conclusion", "in summary", "circle back", "touch base",
+  "bandwidth", "move the needle", "reach out",
+  "unlock", "unlock your potential", "level up", "skyrocket", "scale your",
+  "deep dive", "masterclass", "playbook", "blueprint",
+  "it's a marathon not a sprint", "fail forward", "embrace failure", "fail fast",
+  "ecosystem" (used vaguely), "stakeholders", "deliverables", "key takeaways",
+  "pro tip:", "hot take:", "this is your sign", "reminder:", "PSA:",
+  "unpopular opinion:" (as opener), "I'll say what no one else will",
+  "this changed everything", "changed my life", "I wish I knew this sooner",
+  "the secret to", "you won't believe", "what nobody tells you",
+  "period." / "full stop." (mic-drop endings), "we need to talk about",
+  "value-add", "low-hanging fruit", "paradigm shift", "next level", "win-win"
+"""
 
-1. BANNED WORDS & PHRASES — never write these:
-   "game-changer", "game-changing", "dive in", "let's dive into", "in today's fast-paced world",
-   "I'm excited to share", "I'm thrilled to announce", "leverage", "synergy", "actionable insights",
-   "thought leader", "passionate about", "journey", "transformation", "crushing it",
-   "hustle", "disrupt", "innovative", "cutting-edge", "best practices", "circle back",
-   "touch base", "bandwidth", "move the needle", "at the end of the day", "it goes without saying",
-   "needless to say", "in conclusion", "in summary", "I hope this finds you well"
+# ── Human writer signatures — what separates a real post from AI filler ─────
+_HUMAN_SIGNATURES = """
+HUMAN WRITER SIGNATURES — use at least 3 of these per post:
 
-2. HOOK RULES:
-   - Never open with "I" as the first word
-   - No questions as the hook (weak — everyone does it)
-   - No emojis in the hook line
-   - Must create a gap — reader has to keep going to close it
-   - Under 12 words ideally
+1. SPECIFIC NUMBERS: Not "a lot of money" → "₦2.4 million". Not "many years" → "7 years".
+   Not "significant growth" → "31% in 90 days". If no real number, invent a plausible specific one.
 
-3. FORMATTING:
-   - One idea per line
-   - Blank line between every paragraph
-   - Max 3 lines per paragraph
-   - Never use bullet points with dashes (—) inside the post body
-   - Numbered lists only when the number is part of the hook
+2. SPECIFIC TIME STAMPS: "On a Wednesday in March..." / "By month 4..." /
+   "Three weeks before the deadline..." — anchor the story in time.
 
-4. SOUND HUMAN:
-   - Incomplete sentences are fine if they hit harder that way
-   - Use specifics: not "a lot of money" but "$47,000"
-   - Not "many years" but "11 years"
-   - Tension before resolution — don't rush to the lesson
-   - One vulnerability moment per post minimum
-   - Write like you're talking to one specific person, not an audience
+3. SPECIFIC PLACES: Name the actual city, building, neighbourhood, court, ward, or market.
+   Not "a client in Lagos" → "a client in Ikeja GRA".
 
-5. CTA:
-   - One question at the end, max
-   - Must be genuinely curious, not a fake question
-   - No "drop a comment below" or "hit the like button"
+4. DIALOGUE FRAGMENTS: One line of actual speech from a real moment.
+   "The client said: 'We already signed it.'" — not paraphrased, said.
+
+5. SELF-INTERRUPTION: Used once per post only.
+   "And honestly?" / "Here's the thing." / "I mean that literally."
+
+6. CONTRAST SENTENCES: After a long sentence, a very short one.
+   "We had invested 14 months and ₦9 million. No one used it."
+
+7. EARNED VULNERABILITY: One sentence admitting the writer was wrong or afraid.
+   Not "failure is my teacher" → "I told my co-founder it would work. It didn't."
+
+8. INDUSTRY-NATIVE PROOF: One reference only a real practitioner would make naturally —
+   a specific regulation, case name, system, or internal term.
+"""
+
+# ── Voice rules: formatting and structure ────────────────────────────────────
+_STRUCTURE_RULES = """
+STRUCTURE & FORMATTING RULES:
+HOOK: Never start with "I". No questions as hooks. No emojis in line 1.
+  Create an information gap. Under 12 words.
+BODY: One idea per line. Blank line between paragraphs. Max 3 lines per paragraph.
+  No dashes as bullets. Numbered lists only when the number is in the hook.
+CTA: One genuine question at the end — maximum.
+  No "drop a comment below", "smash the like button", "share this if you agree".
 """
 
 
-def build_post_prompt(topic: str, niche: str, tone: str, framework: str, audience: str) -> str:
-    tone_desc      = TONE_DESCRIPTIONS.get(tone, tone)
-    framework_desc = FRAMEWORK_DESCRIPTIONS.get(framework, framework)
-    profile_ctx    = get_profile_context()
+def build_post_prompt(
+    topic: str,
+    niche: str,
+    tone: str,
+    framework: str,
+    audience: str,
+    story_beats: str = "",
+) -> str:
+    tone_desc        = TONE_DESCRIPTIONS.get(tone, tone)
+    framework_desc   = FRAMEWORK_DESCRIPTIONS.get(framework, framework)
+    profile_ctx      = get_profile_context()
+    industry_voice   = get_industry_voice_block(niche)
 
-    return f"""You write LinkedIn posts for a specific type of creator: someone who has real experience, has made real mistakes, and doesn't need to impress anyone. Their posts feel like they came from a person, not a content team.
+    beats_block = ""
+    if story_beats.strip():
+        beats_block = f"""
+STORY BEATS — the writer has provided these raw details. Use them.
+Do not ignore or paraphrase away the specifics. Build the post around these exact moments:
+{story_beats.strip()}
+"""
 
-WHAT YOU'RE WRITING:
+    return f"""You write LinkedIn posts for a specific type of creator: someone with real experience, real mistakes, and no need to impress anyone. Their posts feel like they came from a human being, not a content team.
+
+You are writing for this specific person:
 - Topic: {topic}
-- Niche: {niche}
-- Audience: {audience}
+- Niche / Industry: {niche}
+- Target Audience: {audience}
 - Tone: {tone} — {tone_desc}
 - Framework: {framework} — {framework_desc}{profile_ctx}
+{beats_block}
+{industry_voice}
+{_BANNED_PHRASES}
+{_HUMAN_SIGNATURES}
+{_STRUCTURE_RULES}
 
-Write 2 completely different post variations on this topic. Same message, different angle, different structure.
+Write 2 COMPLETELY DIFFERENT post variations. Same message. Different angle. Different structure. Different hook.
 
-{_VOICE_RULES}
+CRITICAL — the two posts must differ in:
+  • Hook type (bold claim vs. story opening vs. counterintuitive fact)
+  • Structure (numbered list vs. narrative paragraphs vs. contrast format)
+  • Emotional register (analytical vs. vulnerable vs. provocative)
 
-OUTPUT FORMAT — use exactly this, nothing else:
+OUTPUT FORMAT — use exactly this. Nothing before, nothing after:
 
 ---VARIATION 1---
-[The post. No label, no intro, just the post itself.]
+[The post. No label, no intro, no "Here is variation 1:". Just the post.]
 
 ---VARIATION 2---
-[The post. Completely different structure from V1.]
+[The post. Structurally different from V1 — not just the same post reworded.]
 
 ---ANALYSIS---
-Hook strength: [Strong/Medium/Weak] — [one specific sentence on why]
-Which to post: [1 or 2] — [one specific sentence on why]
-What to A/B test next time: [one specific thing]
+Hook strength: [Strong/Medium/Weak] — [one specific reason, name the technique used]
+Which to post: [1 or 2] — [one specific reason tied to the audience]
+What to A/B test next time: [one specific, testable variable]
 
-Keep each post under 280 words. Every line should earn its place.
+Keep each post under 280 words. Cut every line that doesn't move the reader forward.
 """
 
 
@@ -324,20 +374,25 @@ def render_post_generator():
 
     with col1:
         topic = st.text_area(
-            "📌 Topic / Main Idea",
-            placeholder="e.g., 'I failed my first startup and learned these 3 lessons'",
-            height=80,
+            "📌 Topic / Main Idea *",
+            placeholder=(
+                "Be specific — the more detail here, the better the output.\n\n"
+                "e.g., 'I lost a ₦4M client because of one clause I didn't read in the contract. "
+                "Here's what happened and what I do differently now.'"
+            ),
+            height=160,
+            key="pg_topic",
         )
         niche = st.text_input(
             "🎯 Your Niche / Industry",
             value=st.session_state.get("pg_niche", _p.get("industry", "")),
-            placeholder="e.g., Tech, Marketing, Finance, HR, Coaching",
+            placeholder="e.g., Legal Practice, Fintech, Real Estate, Consulting",
             key="pg_niche",
         )
         audience = st.text_input(
             "👥 Target Audience",
             value=st.session_state.get("pg_audience", _p.get("audience", "") or "Professionals on LinkedIn"),
-            placeholder="e.g., Early-career professionals, CTOs, Entrepreneurs",
+            placeholder="e.g., Nigerian founders, Lagos lawyers, HR managers",
             key="pg_audience",
         )
 
@@ -346,30 +401,55 @@ def render_post_generator():
         framework = st.selectbox("📐 Content Framework", list(FRAMEWORK_DESCRIPTIONS.keys()))
         st.info(f"**Framework:** {FRAMEWORK_DESCRIPTIONS[framework]}")
 
+    # ── Story Beats — the specificity engine ─────────────────────────────────
+    with st.expander("✍️ Story Beats — Optional, but this is what separates great posts from generic ones", expanded=False):
+        st.markdown(
+            "Drop raw details here: names (anonymised), numbers, dates, exact quotes, "
+            "what went wrong, what you felt, what you learnt. "
+            "The AI builds the post around these exact moments — this is the single biggest "
+            "lever for making output sound like **you**, not a bot."
+        )
+        story_beats = st.text_area(
+            "Raw story details",
+            placeholder=(
+                "e.g.:\n"
+                "- Client was a Lagos construction firm, ₦80M contract\n"
+                "- I spotted the error on a Tuesday at 11pm\n"
+                "- My senior partner had reviewed the same doc and missed it too\n"
+                "- We filed an emergency injunction at the Federal High Court Lagos next morning\n"
+                "- Key lesson: check the arbitration clause — not just whether it exists, "
+                "but which seat and governing law"
+            ),
+            height=160,
+            key="pg_story_beats",
+        )
+
     st.markdown("---")
 
     if st.button("✨ Generate Post Variations", type="primary", use_container_width=True):
-        if not topic.strip():
+        _topic_val = st.session_state.get("pg_topic", "").strip()
+        if not _topic_val:
             st.error("Please enter a topic before generating.")
             return
-        if not niche.strip():
+        if not st.session_state.get("pg_niche", "").strip():
             st.error("Please enter your niche/industry.")
             return
 
-        with st.spinner("Writing your posts..."):
+        with st.spinner("Writing your posts…"):
             try:
                 import re as _re
 
-                prompt = build_post_prompt(topic, niche, tone, framework, audience)
+                prompt = build_post_prompt(
+                    _topic_val,
+                    st.session_state.get("pg_niche", ""),
+                    tone,
+                    framework,
+                    st.session_state.get("pg_audience", "Professionals on LinkedIn"),
+                    story_beats=st.session_state.get("pg_story_beats", ""),
+                )
                 result = generate_text(prompt, temperature=0.88)
 
                 # ── Robust regex parser ────────────────────────────────────
-                # The prompt uses ---VARIATION 1--- / ---VARIATION 2--- /
-                # ---ANALYSIS--- as section delimiters.  Splitting on "---"
-                # puts each label and its content in *separate* chunks, so a
-                # simple split+startswith parser always yields empty strings.
-                # Regex with look-ahead correctly captures every section body.
-                # ──────────────────────────────────────────────────────────
                 def _extract(pattern: str) -> str:
                     m = _re.search(pattern, result, _re.DOTALL | _re.IGNORECASE)
                     return m.group(1).strip() if m else ""
@@ -378,20 +458,20 @@ def render_post_generator():
                 var2     = _extract(r"-+\s*VARIATION\s*2\s*-+(.*?)(?=-+\s*ANALYSIS|$)")
                 analysis = _extract(r"-+\s*ANALYSIS\s*-+(.*?)$")
 
-                # ── Fallback: if AI ignored delimiters, split on blank lines ──
-                # Some models return "Variation 1:\n...\nVariation 2:\n..." instead.
                 if not var1 and not var2:
                     var1 = _extract(r"(?:variation\s*1[:\s]*)(.*?)(?=variation\s*2|analysis|$)")
                     var2 = _extract(r"(?:variation\s*2[:\s]*)(.*?)(?=analysis|$)")
 
-                # ── Last resort: treat the whole response as one variation ──
                 if not var1 and result.strip():
                     var1 = result.strip()
 
-                st.session_state["pg_var1"]             = var1
-                st.session_state["pg_var2"]             = var2
-                st.session_state["pg_analysis"]         = analysis
+                st.session_state["pg_var1"]     = var1
+                st.session_state["pg_var2"]     = var2
+                st.session_state["pg_analysis"] = analysis
                 st.session_state["last_generated_post"] = result
+                st.session_state["session_posts_generated"] = (
+                    st.session_state.get("session_posts_generated", 0) + 1
+                )
 
             except Exception as e:
                 st.error(f"Generation failed: {str(e)}")
