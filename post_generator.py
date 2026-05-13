@@ -360,7 +360,13 @@ Hook strength: [Strong/Medium/Weak] — [one specific reason, name the technique
 Which to post: [1 or 2] — [one specific reason tied to the audience]
 What to A/B test next time: [one specific, testable variable]
 
-Keep each post under 280 words. Cut every line that doesn't move the reader forward.
+LinkedIn post length guide:
+- Short post (high impact): 150-300 words — use for bold claims, confessions, contrast posts
+- Medium post (storytelling): 300-500 words — use for narrative, before/after, lesson posts
+- Long post (authority): 500-700 words — use for how-to, frameworks, detailed case studies
+LinkedIn supports up to 3,000 characters (~500 words). Use as much space as the story needs.
+Never pad. Never cut a story short because you're running out of room.
+Every line must move the reader forward — but don't truncate the narrative to hit an arbitrary limit.
 """
 
 
@@ -447,7 +453,7 @@ def render_post_generator():
                     st.session_state.get("pg_audience", "Professionals on LinkedIn"),
                     story_beats=st.session_state.get("pg_story_beats", ""),
                 )
-                result = generate_text(prompt, temperature=0.88)
+                result = generate_text(prompt, temperature=0.88, max_tokens=8000)
 
                 # ── Robust regex parser ────────────────────────────────────
                 def _extract(pattern: str) -> str:
