@@ -11,11 +11,8 @@ def get_profile_context() -> str:
     """
     Returns a formatted profile context string for injection into any AI prompt.
     Reads from st.session_state['user_profile'] — available across all Streamlit modules.
+    When Nigerian Voice Mode is active, appends the full Nigerian professional context block.
     Returns an empty string when no profile is configured (safe to concatenate).
-
-    Usage in any prompt builder:
-        _ctx = get_profile_context()
-        prompt = f"...your prompt...{_ctx}..."
     """
     p = st.session_state.get("user_profile", {})
     parts = []
@@ -31,14 +28,44 @@ def get_profile_context() -> str:
             f"- Writing Voice Sample (match this style as closely as possible):\n"
             f"\"\"\"\n{p['voice_sample'][:400].strip()}\n\"\"\""
         )
+
     if not parts:
         return ""
-    return (
+
+    base = (
         "\n\nUSER PROFILE — tailor ALL output specifically and concretely to this person. "
         "Use their exact industry, role, and audience in every example, hook, and suggestion. "
         "Never give generic advice — make it feel written for them specifically:\n"
         + "\n".join(parts)
     )
+
+    # ── Nigerian Professional Voice Mode ─────────────────────────────────────
+    if st.session_state.get("nigerian_mode", False):
+        base += """
+
+NIGERIAN PROFESSIONAL VOICE MODE — ACTIVE. Apply ALL of the following:
+
+CULTURAL TONE: Warm, confident, community-oriented. Nigerian professionals value earned
+  respect, resilience narratives, and collective uplift — not just personal wins.
+
+LOCAL CONTEXT: Reference Nigerian business realities naturally — naira pricing, Lagos
+  traffic, Abuja government dynamics, power supply constraints, fintech disruption
+  (Flutterwave, Paystack, Moniepoint), and mobile-first user behaviour.
+
+INSTITUTIONS TO DRAW FROM: CBN, CAC, NBA (Nigerian Bar Association), EFCC, FIRS,
+  NAFDAC, NCC, SEC Nigeria, NUPRC, NHIS, NUC, JAMB, PENCOM, NIM, ICAN, CIBN.
+
+LANGUAGE FLAVOUR: Posts should feel written by a Nigerian professional — not a Silicon
+  Valley content team. Occasional Pidgin phrasing is acceptable where culturally natural
+  (e.g. "e no easy" in a story hook, "we move" as a CTA) — keep it professional overall.
+
+POSTING TIMES: Always give time advice in WAT (West Africa Time, UTC+1).
+  Best windows: Tue & Thu 7–9am WAT, Wed 12–2pm WAT, Fri 6–8pm WAT.
+
+AVOID: Silicon Valley jargon, dollar-centric examples, US-centric statistics as the
+  primary reference. Nigerian context first."""
+
+    return base
 
 # ── Available models (use flash for speed/cost, pro for quality) ──
 MODEL_DEFAULT = "gemini-2.5-flash"
