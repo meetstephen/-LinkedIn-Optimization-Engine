@@ -3,21 +3,34 @@ Profile Enhancer Module — Transforms beginner LinkedIn profiles into
 PRO-level profiles with a comprehensive score and action plan.
 """
 import streamlit as st
-from utils.gemini_client import generate_text, get_profile_context
+from gemini_client import generate_text, get_profile_context
+from industry_profiles import get_industry_voice_block
+
+
+_BANNED_PROFILE = """
+NEVER write these phrases anywhere in the output:
+"passionate about", "results-driven professional", "thought leader", "leverage",
+"synergy", "game-changer", "I thrive in fast-paced environments",
+"dynamic professional", "I am committed to excellence", "seasoned professional",
+"I bring X years of experience", "I help people reach their potential",
+"innovative solutions", "value-add", "stakeholder", "circle back",
+"I wear many hats", "extensive experience", "proven track record",
+"motivated self-starter", "detail-oriented"
+"""
 
 
 def build_profile_prompt(profile_data):
-    profile_ctx = get_profile_context()
-    return f"""You review LinkedIn profiles the way a hiring manager or premium client does — quickly, honestly, and looking for specific signals. You've seen what works and what kills opportunities.
+    profile_ctx    = get_profile_context()
+    industry_voice = get_industry_voice_block(profile_data.get("industry", ""))
+    return f"""You review LinkedIn profiles the way a hiring manager or premium client does — quickly, honestly, looking for specific signals of credibility, clarity, and character. You give real feedback, not padded encouragement.{profile_ctx}
+{industry_voice}
 
-Review this profile and give an honest, specific improvement plan.{profile_ctx}
-
-PROFILE:
+PROFILE BEING REVIEWED:
 - Name: {profile_data['name']}
 - Headline: {profile_data['headline']}
 - Industry: {profile_data['industry']}
 - Experience: {profile_data['experience_years']}
-- About: {profile_data['about'] or 'None'}
+- About: {profile_data['about'] or 'None provided'}
 - Photo: {profile_data['has_photo']}
 - Banner: {profile_data['has_banner']}
 - Connections: {profile_data['connections']}
@@ -27,15 +40,12 @@ PROFILE:
 - Goal: {profile_data['goal']}
 - Achievements: {profile_data['achievements']}
 
-NEVER use: "passionate about", "results-driven professional", "thought leader",
-"leverage", "synergy", "game-changer", "I thrive in fast-paced environments",
-"dynamic professional", "I am committed to excellence"
+{_BANNED_PROFILE}
 
 ---
 
 ## PROFILE SCORE: XX/100
 
-Score each section in a table:
 | Section | Score | Max | Status |
 |---------|-------|-----|--------|
 | Headline | X | 15 | [🔴 Needs Work / 🟡 OK / 🟢 Strong] |
@@ -48,70 +58,63 @@ Score each section in a table:
 | Activity & Content | X | 5 | [...] |
 
 **TOTAL: XX/100 — [Beginner / Intermediate / Advanced / PRO]**
-One honest sentence on what's holding them back most.
+One honest sentence naming the single biggest thing holding this profile back right now.
 
 ## HEADLINE REWRITE
 Current: "{profile_data['headline']}"
+What specifically is wrong (name the exact word or phrase that fails — not "it's too generic"):
 
-What's wrong with it (specific — not "it's too generic"):
+3 rewrites for a {profile_data['industry']} professional:
+1. [Authority — what you do + who for + one specific result, under 200 chars]
+2. [Value — the transformation you create, under 200 chars]
+3. [Personality — more voice, less job description, under 200 chars]
 
-3 rewritten options:
-1. [Authority angle — what you do + who you do it for + one specific result]
-2. [Value angle — the transformation you create]
-3. [Personality angle — more voice, less job description]
+Never use: "Helping", "Passionate", "Empowering", "Driving results" in any headline option.
 
-All under 200 characters.
-
-## PROFILE PHOTO
-Current: {profile_data['has_photo']}
-Specific advice for their industry: lighting, background, expression, framing, what to avoid.
-
-## BANNER IMAGE
-Current: {profile_data['has_banner']}
-Exactly what to put on it, what size, what tool to use (Canva is fine), what message it should send in 2 seconds.
+## PROFILE PHOTO & BANNER
+Photo ({profile_data['has_photo']}): Specific advice for {profile_data['industry']} — lighting, background, expression, framing.
+Banner ({profile_data['has_banner']}): Exactly what to put on it (size: 1584x396px, tool: Canva), message it must land in 2 seconds.
 
 ## EXPERIENCE SECTION
-The difference between what most people write and what works:
+Show the difference with real examples from {profile_data['industry']}:
+Bad: [generic example from their field]
+Good: [specific result-driven rewrite with real numbers]
 
-❌ How most people write it: "Responsible for managing a team and delivering projects"
-✅ How it should read: "Led a team of [X] → shipped [specific thing] → drove [specific result with number]"
-
-Write 2–3 example rewrites specific to their industry and role.
+Write 2 example rewrites specific to {profile_data['industry']} and {profile_data['experience_years']} experience.
 
 ## SKILLS STRATEGY
-Current: {profile_data['skills']}
-
-Which of these to keep, which to cut, and what to add.
-The 5 skills most searched for in their field right now.
-How to get endorsements without begging.
+Current: "{profile_data['skills'] or 'None listed'}"
+Which to keep, cut, and add.
+The 5 most-searched skills in {profile_data['industry']} right now.
+One tactic to get endorsements without asking awkwardly.
 
 ## RECOMMENDATIONS
 Current count: {profile_data['recommendations']}
-Step-by-step: who to ask, exactly how to ask them, what to say, what to offer in return.
-Timeline to get 5 quality recommendations.
+Who to ask, how to ask (short message template), what to offer in return.
+Realistic timeline to reach 5 quality recommendations.
 
 ## FEATURED SECTION
-5 specific things to put here based on their industry and goal.
-Not "case studies" — actual specific content types with a sentence on why each one works.
+5 specific content types for a {profile_data['industry']} professional with goal: "{profile_data['goal']}".
+Not categories — exact asset type + one sentence on why it works for this person.
 
-## 30-DAY PLAN
-Be specific. Not "improve your About section" — say what to write.
+## 30-DAY ACTION PLAN
+Specific actions, not categories.
 
-Week 1 (Days 1–7):
-- Day 1: [exact action]
+Week 1 (Days 1-7) — Profile Foundation:
+- Day 1: [exact action — time estimate]
 - Day 2: [exact action]
 - Day 3: [exact action]
-- Days 4–7: [batched actions]
+- Days 4-7: [batched actions]
 
-Week 2 — Content (Days 8–14): [4–5 specific actions]
-Week 3 — Network (Days 15–21): [4–5 specific actions]
-Week 4 — Authority (Days 22–30): [4–5 specific actions]
+Week 2 (Days 8-14) — Content: 4-5 specific actions
+Week 3 (Days 15-21) — Network: 4-5 specific actions
+Week 4 (Days 22-30) — Authority: 4-5 specific actions
 
 ## 3 QUICK WINS — DO THESE TODAY
-Each one takes under 20 minutes and will immediately improve how the profile reads.
-1. [Action] — Why it matters: [one specific sentence]
-2. [Action] — Why it matters: [one specific sentence]
-3. [Action] — Why it matters: [one specific sentence]
+Each under 20 minutes, each with an immediate measurable impact.
+1. [Exact action] — Why it matters: [one specific sentence with expected result]
+2. [Exact action] — Why it matters: [one specific sentence]
+3. [Exact action] — Why it matters: [one specific sentence]
 """
 
 
@@ -130,39 +133,41 @@ def render_profile_enhancer():
                                   placeholder="Your full name", key="pe_name")
         headline = st.text_input("📌 Current Headline",
                                   value=st.session_state.get("pe_headline", _p.get("headline", "")),
-                                  placeholder="e.g., Software Engineer at Company | Python | ML",
+                                  placeholder="e.g., Corporate Lawyer | 12 years | SAN",
                                   key="pe_headline")
-        industry = st.text_input("🏢 Industry/Field",
+        industry = st.text_input("🏭 Industry / Field",
                                   value=st.session_state.get("pe_industry", _p.get("industry", "")),
-                                  placeholder="e.g., SaaS, Finance, Marketing", key="pe_industry")
+                                  placeholder="e.g., Legal Practice, Fintech, Oil & Gas",
+                                  key="pe_industry")
         experience_years = st.selectbox("📅 Years of Experience",
-                                         ["0–1 year (Student/New Grad)", "1–3 years", "3–7 years",
-                                          "7–15 years", "15+ years"])
+                                         ["0-1 year (Student/New Grad)", "1-3 years", "3-7 years",
+                                          "7-15 years", "15+ years"])
         connections = st.selectbox("🔗 LinkedIn Connections",
-                                    ["< 100", "100–500", "500–1000", "1000–5000", "5000+"])
+                                    ["< 100", "100-500", "500-1000", "1000-5000", "5000+"])
         goal = st.text_input("🎯 Primary Goal",
                               value=st.session_state.get("pe_goal", ""),
-                              placeholder="e.g., Get hired at FAANG, grow my consulting business, become a speaker",
+                              placeholder="e.g., Attract corporate clients, get appointed SAN, grow consultancy",
                               key="pe_goal")
 
     with col2:
-        achievements  = st.text_area("🏆 Top 3 Career Achievements",
-                                      placeholder="e.g., Built product with 500K users, increased sales by 40%, led team of 15 engineers",
-                                      height=80)
-        skills        = st.text_area("🛠️ Current Skills Listed",
-                                      placeholder="e.g., Python, Project Management, Machine Learning, Leadership",
+        achievements  = st.text_area("🏆 Top 3 Career Achievements (with numbers)",
+                                      placeholder="e.g., Won Supreme Court case worth N2.4B, built team of 12 associates",
+                                      height=100)
+        skills        = st.text_area("🛠️ Current Skills Listed on Profile",
+                                      placeholder="e.g., Commercial Litigation, Corporate Law, Arbitration, CAMA 2020",
                                       height=80)
         about_preview = st.text_area("📝 Current About Section (first 200 chars is fine)",
-                                      placeholder="Paste beginning of your About section...",
+                                      placeholder="Paste the beginning of your About section...",
                                       height=80)
 
         col_a, col_b = st.columns(2)
         with col_a:
-            has_photo    = st.checkbox("✅ Has Profile Photo", value=True)
-            has_banner   = st.checkbox("✅ Has Banner/Cover Image", value=False)
-            has_featured = st.checkbox("✅ Has Featured Section", value=False)
+            has_photo    = st.checkbox("Has Profile Photo", value=True)
+            has_banner   = st.checkbox("Has Banner/Cover Image", value=False)
+            has_featured = st.checkbox("Has Featured Section", value=False)
         with col_b:
-            recommendations = st.number_input("⭐ # of Recommendations", min_value=0, max_value=50, value=0)
+            recommendations = st.number_input("# of Recommendations",
+                                               min_value=0, max_value=50, value=0)
 
     st.markdown("---")
 
@@ -176,20 +181,24 @@ def render_profile_enhancer():
             "experience_years": experience_years, "connections": connections,
             "goal": goal, "achievements": achievements, "skills": skills,
             "about": about_preview,
-            "has_photo":    "Yes ✅" if has_photo    else "No ❌",
-            "has_banner":   "Yes ✅" if has_banner   else "No ❌",
-            "has_featured": "Yes ✅" if has_featured else "No ❌",
+            "has_photo":    "Yes" if has_photo    else "No",
+            "has_banner":   "Yes" if has_banner   else "No",
+            "has_featured": "Yes" if has_featured else "No",
             "recommendations": recommendations,
         }
 
         with st.spinner("Scoring your profile and building your plan..."):
             try:
-                prompt = build_profile_prompt(profile_data)
-                result = generate_text(prompt, temperature=0.72, max_tokens=3000)
-
-                st.success("✅ Profile analysis complete!")
+                result = generate_text(
+                    build_profile_prompt(profile_data),
+                    temperature=0.72, max_tokens=3000,
+                )
+                st.success("Profile analysis complete!")
                 st.markdown("---")
                 st.markdown(result)
 
             except Exception as e:
                 st.error(f"Analysis failed: {str(e)}")
+                with st.expander("Error details"):
+                    import traceback as _tb
+                    st.code(_tb.format_exc())
