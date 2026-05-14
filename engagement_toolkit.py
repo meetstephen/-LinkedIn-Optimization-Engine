@@ -188,6 +188,7 @@ def render_engagement_toolkit():
                             build_hooks_prompt(hook_topic, hook_tone, hook_count,
                                                niche=st.session_state.get("hook_niche", "")),
                             temperature=0.92,
+                            max_tokens=6000,
                         )
                         st.success("✅ Hooks generated!")
                         st.markdown(result)
@@ -222,6 +223,7 @@ def render_engagement_toolkit():
                             build_cta_prompt(cta_context, cta_goal,
                                              niche=st.session_state.get("cta_niche", "")),
                             temperature=0.82,
+                            max_tokens=6000,
                         )
                         st.success("✅ CTAs generated!")
                         st.markdown(result)
@@ -251,6 +253,7 @@ def render_engagement_toolkit():
                         result = generate_text(
                             build_hashtag_prompt(ht_content, ht_industry or "General"),
                             temperature=0.7,
+                            max_tokens=4000,
                         )
                         st.success("✅ Hashtag strategy ready!")
                         st.markdown(result)
