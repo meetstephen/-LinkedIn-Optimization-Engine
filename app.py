@@ -680,6 +680,33 @@ st.markdown("""
         color: white !important;
     }
 
+    /* ── WAT window: re-override sidebar white-text rule with dark colours ── */
+    /* These must come AFTER the sidebar rule to win the specificity battle    */
+    [data-testid="stSidebar"] .wat-window {
+        background: #1A3A5C !important;
+        border-color: rgba(255,255,255,0.15) !important;
+    }
+    [data-testid="stSidebar"] .wat-window .slot {
+        border-bottom-color: rgba(255,255,255,0.1) !important;
+    }
+    [data-testid="stSidebar"] .wat-window .slot .day {
+        color: #7DD3FC !important;
+        font-weight: 700 !important;
+    }
+    [data-testid="stSidebar"] .wat-window .slot .time-range {
+        color: rgba(255,255,255,0.85) !important;
+        font-size: 0.78rem !important;
+    }
+    [data-testid="stSidebar"] .wat-window .slot .reach-badge {
+        background: rgba(125,211,252,0.15) !important;
+        color: #7DD3FC !important;
+        font-weight: 700 !important;
+    }
+    [data-testid="stSidebar"] .wat-window .slot .reach-badge.hot {
+        background: rgba(255,107,53,0.2) !important;
+        color: #FFB347 !important;
+    }
+
     /* ══════════════════════════════════════════════
        MOBILE RESPONSIVENESS — stack columns on small screens
     ══════════════════════════════════════════════ */
@@ -1156,7 +1183,10 @@ def render_sidebar():
                     "voice_sample":    _voice.strip(),
                 }
                 st.session_state["user_profile"] = _new_profile
+                st.session_state["_profile_loaded"] = False  # force reload on next boot
                 # Persist to Supabase so profile survives refresh & reboot
+                _save_ok = False
+                _save_err = ""
                 try:
                     if _CORE_AVAILABLE:
                         _db.save_profile(
@@ -1164,9 +1194,16 @@ def render_sidebar():
                             onboarding_complete=st.session_state.get("onboarding_complete", False),
                             nigerian_mode=st.session_state.get("nigerian_mode", True),
                         )
-                except Exception:
-                    pass   # Silently degrade — profile still works in-session
-                st.rerun()
+                        _save_ok = True
+                except Exception as _e:
+                    _save_err = str(_e)
+
+                if _save_ok:
+                    st.success("✅ Profile saved — will persist across reboots.")
+                elif _CORE_AVAILABLE:
+                    st.error(f"⚠️ Saved in-session but Supabase failed: {_save_err}\n\nCheck your Supabase secrets and run the SQL migration if you haven't.")
+                else:
+                    st.info("💡 Saved in-session. Add Supabase credentials to persist across reboots.")
         if _profile_complete:
             _role_short = _p.get("role", "")[:32]
             _ind_short  = _p.get("industry", "")[:24]
@@ -1181,23 +1218,24 @@ def render_sidebar():
 
         # ── 🇳🇬 Nigerian Professional Voice Mode ─────────────────────────
         st.markdown("**🇳🇬 Nigerian Voice Mode**")
+        _ng_prev = st.session_state.get("nigerian_mode", True)
         _ng_on = st.toggle(
             "Activate Nigerian Context",
-            value=st.session_state.get("nigerian_mode", True),
+            value=_ng_prev,
             key="ng_mode_toggle",
             help="Makes all AI output sound like it was written by a Nigerian professional — Lagos culture, naira context, local institutions, WAT posting times.",
         )
         st.session_state["nigerian_mode"] = _ng_on
-        # Persist preference immediately so it survives reboots
-        try:
-            if _CORE_AVAILABLE and st.session_state.get("user_profile", {}).get("role"):
+        # Only persist when value actually changed — avoids a Supabase write on every rerun
+        if _ng_on != _ng_prev and _CORE_AVAILABLE and st.session_state.get("user_profile", {}).get("role"):
+            try:
                 _db.save_profile(
                     st.session_state["user_profile"],
                     onboarding_complete=st.session_state.get("onboarding_complete", False),
                     nigerian_mode=_ng_on,
                 )
-        except Exception:
-            pass
+            except Exception:
+                pass
         if _ng_on:
             st.markdown(
                 "<div style='font-size:0.7rem;color:rgba(255,255,255,0.75);margin-top:-4px;'>"
@@ -2531,6 +2569,23 @@ Rules:
 # ─────────────────────────────────────────────
 def main():
     """Main application entry point and page router."""
+
+    # ── WebSocket keepalive — prevents "ping timeout; no close frame" error ──
+    # Sends a silent postMessage every 25s, well under Streamlit's 30s timeout.
+    st.components.v1.html("""
+    <script>
+    (function() {
+        if (window._linkedEdgeKeepalive) return;  // already running
+        window._linkedEdgeKeepalive = true;
+        setInterval(function() {
+            try {
+                window.parent.postMessage({type: "streamlit:keepalive"}, "*");
+            } catch(e) {}
+        }, 25000);
+    })();
+    </script>
+    """, height=0)
+
     # Warm up shared utility modules (safe here — Streamlit runtime is active)
     _prewarm_utils()
     init_session_state()
