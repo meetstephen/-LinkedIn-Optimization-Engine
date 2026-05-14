@@ -191,7 +191,7 @@ def render_profile_enhancer():
             try:
                 result = generate_text(
                     build_profile_prompt(profile_data),
-                    temperature=0.72, max_tokens=3000,
+                    temperature=0.72, max_tokens=8000,
                 )
                 st.success("Profile analysis complete!")
                 st.markdown("---")
