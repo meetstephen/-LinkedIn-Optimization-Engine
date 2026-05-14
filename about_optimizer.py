@@ -162,6 +162,7 @@ def render_about_optimizer():
                     build_about_prompt(current_about, name, role, industry,
                                        superpowers, achievements, goal),
                     temperature=0.78,
+                    max_tokens=8000,
                 )
                 st.success("About section optimized!")
                 st.markdown("---")
