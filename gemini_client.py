@@ -85,7 +85,7 @@ def get_gemini_client() -> genai.Client:
 def generate_text(
     prompt: str,
     temperature: float = 0.8,
-    max_tokens: int = 4096,
+    max_tokens: int = 8000,
     model: str = MODEL_DEFAULT,
 ) -> str:
     """
