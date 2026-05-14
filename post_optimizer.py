@@ -3,7 +3,7 @@ Post Optimizer Module — Rewrites and scores existing LinkedIn posts
 for maximum engagement and virality potential.
 """
 import streamlit as st
-from utils.gemini_client import generate_text, get_profile_context
+from gemini_client import generate_text, get_profile_context
 from industry_profiles import get_industry_voice_block
 
 
@@ -171,7 +171,7 @@ def render_post_optimizer():
                     original_post, goal,
                     niche=st.session_state.get("po_niche", ""),
                 )
-                result = generate_text(prompt, temperature=0.72)
+                result = generate_text(prompt, temperature=0.72, max_tokens=8000)
 
                 st.success("✅ Optimization complete!")
                 st.markdown("---")
