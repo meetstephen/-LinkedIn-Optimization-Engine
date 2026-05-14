@@ -168,7 +168,7 @@ def render_strategy_insights():
             try:
                 result = generate_text(
                     build_strategy_prompt(creator_type, niche, goal),
-                    temperature=0.8, max_tokens=3000,
+                    temperature=0.8, max_tokens=8000,
                 )
                 st.success("Strategy playbook generated!")
                 st.markdown("---")
