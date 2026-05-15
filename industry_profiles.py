@@ -38,13 +38,13 @@ INDUSTRY_VOICE_PROFILES: dict[str, dict] = {
         "proof_patterns": [
             "Cite a specific case outcome — anonymised but real ('my client's entire shareholding was set aside because of one clause')",
             "Reference Nigerian legislation by exact name: CAMA 2020, Evidence Act Cap E14, Arbitration and Conciliation Act, Cybercrime Act 2015",
-            "Name the specific court and what it decided — not 'a court ruled' but 'the Court of Appeal, Lagos Division held that...'",
+            "Name the specific court and what it decided — not 'a court ruled' but 'the Court of Appeal held that...' — cite the division (Lagos, Abuja, Enugu, Kaduna) only when it adds specificity.",
             "Use a real regulatory body: CAC (Corporate Affairs Commission), SCUML, FIRS, EFCC, NBA, FIDA",
         ],
         "hook_archetypes": [
             "The clause that cost my client ₦12 million. (Two sentences. It was in the boilerplate.)",
             "3 contracts Nigerian founders sign without reading. All 3 will haunt them.",
-            "Lagos lawyers will argue about this. Good — it means the point is worth making.",
+            "Nigerian lawyers will argue about this. Good — it means the point is worth making.",
             "A client called me at 11pm. The acquisition had just closed. The problem had been there since page 4.",
         ],
         "avoid": [
@@ -61,9 +61,12 @@ INDUSTRY_VOICE_PROFILES: dict[str, dict] = {
         "nigerian_ctx": (
             "Institutions: NBA (Nigerian Bar Association), FIDA, NEC, SAN (Senior Advocate of Nigeria), "
             "NJC (National Judicial Council), ICPC, EFCC, SCUML. "
-            "Courts: Supreme Court of Nigeria, Court of Appeal, Federal High Court, State High Courts, NIC. "
+            "Courts: Supreme Court of Nigeria, Court of Appeal (all divisions: Lagos, Abuja, Enugu, Kaduna, "
+            "Kano, Ibadan, Benin, Jos, Port Harcourt), Federal High Court, State High Courts, NIC. "
             "Key legislation: CAMA 2020, AMCON Act, PIA 2021, FIRS Act, Cybercrime Act, Violence Against Persons Act. "
-            "Nigerian Bar culture: mandatory CLE hours, silk appointments, Bench-Bar relations."
+            "Nigerian Bar culture: mandatory CLE hours, silk appointments, Bench-Bar relations. "
+            "Geographic spread: practitioners in Lagos, Abuja, Port Harcourt, Enugu, Kano, Ibadan, Benin City — "
+            "not all Nigerian lawyers are Lagos-based."
         ),
     },
 
@@ -158,7 +161,7 @@ INDUSTRY_VOICE_PROFILES: dict[str, dict] = {
             "structured thinking", "issue tree",
         ],
         "proof_patterns": [
-            "Anonymised client case with a specific, verifiable result: 'a mid-size Lagos manufacturer cut overhead by 31% in 11 weeks'",
+            "Anonymised client case with a specific, verifiable result: 'a mid-size Kano manufacturer cut overhead by 31% in 11 weeks'",
             "The counter-intuitive insight: 'The problem stated was X. The actual problem was always Y' — and prove it",
             "Reference an industry or sector data point that reframes the conventional wisdom",
             "Contrast what a textbook framework says vs what actually happened on the ground in Nigeria",
@@ -224,7 +227,9 @@ INDUSTRY_VOICE_PROFILES: dict[str, dict] = {
             "Ecosystem: CcHub (Yaba), Founders Factory Africa, Techstars Lagos, Ventures Platform, "
             "Microtraction, LoftyInc, GreenHouse Capital. Key exits/raises: Flutterwave, Andela, "
             "Paystack (Stripe acquisition), Mono, Curacel, Eden. NITDA, NCC regulatory context. "
-            "Market realities: intermittent power, USSD-first users, low card penetration outside Lagos/Abuja."
+            "Market realities: intermittent power nationwide, USSD-first users outside major cities, "
+            "low card penetration outside Lagos/Abuja/PH, growing tech scenes in Enugu, Kano, Ibadan. "
+            "Avoid treating Nigeria as a Lagos-only market — 70%+ of users are outside Lagos."
         ),
     },
 
@@ -287,7 +292,7 @@ INDUSTRY_VOICE_PROFILES: dict[str, dict] = {
         "hook_archetypes": [
             "My patient had been told she was fine. Four times. By four different hospitals.",
             "Hypertension kills more Nigerians silently than any disease in the headlines. Here are the numbers.",
-            "3 things I've learnt in 10 years of emergency medicine in Lagos that no textbook teaches.",
+            "3 things I've learnt in 10 years practising medicine across Nigeria that no textbook teaches.",
             "Nigerian doctors are leaving. The real reason isn't what you think it is.",
         ],
         "avoid": [
@@ -402,14 +407,14 @@ INDUSTRY_VOICE_PROFILES: dict[str, dict] = {
         ],
         "proof_patterns": [
             "Specific retention/attrition number: 'We lost 6 people in 30 days. Exit interviews told us the same thing in 5 different words'",
-            "Compensation benchmark with source: 'Jobberman's 2024 salary survey shows mid-level product managers in Lagos earning ₦1.8M–₦3.2M monthly'",
+            "Compensation benchmark with source: 'Jobberman's 2024 salary survey shows mid-level product managers in Nigeria earning ₦1.8M–₦3.2M monthly'",
             "A hiring mistake — specific, anonymised, honest about what went wrong in the process",
             "Policy change + measurable outcome: 'We moved to 4-day experimental weeks in Q3. Attrition dropped 18% the following quarter'",
         ],
         "hook_archetypes": [
             "We lost 6 people in one month. Exit interviews said the same thing 6 different ways.",
             "Nigerian companies keep posting the same job description. Talent has noticed — and stopped applying.",
-            "3 HR metrics Lagos startups don't track — until the resignation letters start coming.",
+            "3 HR metrics Nigerian companies — from Abuja MDAs to Lagos startups — don't track — until the resignation letters start coming.",
             "Our best hire never sent a CV. Here's how we found her.",
         ],
         "avoid": [
