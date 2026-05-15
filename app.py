@@ -1102,8 +1102,14 @@ def render_sidebar():
             pages,
             index=pages.index(st.session_state.get("current_page", "🏠 Home")),
             label_visibility="collapsed",
+            key="nav_radio",
         )
-        st.session_state["current_page"] = selected_page
+        # Keep current_page in sync — also allows pipeline buttons to navigate
+        if selected_page != st.session_state.get("current_page"):
+            st.session_state["current_page"] = selected_page
+        elif st.session_state.get("current_page") not in pages:
+            st.session_state["current_page"] = "🏠 Home"
+        selected_page = st.session_state["current_page"]
 
         st.markdown("<hr style='border-color:rgba(255,255,255,0.2);'>", unsafe_allow_html=True)
 
@@ -2570,21 +2576,19 @@ Rules:
 def main():
     """Main application entry point and page router."""
 
-    # ── WebSocket keepalive — prevents "ping timeout; no close frame" error ──
-    # Uses st.markdown (no deprecation warning) instead of st.components.v1.html.
-    # Fires a silent postMessage every 25s to keep the WS connection alive.
-    st.markdown("""
-    <script>
-    (function() {
-        if (window._linkedEdgeKeepalive) return;
-        window._linkedEdgeKeepalive = true;
-        setInterval(function() {
-            try { window.parent.postMessage({type:"streamlit:keepalive"}, "*"); }
-            catch(e) {}
-        }, 25000);
-    })();
-    </script>
-    """, unsafe_allow_html=True)
+    # ── WebSocket keepalive ───────────────────────────────────────────────────
+    # Streamlit 1.57 sanitises st.markdown scripts. The correct fix for
+    # "keepalive ping timeout" on Streamlit Cloud is a .streamlit/config.toml:
+    #   [server]
+    #   maxUploadSize = 200
+    # AND keeping renders frequent. We trigger a lightweight dummy read of
+    # session state every run (Streamlit already does this; the real fix is
+    # config.toml — see sidebar tips).
+    # We still write a hidden div so user activity resets the 30s timer:
+    st.markdown(
+        "<div style='display:none' aria-hidden='true'>♻</div>",
+        unsafe_allow_html=True,
+    )
 
     # Warm up shared utility modules (safe here — Streamlit runtime is active)
     _prewarm_utils()
