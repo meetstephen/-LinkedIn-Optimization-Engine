@@ -2571,20 +2571,20 @@ def main():
     """Main application entry point and page router."""
 
     # ── WebSocket keepalive — prevents "ping timeout; no close frame" error ──
-    # Sends a silent postMessage every 25s, well under Streamlit's 30s timeout.
-    st.components.v1.html("""
+    # Uses st.markdown (no deprecation warning) instead of st.components.v1.html.
+    # Fires a silent postMessage every 25s to keep the WS connection alive.
+    st.markdown("""
     <script>
     (function() {
-        if (window._linkedEdgeKeepalive) return;  // already running
+        if (window._linkedEdgeKeepalive) return;
         window._linkedEdgeKeepalive = true;
         setInterval(function() {
-            try {
-                window.parent.postMessage({type: "streamlit:keepalive"}, "*");
-            } catch(e) {}
+            try { window.parent.postMessage({type:"streamlit:keepalive"}, "*"); }
+            catch(e) {}
         }, 25000);
     })();
     </script>
-    """, height=0)
+    """, unsafe_allow_html=True)
 
     # Warm up shared utility modules (safe here — Streamlit runtime is active)
     _prewarm_utils()
