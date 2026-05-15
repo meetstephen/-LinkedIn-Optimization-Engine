@@ -1,0 +1,12 @@
+[server]
+# Increase message size limit (prevents large AI responses from disconnecting)
+maxMessageSize = 200
+
+# Keep WebSocket alive — prevents "keepalive ping timeout; no close frame received"
+# Streamlit's default ping interval is 30s. Setting it higher gives more headroom.
+enableCORS = false
+enableXsrfProtection = false
+
+[browser]
+# Suppress the "are you still there?" warning that disconnects idle sessions
+gatherUsageStats = false
