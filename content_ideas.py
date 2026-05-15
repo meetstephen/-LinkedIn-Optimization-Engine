@@ -3,7 +3,7 @@ Content Idea Generator — Generates a full content calendar and
 post ideas by niche using proven LinkedIn content pillars.
 """
 import streamlit as st
-from gemini_client import generate_text, get_profile_context
+from gemini_client import generate_text, get_profile_context, save_to_library_db
 from industry_profiles import get_industry_voice_block
 
 
@@ -127,13 +127,21 @@ def render_content_ideas():
                 st.success(f"{count} content ideas generated!")
                 st.markdown("---")
 
-                st.download_button(
-                    label="📥 Download Content Calendar",
-                    data=result,
-                    file_name=f"content_ideas_{niche.replace(' ', '_').lower()}.txt",
-                    mime="text/plain",
-                    use_container_width=True,
-                )
+                dl_col, sv_col = st.columns(2)
+                with dl_col:
+                    st.download_button(
+                        label="📥 Download Content Calendar",
+                        data=result,
+                        file_name=f"content_ideas_{niche.replace(' ', '_').lower()}.txt",
+                        mime="text/plain",
+                        use_container_width=True,
+                    )
+                with sv_col:
+                    if st.button("📚 Save to Post Library", use_container_width=True,
+                                 key="ci_save_library"):
+                        ok = save_to_library_db(result, "💡 Content Ideas",
+                                                tags=["content-calendar", niche.lower()[:20]])
+                        st.success("✅ Saved to Post Library!") if ok else st.warning("⚠️ Saved in-session only")
 
                 st.markdown(result)
 
