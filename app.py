@@ -1100,16 +1100,14 @@ def render_sidebar():
         selected_page = st.radio(
             "Navigate to",
             pages,
-            index=pages.index(st.session_state.get("current_page", "🏠 Home")),
+            index=pages.index(st.session_state.get("current_page", "🏠 Home"))
+                  if st.session_state.get("current_page", "🏠 Home") in pages else 0,
             label_visibility="collapsed",
             key="nav_radio",
         )
-        # Keep current_page in sync — also allows pipeline buttons to navigate
-        if selected_page != st.session_state.get("current_page"):
-            st.session_state["current_page"] = selected_page
-        elif st.session_state.get("current_page") not in pages:
-            st.session_state["current_page"] = "🏠 Home"
-        selected_page = st.session_state["current_page"]
+        # nav_radio is the widget's own key — Streamlit updates it on interaction.
+        # Pipeline buttons set it directly so the radio reflects the navigation.
+        st.session_state["current_page"] = selected_page
 
         st.markdown("<hr style='border-color:rgba(255,255,255,0.2);'>", unsafe_allow_html=True)
 
