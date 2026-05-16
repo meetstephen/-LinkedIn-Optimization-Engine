@@ -5,8 +5,9 @@ using proven content frameworks powered by Gemini.
 import html as _html
 import streamlit as st
 import streamlit.components.v1 as _components
-from utils.gemini_client import generate_text, get_profile_context
+from gemini_client import generate_text, get_profile_context
 from industry_profiles import get_industry_voice_block
+from library import save_post_to_library
 
 
 # ── Unicode formatting helpers ─────────────────────────────────────────────
@@ -579,7 +580,7 @@ def render_post_generator():
 
                 # ── Pipeline buttons ───────────────────────────────────────
                 st.markdown("**Send this post to:**")
-                btn_col1, btn_col2, btn_col3, btn_col4 = st.columns(4)
+                btn_col1, btn_col2, btn_col3, btn_col4, btn_col5 = st.columns(5)
 
                 with btn_col1:
                     if st.button("📋 Copy Post", key=f"copy_v{idx}",
@@ -591,6 +592,7 @@ def render_post_generator():
                                  use_container_width=True, help="Send to Post Optimizer"):
                         st.session_state["po_content"]   = content
                         st.session_state["current_page"] = "🔧 Post Optimizer"
+                        st.session_state["nav_radio"]    = "🔧 Post Optimizer"
                         st.rerun()
 
                 with btn_col3:
@@ -598,6 +600,7 @@ def render_post_generator():
                                  use_container_width=True, help="Send to Viral Hook Analyzer"):
                         st.session_state["hook_analyzer_input"] = content
                         st.session_state["current_page"]        = "🔥 Viral Hook Analyzer"
+                        st.session_state["nav_radio"]           = "🔥 Viral Hook Analyzer"
                         st.rerun()
 
                 with btn_col4:
@@ -605,7 +608,17 @@ def render_post_generator():
                                  use_container_width=True, help="Generate a LinkedIn image"):
                         st.session_state["ig_post_content"] = content[:500]
                         st.session_state["current_page"]    = "🎨 Image Generator"
+                        st.session_state["nav_radio"]       = "🎨 Image Generator"
                         st.rerun()
+
+                with btn_col5:
+                    if st.button("📚 Save", key=f"save_v{idx}",
+                                 use_container_width=True, help="Save to Post Library"):
+                        ok, msg = save_post_to_library(
+                            content, "🚀 Post Generator",
+                            tags=["generated", f"variation-{idx}"]
+                        )
+                        st.success(msg) if ok else st.warning(msg)
 
         if analysis:
             with st.expander("📊 AI Analysis", expanded=True):
