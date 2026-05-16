@@ -3,7 +3,8 @@ Creator Strategy Insights — Simulates top LinkedIn creator tactics,
 hook formulas, post structures, and engagement frameworks.
 """
 import streamlit as st
-from gemini_client import generate_text, get_profile_context, save_to_library_db
+from gemini_client import generate_text, get_profile_context
+from library import save_post_to_library
 from industry_profiles import get_industry_voice_block
 
 
@@ -185,9 +186,9 @@ def render_strategy_insights():
                 with sv_col:
                     if st.button("📚 Save to Post Library", use_container_width=True,
                                  key="si_save_library"):
-                        ok = save_to_library_db(result, "🧠 Strategy Insights",
+                        ok, msg = save_post_to_library(result, "🧠 Strategy Insights",
                                                 tags=["strategy", creator_type.lower().replace(" ", "-")])
-                        st.success("✅ Saved to Post Library!") if ok else st.warning("⚠️ Saved in-session only")
+                        st.success(msg) if ok else st.warning(msg)
 
                 st.markdown(result)
 
