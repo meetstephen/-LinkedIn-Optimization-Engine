@@ -132,8 +132,15 @@ def render_post_optimizer():
     st.markdown("Paste your existing post and get a full diagnosis + professional rewrite with engagement score.")
 
     # ── Patch 1c: Enlarged input (320px) + niche field ───────────────────────
+    # Pre-fill from pipeline (post_generator sends content via session state)
+    _piped_content = st.session_state.pop("po_content_pipe", None)
+    if _piped_content:
+        st.session_state["po_content"] = _piped_content
+        st.info("✅ Post received from Post Generator — ready to optimize!")
+
     original_post = st.text_area(
         "📝 Paste Your LinkedIn Post Here",
+        value=st.session_state.get("po_content", ""),
         placeholder=(
             "Paste your existing LinkedIn post here…\n\n"
             "The more complete the post, the more specific the diagnosis. "
@@ -231,8 +238,7 @@ def render_post_optimizer():
                                 _rw.append(_line)
                         _rewritten = "\n".join(_rw).strip() or original_post
                         st.session_state["hook_analyzer_input"] = _rewritten
-                        st.session_state["current_page"]        = "🔥 Viral Hook Analyzer"
-                        st.session_state["nav_radio"]           = "🔥 Viral Hook Analyzer"
+                        st.session_state["_pending_nav"] = "🔥 Viral Hook Analyzer"
                         st.rerun()
                 with pipe2:
                     if st.button(
