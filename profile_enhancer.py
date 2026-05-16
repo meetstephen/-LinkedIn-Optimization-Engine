@@ -3,7 +3,8 @@ Profile Enhancer Module — Transforms beginner LinkedIn profiles into
 PRO-level profiles with a comprehensive score and action plan.
 """
 import streamlit as st
-from gemini_client import generate_text, get_profile_context, save_to_library_db
+from gemini_client import generate_text, get_profile_context
+from library import save_post_to_library
 from industry_profiles import get_industry_voice_block
 
 
@@ -199,9 +200,9 @@ def render_profile_enhancer():
 
                 if st.button("📚 Save Analysis to Post Library", use_container_width=True,
                              key="pe_save_library"):
-                    ok = save_to_library_db(result, "🌟 Profile Enhancer",
+                    ok, msg = save_post_to_library(result, "🌟 Profile Enhancer",
                                             tags=["profile-analysis", industry.lower()[:20]])
-                    st.success("✅ Saved to Post Library!") if ok else st.warning("⚠️ Saved in-session only")
+                    st.success(msg) if ok else st.warning(msg)
 
             except Exception as e:
                 st.error(f"Analysis failed: {str(e)}")
