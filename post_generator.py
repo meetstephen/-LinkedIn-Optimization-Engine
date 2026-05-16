@@ -590,25 +590,22 @@ def render_post_generator():
                 with btn_col2:
                     if st.button("🔧 Optimize", key=f"opt_v{idx}",
                                  use_container_width=True, help="Send to Post Optimizer"):
-                        st.session_state["po_content"]   = content
-                        st.session_state["current_page"] = "🔧 Post Optimizer"
-                        st.session_state["nav_radio"]    = "🔧 Post Optimizer"
+                        st.session_state["po_content_pipe"] = content  # pipe key, not widget key
+                        st.session_state["_pending_nav"]    = "🔧 Post Optimizer"
                         st.rerun()
 
                 with btn_col3:
                     if st.button("🔥 Check Hook", key=f"hook_v{idx}",
                                  use_container_width=True, help="Send to Viral Hook Analyzer"):
                         st.session_state["hook_analyzer_input"] = content
-                        st.session_state["current_page"]        = "🔥 Viral Hook Analyzer"
-                        st.session_state["nav_radio"]           = "🔥 Viral Hook Analyzer"
+                        st.session_state["_pending_nav"] = "🔥 Viral Hook Analyzer"
                         st.rerun()
 
                 with btn_col4:
                     if st.button("🎨 Make Visual", key=f"img_v{idx}",
                                  use_container_width=True, help="Generate a LinkedIn image"):
                         st.session_state["ig_post_content"] = content[:500]
-                        st.session_state["current_page"]    = "🎨 Image Generator"
-                        st.session_state["nav_radio"]       = "🎨 Image Generator"
+                        st.session_state["_pending_nav"] = "🎨 Image Generator"
                         st.rerun()
 
                 with btn_col5:
