@@ -3,7 +3,8 @@ About Section Optimizer — Transforms LinkedIn About sections into
 powerful personal brand stories with keyword optimization.
 """
 import streamlit as st
-from gemini_client import generate_text, get_profile_context, save_to_library_db
+from gemini_client import generate_text, get_profile_context
+from library import save_post_to_library
 from industry_profiles import get_industry_voice_block
 
 
@@ -209,9 +210,9 @@ def render_about_optimizer():
                 with pipe2:
                     if st.button("📚 Save to Post Library", use_container_width=True,
                                  key="ao_save_library"):
-                        ok = save_to_library_db(result, "💼 About Optimizer",
+                        ok, msg = save_post_to_library(result, "💼 About Optimizer",
                                                 tags=["about-section", industry.lower()[:20]])
-                        st.success("✅ Saved to Post Library!") if ok else st.warning("⚠️ Saved in-session only")
+                        st.success(msg) if ok else st.warning(msg)
 
             except Exception as e:
                 st.error(f"Optimization failed: {str(e)}")
