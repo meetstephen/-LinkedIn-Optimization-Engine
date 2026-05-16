@@ -2601,11 +2601,12 @@ def main():
     # Warm up shared utility modules (safe here — Streamlit runtime is active)
     _prewarm_utils()
     init_session_state()
+
     # ── Cross-module navigation ───────────────────────────────────────────────
     # Pipeline buttons set st.session_state["_pending_nav"] = "🔧 Post Optimizer"
-    # We honour it here BEFORE the radio renders so the correct page shows.
+    # We honour it here BEFORE render_sidebar() so the radio index is correct.
     _pending = st.session_state.pop("_pending_nav", None)
-    if _pending and _pending in pages:
+    if _pending:
         st.session_state["current_page"] = _pending
 
     selected_page = render_sidebar()
