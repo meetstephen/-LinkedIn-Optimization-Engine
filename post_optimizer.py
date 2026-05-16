@@ -3,7 +3,8 @@ Post Optimizer Module — Rewrites and scores existing LinkedIn posts
 for maximum engagement and virality potential.
 """
 import streamlit as st
-from gemini_client import generate_text, get_profile_context, save_to_library_db
+from gemini_client import generate_text, get_profile_context
+from library import save_post_to_library
 from industry_profiles import get_industry_voice_block
 
 
@@ -231,6 +232,7 @@ def render_post_optimizer():
                         _rewritten = "\n".join(_rw).strip() or original_post
                         st.session_state["hook_analyzer_input"] = _rewritten
                         st.session_state["current_page"]        = "🔥 Viral Hook Analyzer"
+                        st.session_state["nav_radio"]           = "🔥 Viral Hook Analyzer"
                         st.rerun()
                 with pipe2:
                     if st.button(
@@ -239,12 +241,10 @@ def render_post_optimizer():
                         key="opt_to_library",
                         help="Save the full optimization report to your Post Library",
                     ):
-                        ok = save_to_library_db(result, "🔧 Post Optimizer",
-                                                tags=["optimized"])
-                        if ok:
-                            st.success("✅ Saved to Post Library!")
-                        else:
-                            st.warning("⚠️ Saved in-session only (Supabase unavailable)")
+                        ok, msg = save_post_to_library(
+                            result, "🔧 Post Optimizer", tags=["optimized"]
+                        )
+                        st.success(msg) if ok else st.warning(msg)
 
             except Exception as e:
                 st.error(f"Optimization failed: {str(e)}")
