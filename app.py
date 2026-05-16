@@ -90,7 +90,19 @@ def _prewarm_utils() -> None:
     import time — so missing files surface as a friendly UI error, not a
     server crash.
     """
+    # Register core.db into sys.modules so library.py can reach it
+    if _CORE_AVAILABLE and "core.db" not in sys.modules:
+        try:
+            from core import db as _cdb
+            sys.modules["core.db"] = _cdb
+        except Exception:
+            pass
+
     for mod_name, rel_path in [
+        ("gemini_client",    "gemini_client.py"),
+        ("industry_profiles","industry_profiles.py"),
+        ("library",          "library.py"),
+        # legacy aliases kept for any old import paths
         ("utils.gemini_client", "gemini_client.py"),
         ("utils.image_client",  "image_client.py"),
     ]:
@@ -1105,8 +1117,6 @@ def render_sidebar():
             label_visibility="collapsed",
             key="nav_radio",
         )
-        # nav_radio is the widget's own key — Streamlit updates it on interaction.
-        # Pipeline buttons set it directly so the radio reflects the navigation.
         st.session_state["current_page"] = selected_page
 
         st.markdown("<hr style='border-color:rgba(255,255,255,0.2);'>", unsafe_allow_html=True)
@@ -2591,6 +2601,13 @@ def main():
     # Warm up shared utility modules (safe here — Streamlit runtime is active)
     _prewarm_utils()
     init_session_state()
+    # ── Cross-module navigation ───────────────────────────────────────────────
+    # Pipeline buttons set st.session_state["_pending_nav"] = "🔧 Post Optimizer"
+    # We honour it here BEFORE the radio renders so the correct page shows.
+    _pending = st.session_state.pop("_pending_nav", None)
+    if _pending and _pending in pages:
+        st.session_state["current_page"] = _pending
+
     selected_page = render_sidebar()
 
     # ── Page routing ──────────────────────────────────────────────────────────
