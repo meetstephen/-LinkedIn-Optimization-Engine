@@ -3,7 +3,7 @@ Post Optimizer Module — Rewrites and scores existing LinkedIn posts
 for maximum engagement and virality potential.
 """
 import streamlit as st
-from gemini_client import generate_text, get_profile_context
+from gemini_client import generate_text, get_profile_context, stream_text
 from library import save_post_to_library
 from industry_profiles import get_industry_voice_block
 
@@ -173,87 +173,86 @@ def render_post_optimizer():
             st.warning("Post seems too short. Add more content for better optimization.")
             return
 
-        with st.spinner("Analyzing and rewriting your post…"):
-            try:
-                prompt = build_optimizer_prompt(
-                    original_post, goal,
-                    niche=st.session_state.get("po_niche", ""),
+        st.info("⚡ Streaming analysis — results appear as they're written…")
+        try:
+            prompt = build_optimizer_prompt(
+                original_post, goal,
+                niche=st.session_state.get("po_niche", ""),
+            )
+            # Stream into a container — write_stream returns the full text
+            with st.container():
+                result = st.write_stream(
+                    stream_text(prompt, temperature=0.72, max_tokens=8000)
                 )
-                result = generate_text(prompt, temperature=0.72, max_tokens=8000)
 
-                st.success("✅ Optimization complete!")
-                st.markdown("---")
+            st.session_state["session_posts_optimized"] = (
+                st.session_state.get("session_posts_optimized", 0) + 1
+            )
+            st.success("✅ Optimization complete!")
+            st.markdown("---")
 
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.subheader("❌ Original Post")
-                    st.markdown(
-                        f'<div style="background:#fff3f3;padding:1rem;border-radius:8px;'
-                        f'border-left:4px solid #ff4444;font-size:0.9rem;line-height:1.6;">'
-                        f'{original_post.replace(chr(10), "<br>")}</div>',
-                        unsafe_allow_html=True,
-                    )
-                with col2:
-                    st.subheader("✅ After AI Analysis")
-                    score_line = ""
-                    for line in result.split("\n"):
-                        if "OVERALL" in line.upper():
-                            score_line = line
+            col1, col2 = st.columns(2)
+            with col1:
+                st.subheader("❌ Original Post")
+                st.markdown(
+                    f'<div style="background:#fff3f3;padding:1rem;border-radius:8px;'
+                    f'border-left:4px solid #ff4444;font-size:0.9rem;line-height:1.6;">'
+                    f'{original_post.replace(chr(10), "<br>")}</div>',
+                    unsafe_allow_html=True,
+                )
+            with col2:
+                st.subheader("✅ After AI Analysis")
+                score_line = ""
+                for line in result.split("\n"):
+                    if "OVERALL" in line.upper():
+                        score_line = line
+                        break
+                if score_line:
+                    _raw_score   = score_line.split(":")[-1].strip() if ":" in score_line else "—"
+                    _clean_score = _raw_score.replace("**", "").strip()
+                    st.metric("Engagement Score", _clean_score)
+                st.markdown(
+                    f"<div style='font-size:0.8rem;color:#555;margin-top:0.5rem;'>"
+                    f"Industry: <strong>{st.session_state.get('po_niche','—') or '—'}</strong><br>"
+                    f"Goal: <strong>{goal}</strong></div>",
+                    unsafe_allow_html=True,
+                )
+
+            st.markdown("---")
+            # Full output already rendered by st.write_stream above
+            st.session_state["last_generated_post"] = result
+
+            st.markdown("---")
+            st.markdown("**Send the optimized post to:**")
+            pipe1, pipe2 = st.columns(2)
+            with pipe1:
+                if st.button("🔥 Check Hook in Analyzer", use_container_width=True,
+                             key="opt_to_hook",
+                             help="Run the rewritten hook through the Viral Hook Analyzer"):
+                    _lines   = result.split("\n")
+                    _in, _rw = False, []
+                    for _line in _lines:
+                        if "REWRITTEN VERSION" in _line.upper():
+                            _in = True; continue
+                        if _in and _line.startswith("##"):
                             break
-                    if score_line:
-                        _raw_score = score_line.split(":")[-1].strip() if ":" in score_line else "—"
-                        # Strip markdown bold markers (**XX/100** → XX/100)
-                        _clean_score = _raw_score.replace("**", "").strip()
-                        st.metric("Engagement Score", _clean_score)
-                    st.markdown(
-                        f"<div style='font-size:0.8rem;color:#555;margin-top:0.5rem;'>"
-                        f"Industry context: <strong>{st.session_state.get('po_niche','—') or '—'}</strong><br>"
-                        f"Goal: <strong>{goal}</strong></div>",
-                        unsafe_allow_html=True,
+                        if _in:
+                            _rw.append(_line)
+                    _rewritten = "\n".join(_rw).strip() or original_post
+                    st.session_state["hook_analyzer_input"] = _rewritten
+                    st.session_state["_pending_nav"] = "🔥 Viral Hook Analyzer"
+                    st.rerun()
+            with pipe2:
+                if st.button("📚 Save to Post Library", use_container_width=True,
+                             key="opt_to_library",
+                             help="Save the full optimization report to your Post Library"):
+                    ok, msg = save_post_to_library(
+                        result, "🔧 Post Optimizer", tags=["optimized"]
                     )
+                    st.success(msg) if ok else st.warning(msg)
 
-                st.markdown("---")
-                st.markdown(result)
-                st.session_state["last_generated_post"] = result
-
-                # ── Pipeline: send optimised post onwards ──────────────────
-                st.markdown("---")
-                st.markdown("**Send the optimized post to:**")
-                pipe1, pipe2 = st.columns(2)
-                with pipe1:
-                    if st.button(
-                        "🔥 Check Hook in Analyzer",
-                        use_container_width=True,
-                        key="opt_to_hook",
-                        help="Run the rewritten hook through the Viral Hook Analyzer",
-                    ):
-                        _lines   = result.split("\n")
-                        _in, _rw = False, []
-                        for _line in _lines:
-                            if "REWRITTEN VERSION" in _line.upper():
-                                _in = True; continue
-                            if _in and _line.startswith("##"):
-                                break
-                            if _in:
-                                _rw.append(_line)
-                        _rewritten = "\n".join(_rw).strip() or original_post
-                        st.session_state["hook_analyzer_input"] = _rewritten
-                        st.session_state["_pending_nav"] = "🔥 Viral Hook Analyzer"
-                        st.rerun()
-                with pipe2:
-                    if st.button(
-                        "📚 Save to Post Library",
-                        use_container_width=True,
-                        key="opt_to_library",
-                        help="Save the full optimization report to your Post Library",
-                    ):
-                        ok, msg = save_post_to_library(
-                            result, "🔧 Post Optimizer", tags=["optimized"]
-                        )
-                        st.success(msg) if ok else st.warning(msg)
-
-            except Exception as e:
-                st.error(f"Optimization failed: {str(e)}")
-                with st.expander("🔍 Error details"):
-                    import traceback as _tb
-                    st.code(_tb.format_exc())
+        except Exception as e:
+            st.error(f"Optimization failed: {str(e)}")
+            with st.expander("🔍 Error details"):
+                import traceback as _tb
+                st.code(_tb.format_exc())
