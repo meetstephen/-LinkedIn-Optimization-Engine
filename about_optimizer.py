@@ -3,7 +3,7 @@ About Section Optimizer — Transforms LinkedIn About sections into
 powerful personal brand stories with keyword optimization.
 """
 import streamlit as st
-from gemini_client import generate_text, get_profile_context
+from gemini_client import generate_text, get_profile_context, stream_text
 from library import save_post_to_library
 from industry_profiles import get_industry_voice_block
 
@@ -157,65 +157,64 @@ def render_about_optimizer():
             st.error("Please share your key strengths.")
             return
 
-        with st.spinner("Writing your About section..."):
-            try:
-                result = generate_text(
-                    build_about_prompt(current_about, name, role, industry,
-                                       superpowers, achievements, goal),
-                    temperature=0.78,
-                    max_tokens=8000,
+        st.info("⚡ Writing your About section — streams in real time…")
+        try:
+            result = st.write_stream(stream_text(
+                build_about_prompt(current_about, name, role, industry,
+                                   superpowers, achievements, goal),
+                temperature=0.78, max_tokens=8000,
+            ))
+            st.success("About section optimized!")
+            st.markdown("---")
+
+            # Before/After preview (only when user pasted existing About)
+            if current_about.strip():
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.subheader("Before")
+                    st.markdown(
+                        f'<div style="background:#fff3f3;padding:1rem;border-radius:8px;'
+                        f'border-left:4px solid #ff6b6b;font-size:0.9rem;">'
+                        f'{current_about.replace(chr(10), "<br>")}</div>',
+                        unsafe_allow_html=True)
+                with col2:
+                    st.subheader("Rewritten Section (Preview)")
+                    lines = result.split("\n")
+                    in_section, preview_lines = False, []
+                    for line in lines:
+                        if "REWRITTEN ABOUT" in line.upper():
+                            in_section = True; continue
+                        if in_section and line.startswith("##"):
+                            break
+                        if in_section:
+                            preview_lines.append(line)
+                    preview = "\n".join(preview_lines).strip()
+                    st.markdown(
+                        f'<div style="background:#f0fff4;padding:1rem;border-radius:8px;'
+                        f'border-left:4px solid #00c851;font-size:0.9rem;">'
+                        f'{preview.replace(chr(10), "<br>") if preview else "Scroll up — full output streamed above"}</div>',
+                        unsafe_allow_html=True)
+
+            # NOTE: full result already rendered by st.write_stream above — no duplicate here
+            st.markdown("---")
+            pipe1, pipe2 = st.columns(2)
+            with pipe1:
+                st.download_button(
+                    label="📥 Download About Section",
+                    data=result,
+                    file_name="linkedin_about_section.txt",
+                    mime="text/plain",
+                    use_container_width=True,
                 )
-                st.success("About section optimized!")
-                st.markdown("---")
+            with pipe2:
+                if st.button("📚 Save to Post Library", use_container_width=True,
+                             key="ao_save_library"):
+                    ok, msg = save_post_to_library(result, "💼 About Optimizer",
+                                                   tags=["about-section", industry.lower()[:20]])
+                    st.success(msg) if ok else st.warning(msg)
 
-                if current_about.strip():
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.subheader("Before")
-                        st.markdown(
-                            f'<div style="background:#fff3f3;padding:1rem;border-radius:8px;'
-                            f'border-left:4px solid #ff6b6b;font-size:0.9rem;">'
-                            f'{current_about.replace(chr(10), "<br>")}</div>',
-                            unsafe_allow_html=True)
-                    with col2:
-                        st.subheader("After (Preview)")
-                        lines = result.split("\n")
-                        in_section, preview_lines = False, []
-                        for line in lines:
-                            if "REWRITTEN ABOUT" in line.upper():
-                                in_section = True; continue
-                            if in_section and line.startswith("##"):
-                                break
-                            if in_section:
-                                preview_lines.append(line)
-                        preview = "\n".join(preview_lines).strip()
-                        st.markdown(
-                            f'<div style="background:#f0fff4;padding:1rem;border-radius:8px;'
-                            f'border-left:4px solid #00c851;font-size:0.9rem;">'
-                            f'{preview.replace(chr(10), "<br>") if preview else "See full results below"}</div>',
-                            unsafe_allow_html=True)
-
-                st.markdown("---")
-                st.markdown(result)
-
-                pipe1, pipe2 = st.columns(2)
-                with pipe1:
-                    st.download_button(
-                        label="📥 Download About Section",
-                        data=result,
-                        file_name="linkedin_about_section.txt",
-                        mime="text/plain",
-                        use_container_width=True,
-                    )
-                with pipe2:
-                    if st.button("📚 Save to Post Library", use_container_width=True,
-                                 key="ao_save_library"):
-                        ok, msg = save_post_to_library(result, "💼 About Optimizer",
-                                                tags=["about-section", industry.lower()[:20]])
-                        st.success(msg) if ok else st.warning(msg)
-
-            except Exception as e:
-                st.error(f"Optimization failed: {str(e)}")
-                with st.expander("Error details"):
-                    import traceback as _tb
-                    st.code(_tb.format_exc())
+        except Exception as e:
+            st.error(f"Optimization failed: {str(e)}")
+            with st.expander("Error details"):
+                import traceback as _tb
+                st.code(_tb.format_exc())
