@@ -126,22 +126,23 @@ def get_stats() -> dict:
             "top_module": top.split()[-1] if top != "—" else "—"}
 
 
-def save_profile(profile: dict, onboarding_complete: bool = False, nigerian_mode: bool = True) -> None:
+def save_profile(profile: dict, onboarding_complete: bool = False, nigerian_mode: bool = True, nigerian_tone_preset: str = "") -> None:
     """Upsert user profile + preferences to Supabase. Survives all reboots."""
     client = _get_client()
     row = {
-        "user_id":             _user_id(),
-        "name":                profile.get("name", ""),
-        "headline":            profile.get("headline", ""),
-        "role":                profile.get("role", ""),
-        "industry":            profile.get("industry", ""),
-        "audience":            profile.get("audience", ""),
-        "content_pillars":     json.dumps(profile.get("content_pillars", [])),
-        "tone":                profile.get("tone", "Professional & Authoritative"),
-        "voice_sample":        profile.get("voice_sample", ""),
-        "onboarding_complete": onboarding_complete,
-        "nigerian_mode":       nigerian_mode,
-        "updated_at":          datetime.now(timezone.utc).isoformat(),
+        "user_id":              _user_id(),
+        "name":                 profile.get("name", ""),
+        "headline":             profile.get("headline", ""),
+        "role":                 profile.get("role", ""),
+        "industry":             profile.get("industry", ""),
+        "audience":             profile.get("audience", ""),
+        "content_pillars":      json.dumps(profile.get("content_pillars", [])),
+        "tone":                 profile.get("tone", "Professional & Authoritative"),
+        "voice_sample":         profile.get("voice_sample", ""),
+        "onboarding_complete":  onboarding_complete,
+        "nigerian_mode":        nigerian_mode,
+        "nigerian_tone_preset": nigerian_tone_preset,
+        "updated_at":           datetime.now(timezone.utc).isoformat(),
     }
     client.table("lb_profiles").upsert(row, on_conflict="user_id").execute()
 
@@ -185,9 +186,10 @@ def load_profile() -> dict:
             "voice_sample":    row.get("voice_sample", ""),
         }
         return {
-            "profile":             profile,
-            "onboarding_complete": bool(row.get("onboarding_complete", False)),
-            "nigerian_mode":       bool(row.get("nigerian_mode", True)),
+            "profile":              profile,
+            "onboarding_complete":  bool(row.get("onboarding_complete", False)),
+            "nigerian_mode":        bool(row.get("nigerian_mode", True)),
+            "nigerian_tone_preset": row.get("nigerian_tone_preset", ""),
         }
     except Exception:
         return _empty
