@@ -3,7 +3,7 @@ Creator Strategy Insights — Simulates top LinkedIn creator tactics,
 hook formulas, post structures, and engagement frameworks.
 """
 import streamlit as st
-from gemini_client import generate_text, get_profile_context
+from gemini_client import generate_text, get_profile_context, stream_text
 from library import save_post_to_library
 from industry_profiles import get_industry_voice_block
 
@@ -167,10 +167,11 @@ def render_strategy_insights():
 
         with st.spinner("Building your playbook..."):
             try:
-                result = generate_text(
+                st.info("⚡ Generating your playbook — streams in real time…")
+                result = st.write_stream(stream_text(
                     build_strategy_prompt(creator_type, niche, goal),
                     temperature=0.8, max_tokens=8000,
-                )
+                ))
                 st.success("Strategy playbook generated!")
                 st.markdown("---")
 
@@ -189,8 +190,6 @@ def render_strategy_insights():
                         ok, msg = save_post_to_library(result, "🧠 Strategy Insights",
                                                 tags=["strategy", creator_type.lower().replace(" ", "-")])
                         st.success(msg) if ok else st.warning(msg)
-
-                st.markdown(result)
 
             except Exception as e:
                 st.error(f"Generation failed: {str(e)}")
