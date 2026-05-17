@@ -75,65 +75,21 @@ POSTING TIMES: Always give time advice in WAT (West Africa Time, UTC+1).
 AVOID: Silicon Valley jargon, dollar-centric examples as primary reference,
   treating Nigeria as synonymous with Lagos, assuming all users are in the Southwest."""
 
+        # ── Nigerian Tone Preset (fine-grained voice within Nigerian mode) ────
+        _ng_tone = st.session_state.get("nigerian_tone_preset", "")
+        if _ng_tone:
+            try:
+                from industry_profiles import get_nigerian_tone_block
+                _tone_block = get_nigerian_tone_block(_ng_tone)
+                if _tone_block:
+                    base += _tone_block
+            except Exception:
+                pass
+
     return base
 
-def save_to_library_db(content: str, module: str, score: int = 0, tags: list = None) -> bool:
-    """
-    Save a post directly to Supabase lb_posts table.
-    Returns True on success, False on failure.
-    All modules import this instead of writing to st.session_state directly.
-    """
-    import time as _time
-    import json as _json
-
-    try:
-        from supabase import create_client as _cc
-        url = st.secrets.get("SUPABASE_URL", "")
-        key = st.secrets.get("SUPABASE_KEY", "")
-        if not url or not key:
-            # Fallback: write to session state only
-            _fallback_save(content, module, score, tags)
-            return True
-        client = _cc(url, key)
-        uid    = st.session_state.get("user_id", "default")
-        row = {
-            "id":         int(_time.time() * 1000),
-            "user_id":    uid,
-            "content":    content.strip(),
-            "module":     module,
-            "score":      score,
-            "tags":       _json.dumps(tags or []),
-            "created_at": __import__("datetime").datetime.now().strftime("%b %d, %Y · %I:%M %p"),
-            "starred":    False,
-        }
-        client.table("lb_posts").insert(row).execute()
-        # Also update session count
-        st.session_state["session_posts_generated"] = (
-            st.session_state.get("session_posts_generated", 0) + 1
-        )
-        return True
-    except Exception as _e:
-        # Supabase failed — fall back to session state
-        _fallback_save(content, module, score, tags)
-        return False
 
 
-def _fallback_save(content: str, module: str, score: int = 0, tags: list = None) -> None:
-    """Write post to session_state when Supabase is unavailable."""
-    import time as _time
-    entry = {
-        "id":         int(_time.time() * 1000),
-        "content":    content.strip(),
-        "module":     module,
-        "score":      score,
-        "tags":       tags or [],
-        "created_at": __import__("datetime").datetime.now().strftime("%b %d, %Y · %I:%M %p"),
-        "starred":    False,
-    }
-    st.session_state.setdefault("post_library", []).insert(0, entry)
-    st.session_state["session_posts_generated"] = (
-        st.session_state.get("session_posts_generated", 0) + 1
-    )
 MODEL_DEFAULT = "gemini-2.5-flash"
 MODEL_LITE    = "gemini-2.0-flash-lite"
 
@@ -154,18 +110,7 @@ def generate_text(
     max_tokens: int = 8000,
     model: str = MODEL_DEFAULT,
 ) -> str:
-    """
-    Generate text using the Gemini model.
-
-    Args:
-        prompt:      The input prompt for generation.
-        temperature: Creativity level (0.0 = deterministic, 1.0 = creative).
-        max_tokens:  Maximum tokens in the response.
-        model:       Model string — defaults to gemini-2.5-flash.
-
-    Returns:
-        Generated text string.
-    """
+    """Generate text and return the full response string."""
     try:
         client = get_gemini_client()
         response = client.models.generate_content(
@@ -182,3 +127,38 @@ def generate_text(
         raise e
     except Exception as e:
         raise RuntimeError(f"Gemini API error: {str(e)}")
+
+
+def stream_text(
+    prompt: str,
+    temperature: float = 0.8,
+    max_tokens: int = 8000,
+    model: str = MODEL_DEFAULT,
+):
+    """
+    Stream text generation from Gemini — yields text chunks as they arrive.
+
+    Usage in Streamlit:
+        result = st.write_stream(stream_text(prompt))
+        # result contains the full text after streaming completes
+
+    Falls back to generate_text() if streaming fails.
+    """
+    try:
+        client = get_gemini_client()
+        for chunk in client.models.generate_content_stream(
+            model=model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=temperature,
+                max_output_tokens=max_tokens,
+            ),
+        ):
+            if chunk.text:
+                yield chunk.text
+    except Exception as e:
+        # Streaming failed — yield the full response in one chunk
+        try:
+            yield generate_text(prompt, temperature, max_tokens, model)
+        except Exception as e2:
+            raise RuntimeError(f"Gemini streaming error: {str(e)} | Fallback error: {str(e2)}")
