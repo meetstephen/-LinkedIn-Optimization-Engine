@@ -3,7 +3,7 @@ Profile Enhancer Module — Transforms beginner LinkedIn profiles into
 PRO-level profiles with a comprehensive score and action plan.
 """
 import streamlit as st
-from gemini_client import generate_text, get_profile_context
+from gemini_client import generate_text, get_profile_context, stream_text
 from library import save_post_to_library
 from industry_profiles import get_industry_voice_block
 
@@ -188,24 +188,23 @@ def render_profile_enhancer():
             "recommendations": recommendations,
         }
 
-        with st.spinner("Scoring your profile and building your plan..."):
-            try:
-                result = generate_text(
-                    build_profile_prompt(profile_data),
-                    temperature=0.72, max_tokens=8000,
-                )
-                st.success("Profile analysis complete!")
-                st.markdown("---")
-                st.markdown(result)
+        st.info("⚡ Scoring your profile — streams in real time…")
+        try:
+            result = st.write_stream(stream_text(
+                build_profile_prompt(profile_data),
+                temperature=0.72, max_tokens=8000,
+            ))
+            st.success("Profile analysis complete!")
+            st.markdown("---")
 
-                if st.button("📚 Save Analysis to Post Library", use_container_width=True,
-                             key="pe_save_library"):
-                    ok, msg = save_post_to_library(result, "🌟 Profile Enhancer",
-                                            tags=["profile-analysis", industry.lower()[:20]])
-                    st.success(msg) if ok else st.warning(msg)
+            if st.button("📚 Save Analysis to Post Library", use_container_width=True,
+                         key="pe_save_library"):
+                ok, msg = save_post_to_library(result, "🌟 Profile Enhancer",
+                                               tags=["profile-analysis", industry.lower()[:20]])
+                st.success(msg) if ok else st.warning(msg)
 
-            except Exception as e:
-                st.error(f"Analysis failed: {str(e)}")
-                with st.expander("Error details"):
-                    import traceback as _tb
-                    st.code(_tb.format_exc())
+        except Exception as e:
+            st.error(f"Analysis failed: {str(e)}")
+            with st.expander("Error details"):
+                import traceback as _tb
+                st.code(_tb.format_exc())
