@@ -121,6 +121,8 @@ def _load_profile_once() -> None:
             st.session_state["onboarding_complete"] = data["onboarding_complete"]
         if "nigerian_mode" in data:
             st.session_state["nigerian_mode"] = data["nigerian_mode"]
+        if "nigerian_tone_preset" in data:
+            st.session_state["nigerian_tone_preset"] = data["nigerian_tone_preset"]
 
     except Exception:
         pass   # Supabase unavailable — silently fall back to session-only values
@@ -153,6 +155,7 @@ def init_session_state() -> None:
         "last_generated_post":     "",
         # Persisted preferences — overwritten below by Supabase load if available
         "nigerian_mode":           True,
+        "nigerian_tone_preset":    "",
         "onboarding_complete":     False,
         "carousel_slides":         [],
         "user_profile": {
