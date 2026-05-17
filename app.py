@@ -85,31 +85,28 @@ def load_module(module_name: str, relative_path: str):
 
 def _prewarm_utils() -> None:
     """
-    Eagerly load shared utility modules so sub-modules can `import` them.
-    Called inside main() — i.e. during a live Streamlit request, never at
-    import time — so missing files surface as a friendly UI error, not a
-    server crash.
+    Eagerly load shared utility modules so sub-modules can import them.
+    Also injects core.db.save_post into sys.modules under a stable key
+    so library.py can reach it without a fragile dynamic import chain.
     """
-    # Register core.db into sys.modules so library.py can reach it
-    if _CORE_AVAILABLE and "core.db" not in sys.modules:
-        try:
-            from core import db as _cdb
-            sys.modules["core.db"] = _cdb
-        except Exception:
-            pass
+    # Inject the real DB save function under a stable key ──────────────────
+    if _CORE_AVAILABLE:
+        sys.modules["__lb_db_save__"] = _db.save_post      # callable
+        sys.modules["__lb_db_posts__"] = _db.get_posts     # callable
+        sys.modules["core.db"] = _db                        # full module alias
 
     for mod_name, rel_path in [
-        ("gemini_client",    "gemini_client.py"),
-        ("industry_profiles","industry_profiles.py"),
-        ("library",          "library.py"),
-        # legacy aliases kept for any old import paths
+        ("gemini_client",       "gemini_client.py"),
+        ("industry_profiles",   "industry_profiles.py"),
+        ("library",             "library.py"),
+        # legacy aliases
         ("utils.gemini_client", "gemini_client.py"),
         ("utils.image_client",  "image_client.py"),
     ]:
         try:
             load_module(mod_name, rel_path)
         except FileNotFoundError:
-            pass  # sub-modules will surface their own import errors
+            pass
 
 # ─────────────────────────────────────────────
 # PAGE CONFIGURATION — Must be first Streamlit call
@@ -1051,6 +1048,10 @@ def init_session_state():
         "post_history": [],
         "post_library": [],
         "session_posts_generated": 0,
+        "session_posts_saved":     0,   # actual DB saves
+        "session_posts_optimized": 0,   # post optimizer runs
+        "session_carousels":       0,   # carousel generations
+        "session_repurposed":      0,   # repurposing engine runs
         "session_minutes_saved": 0,
         "hooks_analyzed": 0,
         "viral_analyzer_result": None,
@@ -1068,6 +1069,7 @@ def init_session_state():
         },
         # ── New v2.1 state ──────────────────────────────────────────────────
         "nigerian_mode":       True,   # ON by default for Nigerian audience
+        "nigerian_tone_preset": "",    # fine-grained tone within Nigerian mode
         "onboarding_complete": False,  # show 3-step wizard until dismissed
         "carousel_slides":     [],     # [{title, body, emoji}]
     }
@@ -1100,6 +1102,9 @@ def render_sidebar():
             "🔥 Viral Hook Analyzer",
             "🚀 Post Generator",
             "🔧 Post Optimizer",
+            "♻️ Repurposing Engine",
+            "💬 Engagement Intelligence",
+            "🔍 Brand Scanner",
             "💼 About Optimizer",
             "🌟 Profile Enhancer",
             "💡 Content Ideas",
@@ -1207,6 +1212,7 @@ def render_sidebar():
                             _new_profile,
                             onboarding_complete=st.session_state.get("onboarding_complete", False),
                             nigerian_mode=st.session_state.get("nigerian_mode", True),
+                            nigerian_tone_preset=st.session_state.get("nigerian_tone_preset", ""),
                         )
                         _save_ok = True
                 except Exception as _e:
@@ -1247,16 +1253,35 @@ def render_sidebar():
                     st.session_state["user_profile"],
                     onboarding_complete=st.session_state.get("onboarding_complete", False),
                     nigerian_mode=_ng_on,
+                    nigerian_tone_preset=st.session_state.get("nigerian_tone_preset", ""),
                 )
             except Exception:
                 pass
         if _ng_on:
             st.markdown(
                 "<div style='font-size:0.7rem;color:rgba(255,255,255,0.75);margin-top:-4px;'>"
-                "🟢 Active — AI uses Lagos business culture, WAT times & Nigerian context"
+                "🟢 Active — AI uses Nigerian context, WAT times & local institutions"
                 "</div>",
                 unsafe_allow_html=True,
             )
+            # ── Nigerian Tone Preset ───────────────────────────────────────
+            try:
+                from industry_profiles import NIGERIAN_TONE_PRESETS
+                _preset_options = ["Auto (match my industry)"] + list(NIGERIAN_TONE_PRESETS.keys())
+                _current_preset = st.session_state.get("nigerian_tone_preset", "")
+                _preset_idx = _preset_options.index(_current_preset) if _current_preset in _preset_options else 0
+                _selected_preset = st.selectbox(
+                    "🎙️ Tone Preset",
+                    _preset_options,
+                    index=_preset_idx,
+                    key="ng_tone_select",
+                    help="Fine-tune the Nigerian professional voice beyond just industry matching.",
+                )
+                _new_preset = "" if _selected_preset == "Auto (match my industry)" else _selected_preset
+                if _new_preset != st.session_state.get("nigerian_tone_preset", ""):
+                    st.session_state["nigerian_tone_preset"] = _new_preset
+            except Exception:
+                pass
         else:
             st.markdown(
                 "<div style='font-size:0.7rem;color:rgba(255,255,255,0.55);margin-top:-4px;'>"
@@ -1446,10 +1471,11 @@ def render_home():
     """Renders the home/landing page."""
     # Hero section
     _ng_active = st.session_state.get("nigerian_mode", False)
-    _ng_suffix  = " — 🇳🇬 Nigerian Voice Active" if _ng_active else ""
+    _ng_tone   = st.session_state.get("nigerian_tone_preset", "")
+    _ng_suffix = f" — 🇳🇬 {_ng_tone or 'Nigerian Voice'} Active" if _ng_active else ""
     st.markdown(f"""
     <div class="main-header">
-        <div class="v-badge">v2.1 · Production Ready{_ng_suffix}</div>
+        <div class="v-badge">v3.0 · 14 Modules · Production Ready{_ng_suffix}</div>
         <div style="font-size:3rem;font-weight:900;letter-spacing:-1px;color:white;line-height:1.05;margin:0.4rem 0 0.1rem;text-shadow:0 2px 12px rgba(0,0,0,0.2);">
             ⚡ Linked<span style="color:#7DD3FC;text-shadow:0 0 30px rgba(125,211,252,0.6);">Edge</span>
         </div>
@@ -1517,6 +1543,7 @@ def render_home():
                             st.session_state.get("user_profile", {}),
                             onboarding_complete=True,
                             nigerian_mode=st.session_state.get("nigerian_mode", True),
+                            nigerian_tone_preset=st.session_state.get("nigerian_tone_preset", ""),
                         )
                 except Exception:
                     pass
@@ -1540,17 +1567,22 @@ def render_home():
         </div>
         """, unsafe_allow_html=True)
 
-    # Stats row — responsive HTML grid (safe on mobile, no st.columns collapse)
-    st.markdown("""
+    # Stats row — real per-category metrics
+    _gen  = st.session_state.get("session_posts_generated", 0)
+    _saved = st.session_state.get("session_posts_saved", 0)
+    _hooks = st.session_state.get("hooks_analyzed", 0)
+    _opt   = st.session_state.get("session_posts_optimized", 0)
+
+    st.markdown(f"""
 <style>
-.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.2rem;}
-@media(max-width:768px){.stat-grid{grid-template-columns:repeat(2,1fr);}}
+.stat-grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.2rem;}}
+@media(max-width:768px){{.stat-grid{{grid-template-columns:repeat(2,1fr);}}}}
 </style>
 <div class="stat-grid">
-    <div class="stat-card"><div class="number">11</div><div class="label">Powerful Modules</div></div>
-    <div class="stat-card"><div class="number">∞</div><div class="label">Post Variations</div></div>
-    <div class="stat-card"><div class="number">100</div><div class="label">Profile Score</div></div>
-    <div class="stat-card"><div class="number">3</div><div class="label">AI APIs</div></div>
+    <div class="stat-card"><div class="number">{_gen}</div><div class="label">Posts Generated</div></div>
+    <div class="stat-card"><div class="number">{_saved}</div><div class="label">Saved to Library</div></div>
+    <div class="stat-card"><div class="number">{_hooks}</div><div class="label">Hooks Analyzed</div></div>
+    <div class="stat-card"><div class="number">{_opt}</div><div class="label">Posts Optimized</div></div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -1562,17 +1594,20 @@ def render_home():
     # A single HTML/CSS-grid call is the reliable production fix.
 
     features = [
-        ("\U0001f525", "Viral Hook Analyzer", "Score your hook across 5 dimensions, get 5 power rewrites + live mobile preview", True),
-        ("\U0001f680", "Post Generator",      "Create viral posts with proven frameworks, hooks, and 2&ndash;3 variations per topic", False),
-        ("\U0001f527", "Post Optimizer",      "Get your existing posts diagnosed and rewritten with engagement scores", False),
-        ("\U0001f4bc", "About Optimizer",     "Transform your About section into a personal brand story that gets found", False),
-        ("\U0001f31f", "Profile Enhancer",    "Get your profile scored (0&ndash;100) and a 30-day transformation roadmap", False),
-        ("\U0001f4a1", "Content Ideas",       "Generate a full content calendar with hooks, angles, and hashtags", False),
-        ("\U0001f9e0", "Strategy Insights",   "Reverse-engineered playbooks from top LinkedIn creators", False),
-        ("\U0001f3a8", "Image Generator",     "AI-generated professional visuals using SDXL and Hugging Face", False),
-        ("\u26a1", "Engagement Toolkit",      "Hooks, CTAs, hashtag optimizer, and WAT-aware posting times", False),
-        ("\U0001f3a0", "Carousel Planner",    "Slide-by-slide text planner for LinkedIn carousels — 3&times; more reach than text posts", True),
-        ("\U0001f4da", "Post Library",        "Every generated post auto-saved &mdash; search, star, filter, and export", True),
+        ("\U0001f525", "Viral Hook Analyzer",       "Score your hook across 5 dimensions, get 5 power rewrites + live mobile preview", True),
+        ("\U0001f680", "Post Generator",             "Create viral posts with proven frameworks, hooks, and 2 variations per topic", False),
+        ("\U0001f527", "Post Optimizer",             "Get your existing posts diagnosed and rewritten with engagement scores", False),
+        ("\u267b\ufe0f", "Repurposing Engine",       "One idea → text post + carousel + hooks + CTAs + comment prompts in one shot", True),
+        ("\U0001f4ac", "Engagement Intelligence",    "Strategic comments, DMs, networking responses — where real growth happens", True),
+        ("\U0001f50d", "Brand Scanner",              "Score the gap between what your profile says and what your content proves", True),
+        ("\U0001f4bc", "About Optimizer",            "Transform your About section into a personal brand story that gets found", False),
+        ("\U0001f31f", "Profile Enhancer",           "Get your profile scored (0–100) and a 30-day transformation roadmap", False),
+        ("\U0001f4a1", "Content Ideas",              "Generate a full content calendar with hooks, angles, and hashtags", False),
+        ("\U0001f9e0", "Strategy Insights",          "Reverse-engineered playbooks from top LinkedIn creators", False),
+        ("\U0001f3a8", "Image Generator",            "AI-generated professional visuals using SDXL and Hugging Face", False),
+        ("\u26a1",     "Engagement Toolkit",         "Hooks, CTAs, hashtag optimizer, and WAT-aware posting times", False),
+        ("\U0001f3a0", "Carousel Planner",           "Slide-by-slide text planner — 3× more reach than text posts", False),
+        ("\U0001f4da", "Post Library",               "Every generated post auto-saved — search, star, filter, and export", False),
     ]
 
     _card_html = ""
@@ -2613,14 +2648,17 @@ def main():
 
     # ── Page routing ──────────────────────────────────────────────────────────
     MODULE_MAP = {
-        "🚀 Post Generator":    ("modules.post_generator",    "post_generator.py",    "render_post_generator"),
-        "🔧 Post Optimizer":    ("modules.post_optimizer",    "post_optimizer.py",    "render_post_optimizer"),
-        "💼 About Optimizer":   ("modules.about_optimizer",   "about_optimizer.py",   "render_about_optimizer"),
-        "🌟 Profile Enhancer":  ("modules.profile_enhancer",  "profile_enhancer.py",  "render_profile_enhancer"),
-        "💡 Content Ideas":     ("modules.content_ideas",     "content_ideas.py",     "render_content_ideas"),
-        "🧠 Strategy Insights": ("modules.strategy_insights", "strategy_insights.py", "render_strategy_insights"),
-        "🎨 Image Generator":   ("modules.image_generator",   "image_generator.py",   "render_image_generator"),
-        "⚡ Engagement Toolkit":("modules.engagement_toolkit","engagement_toolkit.py","render_engagement_toolkit"),
+        "🚀 Post Generator":      ("modules.post_generator",       "post_generator.py",       "render_post_generator"),
+        "🔧 Post Optimizer":      ("modules.post_optimizer",       "post_optimizer.py",       "render_post_optimizer"),
+        "♻️ Repurposing Engine":  ("modules.repurposing_engine",   "repurposing_engine.py",   "render_repurposing_engine"),
+        "💬 Engagement Intelligence": ("modules.engagement_intelligence", "engagement_intelligence.py", "render_engagement_intelligence"),
+        "🔍 Brand Scanner":       ("modules.brand_scanner",        "brand_scanner.py",        "render_brand_scanner"),
+        "💼 About Optimizer":     ("modules.about_optimizer",      "about_optimizer.py",      "render_about_optimizer"),
+        "🌟 Profile Enhancer":    ("modules.profile_enhancer",     "profile_enhancer.py",     "render_profile_enhancer"),
+        "💡 Content Ideas":       ("modules.content_ideas",        "content_ideas.py",        "render_content_ideas"),
+        "🧠 Strategy Insights":   ("modules.strategy_insights",    "strategy_insights.py",    "render_strategy_insights"),
+        "🎨 Image Generator":     ("modules.image_generator",      "image_generator.py",      "render_image_generator"),
+        "⚡ Engagement Toolkit":  ("modules.engagement_toolkit",   "engagement_toolkit.py",   "render_engagement_toolkit"),
     }
 
     if selected_page == "🏠 Home":
