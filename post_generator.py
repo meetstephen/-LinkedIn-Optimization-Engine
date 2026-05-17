@@ -5,7 +5,7 @@ using proven content frameworks powered by Gemini.
 import html as _html
 import streamlit as st
 import streamlit.components.v1 as _components
-from gemini_client import generate_text, get_profile_context
+from gemini_client import generate_text, get_profile_context, stream_text
 from industry_profiles import get_industry_voice_block
 from library import save_post_to_library
 
@@ -442,49 +442,58 @@ def render_post_generator():
             st.error("Please enter your niche/industry.")
             return
 
-        with st.spinner("Writing your posts…"):
-            try:
-                import re as _re
+        st.info("⚡ Streaming output — your post appears as it's written…")
+        _stream_box = st.empty()
+        try:
+            import re as _re
 
-                prompt = build_post_prompt(
-                    _topic_val,
-                    st.session_state.get("pg_niche", ""),
-                    tone,
-                    framework,
-                    st.session_state.get("pg_audience", "Professionals on LinkedIn"),
-                    story_beats=st.session_state.get("pg_story_beats", ""),
-                )
-                result = generate_text(prompt, temperature=0.88, max_tokens=8000)
+            prompt = build_post_prompt(
+                _topic_val,
+                st.session_state.get("pg_niche", ""),
+                tone,
+                framework,
+                st.session_state.get("pg_audience", "Professionals on LinkedIn"),
+                story_beats=st.session_state.get("pg_story_beats", ""),
+            )
 
-                # ── Robust regex parser ────────────────────────────────────
-                def _extract(pattern: str) -> str:
-                    m = _re.search(pattern, result, _re.DOTALL | _re.IGNORECASE)
-                    return m.group(1).strip() if m else ""
-
-                var1     = _extract(r"-+\s*VARIATION\s*1\s*-+(.*?)(?=-+\s*VARIATION\s*2|-+\s*ANALYSIS|$)")
-                var2     = _extract(r"-+\s*VARIATION\s*2\s*-+(.*?)(?=-+\s*ANALYSIS|$)")
-                analysis = _extract(r"-+\s*ANALYSIS\s*-+(.*?)$")
-
-                if not var1 and not var2:
-                    var1 = _extract(r"(?:variation\s*1[:\s]*)(.*?)(?=variation\s*2|analysis|$)")
-                    var2 = _extract(r"(?:variation\s*2[:\s]*)(.*?)(?=analysis|$)")
-
-                if not var1 and result.strip():
-                    var1 = result.strip()
-
-                st.session_state["pg_var1"]     = var1
-                st.session_state["pg_var2"]     = var2
-                st.session_state["pg_analysis"] = analysis
-                st.session_state["last_generated_post"] = result
-                st.session_state["session_posts_generated"] = (
-                    st.session_state.get("session_posts_generated", 0) + 1
+            # Stream into a placeholder — st.write_stream returns full text
+            with _stream_box.container():
+                result = st.write_stream(
+                    stream_text(prompt, temperature=0.88, max_tokens=8000)
                 )
 
-            except Exception as e:
-                st.error(f"Generation failed: {str(e)}")
-                with st.expander("🔍 Error details"):
-                    import traceback as _tb
-                    st.code(_tb.format_exc())
+            # Parse the streamed result
+            def _extract(pattern: str) -> str:
+                m = _re.search(pattern, result, _re.DOTALL | _re.IGNORECASE)
+                return m.group(1).strip() if m else ""
+
+            var1     = _extract(r"-+\s*VARIATION\s*1\s*-+(.*?)(?=-+\s*VARIATION\s*2|-+\s*ANALYSIS|$)")
+            var2     = _extract(r"-+\s*VARIATION\s*2\s*-+(.*?)(?=-+\s*ANALYSIS|$)")
+            analysis = _extract(r"-+\s*ANALYSIS\s*-+(.*?)$")
+
+            if not var1 and not var2:
+                var1 = _extract(r"(?:variation\s*1[:\s]*)(.*?)(?=variation\s*2|analysis|$)")
+                var2 = _extract(r"(?:variation\s*2[:\s]*)(.*?)(?=analysis|$)")
+
+            if not var1 and result.strip():
+                var1 = result.strip()
+
+            # Clear the raw stream box — formatted cards render below
+            _stream_box.empty()
+
+            st.session_state["pg_var1"]     = var1
+            st.session_state["pg_var2"]     = var2
+            st.session_state["pg_analysis"] = analysis
+            st.session_state["last_generated_post"] = result
+            st.session_state["session_posts_generated"] = (
+                st.session_state.get("session_posts_generated", 0) + 1
+            )
+
+        except Exception as e:
+            st.error(f"Generation failed: {str(e)}")
+            with st.expander("🔍 Error details"):
+                import traceback as _tb
+                st.code(_tb.format_exc())
 
     # ── Persistent output — renders after generation and survives button reruns ──
     var1     = st.session_state.get("pg_var1", "")
