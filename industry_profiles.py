@@ -482,8 +482,72 @@ INDUSTRY_VOICE_PROFILES: dict[str, dict] = {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# DETECTION & INJECTION
+# NIGERIAN PROFESSIONAL TONE PRESETS
+# Fine-grained tone variants within the Nigerian context.
+# Used by the tone selector across all modules.
 # ─────────────────────────────────────────────────────────────────────────────
+
+NIGERIAN_TONE_PRESETS: dict[str, dict] = {
+    "Lagos Startup Founder": {
+        "description": "Scrappy, data-driven, honest about failure. Speaks in metrics and pivots.",
+        "voice_cues": "Use naira figures. Reference hustle without glamorising it. Acknowledge infrastructure constraints (power, FX). Cite Nigerian VC ecosystem. Occasional Pidgin for warmth.",
+        "hook_style": "Bold claim with a number. 'We burnt ₦2.4M before finding PMF.'",
+        "avoid": "Toxic positivity, Silicon Valley cosplay, 'we're disrupting X'",
+    },
+    "Nigerian Corporate Professional": {
+        "description": "Measured, authoritative, institution-aware. Boardroom credibility.",
+        "voice_cues": "Reference CBN, SEC, PENCOM, professional bodies (ICAN, CIBN, NIM). Use full titles. Cite policy changes by name. Formal but not stiff.",
+        "hook_style": "Authority opening. 'The CBN circular of January 2024 changed three things most bankers haven't noticed yet.'",
+        "avoid": "Slang, informality, anything that undermines professional gravitas",
+    },
+    "Nigerian Lawyer / SAN": {
+        "description": "Precise, confident, case-backed. Commands respect without demanding it.",
+        "voice_cues": "Reference Nigerian statutes by name. Cite court decisions. Use legal vocabulary naturally. Occasionally direct Bench-Bar commentary.",
+        "hook_style": "Consequence-first. 'One clause. ₦80 million liability. My client had signed it three times.'",
+        "avoid": "Vague legal generalisations, US-centric case citations as primary source",
+    },
+    "Oil & Gas Executive": {
+        "description": "Technical authority with strategic perspective. Upstream/downstream fluency.",
+        "voice_cues": "Cite bpd figures, field names, PIA 2021 provisions, NUPRC regulations. Reference divestments, JV structures, gas monetisation. Port Harcourt / Warri operational realism.",
+        "hook_style": "Industry-insider tension. 'NNPC's Q1 numbers say one thing. The wellhead tells a different story.'",
+        "avoid": "Generic energy commentary, ESG buzzwords without operational grounding",
+    },
+    "Abuja Policy Consultant": {
+        "description": "Government-facing, MDA-aware, procurement-savvy. Bridges public and private sectors.",
+        "voice_cues": "Reference federal MDAs, budget cycles, PPP frameworks, ICPC/EFCC compliance. Understand bureaucratic realities without being cynical.",
+        "hook_style": "Policy gap reveal. 'The 2024 Finance Act has a provision 90% of SMEs don't know about yet.'",
+        "avoid": "Naive optimism about government, partisan political commentary",
+    },
+    "Nigerian Fintech Founder": {
+        "description": "CBN-aware, user-obsessed, growth-focused. Speaks in ARPU and churn.",
+        "voice_cues": "Reference CBN licences (PSB, MMO), NIBSS, agent banking, USSD penetration. Cite Paystack/Flutterwave/Moniepoint as benchmarks. Naira-first metrics.",
+        "hook_style": "Metric surprise. 'Our USSD users retained 3× better than app users. Everyone said it would be the opposite.'",
+        "avoid": "Crypto hype, Web3 vagueness, dollar-only metrics",
+    },
+    "Global Nigerian Professional": {
+        "description": "Diaspora or internationally-facing Nigerian. Bridges local knowledge and global context.",
+        "voice_cues": "Compare Nigerian market to global benchmarks — but always bring it back to local implications. Code-switch naturally between global and Nigerian vocabulary.",
+        "hook_style": "Reframe. 'What London's fintech founders don't know about Nigerian banking infrastructure would keep them up at night.'",
+        "avoid": "Treating Nigeria as a charity case, 'Africa is rising' clichés",
+    },
+}
+
+
+def get_nigerian_tone_block(tone_preset: str) -> str:
+    """
+    Returns a prompt injection block for the selected Nigerian tone preset.
+    Returns empty string if preset not found or not set.
+    """
+    if not tone_preset or tone_preset not in NIGERIAN_TONE_PRESETS:
+        return ""
+    p = NIGERIAN_TONE_PRESETS[tone_preset]
+    return f"""
+NIGERIAN TONE PRESET — {tone_preset}:
+Voice: {p['description']}
+Writing cues: {p['voice_cues']}
+Hook style: {p['hook_style']}
+Avoid: {p['avoid']}
+"""
 
 _MATCH_MAP: list[tuple[list[str], str]] = [
     (
