@@ -3,7 +3,7 @@ Engagement Toolkit — Hook generator, CTA generator, hashtag optimizer,
 and posting time analyzer all in one.
 """
 import streamlit as st
-from gemini_client import generate_text, get_profile_context
+from gemini_client import generate_text, get_profile_context, stream_text
 from industry_profiles import get_industry_voice_block
 
 
@@ -182,18 +182,16 @@ def render_engagement_toolkit():
             if not hook_topic.strip():
                 st.error("Please enter a topic.")
             else:
-                with st.spinner("Writing your hooks…"):
-                    try:
-                        result = generate_text(
-                            build_hooks_prompt(hook_topic, hook_tone, hook_count,
-                                               niche=st.session_state.get("hook_niche", "")),
-                            temperature=0.92,
-                            max_tokens=6000,
-                        )
-                        st.success("✅ Hooks generated!")
-                        st.markdown(result)
-                    except Exception as e:
-                        st.error(f"Error: {str(e)}")
+                st.info("⚡ Writing your hooks…")
+                try:
+                    result = st.write_stream(stream_text(
+                        build_hooks_prompt(hook_topic, hook_tone, hook_count,
+                                           niche=st.session_state.get("hook_niche", "")),
+                        temperature=0.92, max_tokens=6000,
+                    ))
+                    st.success("✅ Hooks generated!")
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
 
     with tab2:
         st.subheader("📢 CTA Generator")
@@ -217,18 +215,16 @@ def render_engagement_toolkit():
             if not cta_context.strip():
                 st.error("Please enter your post context.")
             else:
-                with st.spinner("Writing CTAs…"):
-                    try:
-                        result = generate_text(
-                            build_cta_prompt(cta_context, cta_goal,
-                                             niche=st.session_state.get("cta_niche", "")),
-                            temperature=0.82,
-                            max_tokens=6000,
-                        )
-                        st.success("✅ CTAs generated!")
-                        st.markdown(result)
-                    except Exception as e:
-                        st.error(f"Error: {str(e)}")
+                st.info("⚡ Writing CTAs…")
+                try:
+                    result = st.write_stream(stream_text(
+                        build_cta_prompt(cta_context, cta_goal,
+                                         niche=st.session_state.get("cta_niche", "")),
+                        temperature=0.82, max_tokens=6000,
+                    ))
+                    st.success("✅ CTAs generated!")
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
 
     with tab3:
         st.subheader("#️⃣ Hashtag Optimizer")
@@ -248,17 +244,15 @@ def render_engagement_toolkit():
             if not ht_content.strip():
                 st.error("Please enter post content or a topic.")
             else:
-                with st.spinner("Building hashtag strategy…"):
-                    try:
-                        result = generate_text(
-                            build_hashtag_prompt(ht_content, ht_industry or "General"),
-                            temperature=0.7,
-                            max_tokens=4000,
-                        )
-                        st.success("✅ Hashtag strategy ready!")
-                        st.markdown(result)
-                    except Exception as e:
-                        st.error(f"Error: {str(e)}")
+                st.info("⚡ Building hashtag strategy…")
+                try:
+                    result = st.write_stream(stream_text(
+                        build_hashtag_prompt(ht_content, ht_industry or "General"),
+                        temperature=0.7, max_tokens=4000,
+                    ))
+                    st.success("✅ Hashtag strategy ready!")
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
 
     with tab4:
         st.subheader("⏰ Optimal Posting Times")
