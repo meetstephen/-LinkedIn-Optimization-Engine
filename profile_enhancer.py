@@ -194,17 +194,42 @@ def render_profile_enhancer():
                 build_profile_prompt(profile_data),
                 temperature=0.72, max_tokens=8000,
             ))
-            st.success("Profile analysis complete!")
-            st.markdown("---")
-
-            if st.button("📚 Save Analysis to Post Library", use_container_width=True,
-                         key="pe_save_library"):
-                ok, msg = save_post_to_library(result, "🌟 Profile Enhancer",
-                                               tags=["profile-analysis", industry.lower()[:20]])
-                st.success(msg) if ok else st.warning(msg)
-
+            st.session_state["pe_last_result"]   = result
+            st.session_state["pe_last_industry"] = industry
         except Exception as e:
             st.error(f"Analysis failed: {str(e)}")
             with st.expander("Error details"):
                 import traceback as _tb
                 st.code(_tb.format_exc())
+            return
+
+    # ── Result panel — survives reruns ─────────────────────────────────────
+    result = st.session_state.get("pe_last_result", "")
+    if not result:
+        return
+
+    _ind = st.session_state.get("pe_last_industry", industry)
+
+    st.success("Profile analysis complete.")
+    st.markdown("---")
+    with st.expander("📄 Full Profile Analysis", expanded=True):
+        st.markdown(result)
+
+    pipe1, pipe2, pipe3 = st.columns(3)
+    with pipe1:
+        st.download_button(
+            "📥 Download .txt", data=result,
+            file_name="linkedin_profile_analysis.txt", mime="text/plain",
+            use_container_width=True,
+        )
+    with pipe2:
+        if st.button("📚 Save to Post Library", use_container_width=True,
+                     key="pe_save_library"):
+            ok, msg = save_post_to_library(result, "🌟 Profile Enhancer",
+                                           tags=["profile-analysis", _ind.lower()[:20]])
+            st.success(msg) if ok else st.warning(msg)
+    with pipe3:
+        if st.button("🔄 Start fresh", use_container_width=True, key="pe_reset"):
+            for k in ("pe_last_result", "pe_last_industry"):
+                st.session_state.pop(k, None)
+            st.rerun()

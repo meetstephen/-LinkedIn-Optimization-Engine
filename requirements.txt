@@ -1,9 +1,8 @@
-# LinkedIn Optimization Engine — Python dependencies
+# LinkedEdge — Python dependencies
 # Install with: pip install -r requirements.txt
 
 streamlit>=1.35.0
 google-genai>=0.8.0
-SQLAlchemy>=2.0.0
 requests>=2.31.0
 Pillow>=10.0.0
-supabase
+supabase>=2.4.0

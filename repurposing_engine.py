@@ -9,7 +9,7 @@ This is how serious creators operate: one idea, maximum reach.
 import streamlit as st
 from gemini_client import get_profile_context, stream_text, generate_text
 from industry_profiles import get_industry_voice_block
-from library import save_post_to_library
+from library import save_post_to_library, bump_generated
 
 _BANNED = """
 BANNED: "game-changer", "dive in", "leverage", "synergy", "actionable",
@@ -24,6 +24,48 @@ def build_repurpose_prompt(idea: str, niche: str, audience: str, formats: list) 
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(niche)
     formats_str    = ", ".join(formats)
+
+    NL = chr(10)
+
+    # Build the requested-format sections separately so f-string expressions
+    # never need to contain quote/backslash escapes (Python 3.9 / 3.10 friendly).
+    section_text = ""
+    if "Text Post" in formats:
+        section_text += (
+            f"{NL}---TEXT POST---{NL}"
+            "Write one complete LinkedIn post (300-500 words). Opens with a hook "
+            "that does NOT start with \"I\". One idea per line. Blank lines between "
+            "paragraphs. Ends with one genuine question CTA."
+        )
+    if "Carousel Slides" in formats:
+        section_text += (
+            f"{NL}---CAROUSEL SLIDES---{NL}"
+            "Write 7 carousel slides. Each slide: one emoji, one title (max 8 words), "
+            "one body (max 35 words). Format: SLIDE N | emoji | TITLE | body. "
+            "First slide = bold hook claim. Last slide = CTA with clear next step."
+        )
+    if "Hook Variations" in formats:
+        section_text += (
+            f"{NL}---HOOK VARIATIONS---{NL}"
+            "Write 5 completely different hooks for this idea. Each hook max 15 words. "
+            "Never starts with \"I\". No questions. Each uses a different psychological "
+            "trigger: curiosity gap, bold claim, confession, shock stat, direct address. "
+            "Label: HOOK 1, HOOK 2, etc. After each: Trigger used + one sentence why it works."
+        )
+    if "CTA Options" in formats:
+        section_text += (
+            f"{NL}---CTA OPTIONS---{NL}"
+            "Write 5 CTAs for this topic. Mix: question CTA, action CTA, share CTA, "
+            "soft CTA, DM CTA. Label CTA 1-5. After each: best used when: [one line]."
+        )
+    if "Comment Prompts" in formats:
+        section_text += (
+            f"{NL}---COMMENT PROMPTS---{NL}"
+            "Write 3 strategic comments for this topic — designed to be left on "
+            "other peoples posts to drive profile visits. Each 2-3 sentences. "
+            "Adds a real insight. Ends with a soft hook back to this topic. "
+            "Label COMMENT 1-3."
+        )
 
     return f"""You are a world-class LinkedIn content strategist who specialises in
 repurposing one strong idea into multiple content formats without losing authenticity.
@@ -40,16 +82,7 @@ FORMATS REQUESTED: {formats_str}
 {_BANNED}
 
 Produce ONLY the requested formats below. Label each section clearly.
-
-{('---TEXT POST---' + chr(10) + 'Write one complete LinkedIn post (300-500 words). Opens with a hook that does NOT start with "I". One idea per line. Blank lines between paragraphs. Ends with one genuine question CTA.' if 'Text Post' in formats else '')}
-
-{('---CAROUSEL SLIDES---' + chr(10) + 'Write 7 carousel slides. Each slide: one emoji, one title (max 8 words), one body (max 35 words). Format: SLIDE N | emoji | TITLE | body. First slide = bold hook claim. Last slide = CTA with clear next step.' if 'Carousel Slides' in formats else '')}
-
-{('---HOOK VARIATIONS---' + chr(10) + 'Write 5 completely different hooks for this idea. Each hook max 15 words. Never starts with "I". No questions. Each uses a different psychological trigger: curiosity gap, bold claim, confession, shock stat, direct address. Label: HOOK 1, HOOK 2, etc. After each: Trigger used + one sentence why it works.' if 'Hook Variations' in formats else '')}
-
-{('---CTA OPTIONS---' + chr(10) + 'Write 5 CTAs for this topic. Mix: question CTA, action CTA, share CTA, soft CTA, DM CTA. Label CTA 1-5. After each: best used when: [one line].' if 'CTA Options' in formats else '')}
-
-{('---COMMENT PROMPTS---' + chr(10) + 'Write 3 strategic comments for this topic — designed to be left on other people\'s posts to drive profile visits. Each 2-3 sentences. Adds a real insight. Ends with a soft hook back to this topic. Label COMMENT 1-3.' if 'Comment Prompts' in formats else '')}
+{section_text}
 """
 
 
@@ -151,7 +184,12 @@ def render_repurposing_engine():
             result = st.write_stream(
                 stream_text(prompt, temperature=0.85, max_tokens=10000)
             )
-            st.session_state["re_last_result"] = result
+            st.session_state["re_last_result"]  = result
+            st.session_state["re_last_formats"] = list(formats)
+            st.session_state["session_repurposed"] = (
+                st.session_state.get("session_repurposed", 0) + 1
+            )
+            bump_generated()
 
         except Exception as e:
             st.error(f"Generation failed: {str(e)}")
@@ -160,62 +198,70 @@ def render_repurposing_engine():
                 st.code(_tb.format_exc())
             return
 
-        # ── Parsed output display ─────────────────────────────────────────────
-        st.markdown("---")
-        st.markdown("### ✅ Your Content Suite")
+    # ── Result panel — survives reruns and save clicks ─────────────────────
+    result = st.session_state.get("re_last_result", "")
+    if not result:
+        return
 
-        import re as _re
+    last_formats = st.session_state.get("re_last_formats", formats)
 
-        def _extract_section(label: str) -> str:
-            m = _re.search(
-                rf"---{label}---\s*(.*?)(?=---[A-Z\s]+---|$)",
-                result, _re.DOTALL | _re.IGNORECASE
-            )
-            return m.group(1).strip() if m else ""
+    st.markdown("---")
+    st.markdown("### ✅ Your Content Suite")
 
-        sections = {
-            "Text Post":       ("📝", "re_fmt_text",     "🚀 Post Generator"),
-            "Carousel Slides": ("🎠", "re_fmt_carousel", "🎠 Carousel Planner"),
-            "Hook Variations": ("🪝", "re_fmt_hooks",    "🔥 Viral Hook Analyzer"),
-            "CTA Options":     ("📢", "re_fmt_ctas",     None),
-            "Comment Prompts": ("💬", "re_fmt_comments", None),
-        }
+    import re as _re
 
-        for fmt_name, (icon, fmt_key, dest_page) in sections.items():
-            if not st.session_state.get(fmt_key):
-                continue
-            content = _extract_section(fmt_name.upper())
-            if not content:
-                continue
+    def _extract_section(label: str) -> str:
+        m = _re.search(
+            rf"---{label}---\s*(.*?)(?=---[A-Z\s]+---|$)",
+            result, _re.DOTALL | _re.IGNORECASE
+        )
+        return m.group(1).strip() if m else ""
 
-            with st.expander(f"{icon} {fmt_name}", expanded=True):
-                st.markdown(content)
+    sections = {
+        "Text Post":       ("📝", "🚀 Post Generator"),
+        "Carousel Slides": ("🎠", "🎠 Carousel Planner"),
+        "Hook Variations": ("🪝", "🔥 Viral Hook Analyzer"),
+        "CTA Options":     ("📢", None),
+        "Comment Prompts": ("💬", None),
+    }
 
-                btn_cols = st.columns([1, 1, 2])
-                with btn_cols[0]:
-                    if st.button(f"📚 Save", key=f"re_save_{fmt_name}",
-                                 use_container_width=True):
-                        ok, msg = save_post_to_library(
-                            content, f"♻️ Repurposing — {fmt_name}",
-                            tags=["repurposed", fmt_name.lower().replace(" ", "-")]
-                        )
-                        st.success(msg) if ok else st.warning(msg)
+    for fmt_name, (icon, dest_page) in sections.items():
+        if fmt_name not in last_formats:
+            continue
+        content = _extract_section(fmt_name.upper())
+        if not content:
+            continue
 
-                with btn_cols[1]:
-                    if dest_page:
-                        if st.button(f"→ {dest_page.split()[1]}", key=f"re_nav_{fmt_name}",
-                                     use_container_width=True,
-                                     help=f"Send to {dest_page}"):
-                            if dest_page == "🔧 Post Optimizer":
-                                st.session_state["po_content_pipe"] = content
-                            elif dest_page == "🔥 Viral Hook Analyzer":
-                                st.session_state["hook_analyzer_input"] = content[:500]
-                            st.session_state["_pending_nav"] = dest_page
-                            st.rerun()
+        with st.expander(f"{icon} {fmt_name}", expanded=True):
+            st.markdown(content)
 
-        # ── Save all at once ──────────────────────────────────────────────────
-        st.markdown("---")
-        if st.button("📚 Save Full Content Suite to Library",
+            btn_cols = st.columns([1, 1, 2])
+            with btn_cols[0]:
+                if st.button(f"📚 Save", key=f"re_save_{fmt_name}",
+                             use_container_width=True):
+                    ok, msg = save_post_to_library(
+                        content, f"♻️ Repurposing — {fmt_name}",
+                        tags=["repurposed", fmt_name.lower().replace(" ", "-")]
+                    )
+                    st.success(msg) if ok else st.warning(msg)
+
+            with btn_cols[1]:
+                if dest_page:
+                    if st.button(f"→ {dest_page.split()[1]}", key=f"re_nav_{fmt_name}",
+                                 use_container_width=True,
+                                 help=f"Send to {dest_page}"):
+                        if dest_page == "🔧 Post Optimizer":
+                            st.session_state["po_content_pipe"] = content
+                        elif dest_page == "🔥 Viral Hook Analyzer":
+                            st.session_state["hook_analyzer_input"] = content[:500]
+                        st.session_state["_pending_nav"] = dest_page
+                        st.rerun()
+
+    # ── Save / download / reset for the full suite ────────────────────────
+    st.markdown("---")
+    bcol1, bcol2, bcol3 = st.columns(3)
+    with bcol1:
+        if st.button("📚 Save Full Suite to Library",
                      type="primary", use_container_width=True,
                      key="re_save_all"):
             ok, msg = save_post_to_library(
@@ -223,13 +269,17 @@ def render_repurposing_engine():
                 tags=["repurposed", "full-suite"]
             )
             st.success(msg) if ok else st.warning(msg)
-
-        # ── Download ──────────────────────────────────────────────────────────
+    with bcol2:
         st.download_button(
             "📥 Download Full Suite (.txt)",
             data=result,
-            file_name=f"content_suite_{st.session_state.get('re_niche','').replace(' ','_').lower()}.txt",
+            file_name=f"content_suite_{st.session_state.get('re_niche','').replace(' ','_').lower() or 'linkedin'}.txt",
             mime="text/plain",
             use_container_width=True,
             key="re_download",
         )
+    with bcol3:
+        if st.button("🔄 Generate a new suite", use_container_width=True, key="re_reset"):
+            for k in ("re_last_result", "re_last_formats"):
+                st.session_state.pop(k, None)
+            st.rerun()

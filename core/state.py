@@ -148,8 +148,12 @@ def init_session_state() -> None:
         "gemini_model":            "gemini-2.5-flash",
         "current_page":            "🏠 Home",
         "post_history":            [],
-        "session_posts_generated": 0,
-        "hooks_analyzed":          0,
+        "post_library":            [],   # session-state fallback when DB unavailable
+        "session_posts_generated": 0,    # bumped by GENERATE actions
+        "session_posts_saved":     0,    # bumped by SAVE actions (library.py)
+        "session_posts_optimized": 0,    # bumped by Post Optimizer
+        "session_repurposed":      0,    # bumped by Repurposing Engine
+        "hooks_analyzed":          0,    # bumped by Viral Hook Analyzer
         "viral_analyzer_result":   None,
         "hook_analysis_result":    None,
         "last_generated_post":     "",

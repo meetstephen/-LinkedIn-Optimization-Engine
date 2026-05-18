@@ -9,6 +9,7 @@ import streamlit as st
 import importlib.util
 import sys
 import os
+from library import save_post_to_library
 
 
 def _load_image_client():
@@ -304,7 +305,7 @@ def render_image_generator():
         if len(_saved) == 1:
             _img = _saved[0]
             st.markdown(f"**Source:** {_img['message']}")
-            st.image(_img["bytes"], caption=f"LinkedIn Visual — {_saved_style}", use_column_width=True)
+            st.image(_img["bytes"], caption=f"LinkedIn Visual — {_saved_style}", use_container_width=True)
             st.download_button(
                 "📥 Download Image",
                 data=_img["bytes"],
@@ -321,7 +322,7 @@ def render_image_generator():
                     st.image(
                         _img["bytes"],
                         caption=f"Variation {idx + 1} — {_saved_style}",
-                        use_column_width=True,
+                        use_container_width=True,
                     )
                     st.download_button(
                         f"📥 Download {idx + 1}",
@@ -333,9 +334,33 @@ def render_image_generator():
                     )
 
         # Clear button so user can start fresh
-        if st.button("🔄 Generate New Images", key="ig_clear", use_container_width=False):
-            del st.session_state["ig_generated"]
-            st.rerun()
+        clr_col, sv_col = st.columns(2)
+        with clr_col:
+            if st.button("🔄 Generate New Images", key="ig_clear",
+                         use_container_width=True):
+                del st.session_state["ig_generated"]
+                st.rerun()
+        with sv_col:
+            if st.button("📚 Save Prompt + Caption to Library", key="ig_save_lib",
+                         use_container_width=True,
+                         help="Saves the AI prompt and a caption stub to your Post Library so the visual idea is searchable later."):
+                _src_post = (
+                    st.session_state.get("ig_post_content", "")
+                    or st.session_state.get("last_generated_post", "")
+                    or "Custom prompt (no source post)"
+                )
+                _entry = (
+                    f"[🎨 Image Visual — {_saved_style}]\n\n"
+                    f"Source post / theme:\n{_src_post[:500]}\n\n"
+                    f"Generated with: {_saved[0]['source']}\n"
+                    f"Number of variations: {len(_saved)}\n\n"
+                    f"Image prompt:\n{build_image_prompt(_src_post, _saved_style)}"
+                )
+                ok, msg = save_post_to_library(
+                    _entry, "🎨 Image Generator",
+                    tags=["image", _saved_style.lower().replace(' ', '-')]
+                )
+                st.success(msg) if ok else st.warning(msg)
 
     st.markdown("---")
     with st.expander("💡 Tips for Better LinkedIn Visuals", expanded=False):

@@ -119,34 +119,52 @@ def render_content_ideas():
             st.error("Please select at least one content pillar.")
             return
 
-        with st.spinner(f"Building {count} content ideas for {niche}..."):
-            try:
-                st.info("⚡ Generating content ideas — streams in real time…")
-                result = st.write_stream(stream_text(
-                    build_ideas_prompt(niche, role, pillars, count, timeframe),
-                    temperature=0.88, max_tokens=8000,
-                ))
-                st.success(f"{count} content ideas generated!")
-                st.markdown("---")
+        try:
+            st.info("⚡ Generating content ideas — streams in real time…")
+            result = st.write_stream(stream_text(
+                build_ideas_prompt(niche, role, pillars, count, timeframe),
+                temperature=0.88, max_tokens=8000,
+            ))
+            st.session_state["ci_last_result"] = result
+            st.session_state["ci_last_niche"]  = niche
+            st.session_state["ci_last_count"]  = count
+        except Exception as e:
+            st.error(f"Generation failed: {str(e)}")
+            with st.expander("Error details"):
+                import traceback as _tb
+                st.code(_tb.format_exc())
+            return
 
-                dl_col, sv_col = st.columns(2)
-                with dl_col:
-                    st.download_button(
-                        label="📥 Download Content Calendar",
-                        data=result,
-                        file_name=f"content_ideas_{niche.replace(' ', '_').lower()}.txt",
-                        mime="text/plain",
-                        use_container_width=True,
-                    )
-                with sv_col:
-                    if st.button("📚 Save to Post Library", use_container_width=True,
-                                 key="ci_save_library"):
-                        ok, msg = save_post_to_library(result, "💡 Content Ideas",
-                                                tags=["content-calendar", niche.lower()[:20]])
-                        st.success(msg) if ok else st.warning(msg)
+    # ── Result panel — survives reruns ─────────────────────────────────────
+    result = st.session_state.get("ci_last_result", "")
+    if not result:
+        return
 
-            except Exception as e:
-                st.error(f"Generation failed: {str(e)}")
-                with st.expander("Error details"):
-                    import traceback as _tb
-                    st.code(_tb.format_exc())
+    _ni = st.session_state.get("ci_last_niche", niche)
+    _ct = st.session_state.get("ci_last_count", count)
+
+    st.success(f"{_ct} content ideas generated.")
+    st.markdown("---")
+    with st.expander("📄 Full Content Calendar", expanded=True):
+        st.markdown(result)
+
+    dl_col, sv_col, rs_col = st.columns(3)
+    with dl_col:
+        st.download_button(
+            label="📥 Download Calendar",
+            data=result,
+            file_name=f"content_ideas_{_ni.replace(' ', '_').lower()}.txt",
+            mime="text/plain",
+            use_container_width=True,
+        )
+    with sv_col:
+        if st.button("📚 Save to Post Library", use_container_width=True,
+                     key="ci_save_library"):
+            ok, msg = save_post_to_library(result, "💡 Content Ideas",
+                                           tags=["content-calendar", _ni.lower()[:20]])
+            st.success(msg) if ok else st.warning(msg)
+    with rs_col:
+        if st.button("🔄 New ideas", use_container_width=True, key="ci_reset"):
+            for k in ("ci_last_result", "ci_last_niche", "ci_last_count"):
+                st.session_state.pop(k, None)
+            st.rerun()

@@ -7,7 +7,7 @@ import streamlit as st
 import streamlit.components.v1 as _components
 from gemini_client import generate_text, get_profile_context, stream_text
 from industry_profiles import get_industry_voice_block
-from library import save_post_to_library
+from library import save_post_to_library, bump_generated
 
 
 # ── Unicode formatting helpers ─────────────────────────────────────────────
@@ -485,9 +485,8 @@ def render_post_generator():
             st.session_state["pg_var2"]     = var2
             st.session_state["pg_analysis"] = analysis
             st.session_state["last_generated_post"] = result
-            st.session_state["session_posts_generated"] = (
-                st.session_state.get("session_posts_generated", 0) + 1
-            )
+            # Bump generation counter exactly once per successful generation
+            bump_generated()
 
         except Exception as e:
             st.error(f"Generation failed: {str(e)}")

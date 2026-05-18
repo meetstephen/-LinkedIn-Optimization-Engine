@@ -165,29 +165,42 @@ def render_brand_scanner():
                 temperature=0.7, max_tokens=6000,
             ))
             st.session_state["bs_last_result"] = result
-
-            st.markdown("---")
-            col_save, col_dl = st.columns(2)
-            with col_save:
-                if st.button("📚 Save to Post Library", use_container_width=True,
-                             key="bs_save"):
-                    ok, msg = save_post_to_library(
-                        result, "🔍 Brand Scanner",
-                        tags=["brand-audit", "consistency"]
-                    )
-                    st.success(msg) if ok else st.warning(msg)
-            with col_dl:
-                st.download_button(
-                    "📥 Download Brand Report",
-                    data=result,
-                    file_name="brand_consistency_report.txt",
-                    mime="text/plain",
-                    use_container_width=True,
-                    key="bs_dl",
-                )
-
         except Exception as e:
             st.error(f"Scan failed: {str(e)}")
             with st.expander("🔍 Error details"):
                 import traceback as _tb
                 st.code(_tb.format_exc())
+            return
+
+    # ── Result panel — survives reruns ─────────────────────────────────────
+    result = st.session_state.get("bs_last_result", "")
+    if not result:
+        return
+
+    st.success("Brand scan complete.")
+    st.markdown("---")
+    with st.expander("📄 Full Brand Report", expanded=True):
+        st.markdown(result)
+
+    col_save, col_dl, col_reset = st.columns(3)
+    with col_save:
+        if st.button("📚 Save to Post Library", use_container_width=True,
+                     key="bs_save"):
+            ok, msg = save_post_to_library(
+                result, "🔍 Brand Scanner",
+                tags=["brand-audit", "consistency"]
+            )
+            st.success(msg) if ok else st.warning(msg)
+    with col_dl:
+        st.download_button(
+            "📥 Download Brand Report",
+            data=result,
+            file_name="brand_consistency_report.txt",
+            mime="text/plain",
+            use_container_width=True,
+            key="bs_dl",
+        )
+    with col_reset:
+        if st.button("🔄 Run a fresh scan", use_container_width=True, key="bs_reset"):
+            st.session_state.pop("bs_last_result", None)
+            st.rerun()
