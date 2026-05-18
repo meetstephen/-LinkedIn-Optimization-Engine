@@ -1,6 +1,6 @@
 # ⚡ LinkedEdge — LinkedIn Optimization Engine
 
-> **AI-powered LinkedIn growth toolkit.** 14 modules. Built for the Nigerian professional market and configurable for any audience worldwide.
+> **AI-powered LinkedIn growth toolkit.** 15 modules. Built for the Nigerian professional market and configurable for any audience worldwide.
 >
 > Every post auto-saves to a persistent Post Library. Every AI module reads your profile and writes in your voice. Production-ready Streamlit app, deploys in minutes.
 
@@ -23,7 +23,8 @@
 | 11 | 🎨 **Image Generator** | LinkedIn visuals via Stability AI SDXL (primary) → Hugging Face (fallback). Prompt auto-derived from your post |
 | 12 | ⚡ **Engagement Toolkit** | Hooks, CTAs, hashtags, and WAT-aware posting times |
 | 13 | 🎠 **Carousel Planner** | AI-generated slide titles + bodies + emojis with a slide-by-slide LinkedIn-style preview |
-| 14 | 📚 **Post Library** | Persistent (Supabase). Search, star, filter by module, sort by score, export `.txt`/`.json`, re-import |
+| 14 | 📚 **Post Library** | Persistent (Supabase). Search, star, filter by module, sort by score, export `.txt`/`.json`, re-import. Live diagnostics tell you exactly what's wrong if it's empty. |
+| 15 | 📅 **Content Scheduler** | Pin saved posts to weekday + time slots. See your full week at a glance. Export as a `.md` checklist. |
 
 Plus:
 - **🇳🇬 Nigerian Voice Mode** — a sidebar toggle that injects Nigerian context (CBN, NBA, naira, WAT times, geographic diversity beyond Lagos) into every prompt.

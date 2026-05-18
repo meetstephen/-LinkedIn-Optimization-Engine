@@ -1121,6 +1121,7 @@ def render_sidebar():
             "⚡ Engagement Toolkit",
             "🎠 Carousel Planner",
             "📚 Post Library",
+            "📅 Content Scheduler",
         ]
         selected_page = st.radio(
             "Navigate to",
@@ -2137,24 +2138,88 @@ Rules: every rewrite ≤210 chars, distinctly different techniques, genuinely vi
 
 # ─────────────────────────────────────────────
 # 📚 POST LIBRARY — Dedicated Page (DB-backed)
+#
+# Upgraded in v3 with:
+#   • Always-visible diagnostic banner so the user knows EXACTLY whether
+#     Supabase is connected, the table exists, RLS allows reads, etc.
+#   • Manual refresh button so a successful save is visible immediately.
+#   • Per-post "📅 Schedule" action that pins the post to a weekly slot.
 # ─────────────────────────────────────────────
 def render_post_library():
     st.markdown("""
     <div class="main-header">
-        <div class="v-badge">Persistent · Filterable · Exportable</div>
+        <div class="v-badge">Persistent · Filterable · Schedulable</div>
         <h1>📚 Post Library</h1>
-        <p>Every post you generate is automatically saved here — star, filter, and export in bulk</p>
+        <p>Every saved post lives here. Star, schedule, filter, and export.</p>
     </div>
     """, unsafe_allow_html=True)
+
+    # ── Diagnostic banner — surfaces real DB state ───────────────────────────
+    # The #1 reason a user opens an "empty" Library is the SQL migration was
+    # never run. We tell them that explicitly instead of silently showing 📭.
+    _hc = None
+    if _CORE_AVAILABLE:
+        try:
+            _hc = _db.health_check()
+        except Exception as e:
+            _hc = {"ok": False, "error": f"health_check crashed: {e}"}
+
+    _diag_col1, _diag_col2 = st.columns([0.78, 0.22])
+    with _diag_col1:
+        if not _CORE_AVAILABLE:
+            st.warning(
+                "⚠️ **Running in session-only mode.** Posts are kept in memory and "
+                "disappear when you refresh. Add Supabase secrets to make this persistent."
+            )
+        elif _hc and _hc.get("ok"):
+            _label = (
+                f"✅ **Connected to Supabase** "
+                f"(`{_hc.get('supabase_url', '')}`) — "
+                f"**{_hc.get('post_count', 0)} post(s)** stored for your account."
+            )
+            st.success(_label)
+        elif _hc:
+            err = _hc.get("error", "Unknown error.")
+            st.error(f"❌ **Library is not connected to Supabase.** {err}")
+            with st.expander("🩺 Diagnostics", expanded=True):
+                st.markdown(
+                    f"""
+- **SUPABASE_URL set:** {'✅' if _hc.get('url_present') else '❌ missing'}
+- **SUPABASE_KEY set:** {'✅' if _hc.get('key_present') else '❌ missing'}
+- **Client created:**   {'✅' if _hc.get('client_ok') else '❌'}
+- **Query succeeded:**  {'✅' if _hc.get('query_ok')  else '❌'}
+- **Your user_id:**     `{_hc.get('user_id', '')}`
+
+**Most likely cause:** the SQL migration in `supabase_schema.sql` has not
+been run yet. Open the Supabase SQL editor for your project and paste the
+contents of that file, then click ▶ **Refresh** at the top right.
+"""
+                )
+    with _diag_col2:
+        if st.button("🔄 Refresh", key="lib_refresh", use_container_width=True,
+                     help="Re-query Supabase. Useful right after running the SQL migration "
+                          "or saving a new post."):
+            # Clear the cached Supabase client so secrets are re-read too
+            try:
+                _get_client_fn = getattr(_db, "_get_client", None)
+                if _get_client_fn and hasattr(_get_client_fn, "clear"):
+                    _get_client_fn.clear()
+            except Exception:
+                pass
+            st.rerun()
+
+    st.markdown("---")
 
     # ── Controls ──────────────────────────────────────────────────────────────
     ctrl1, ctrl2, ctrl3 = st.columns([1.2, 1, 0.8])
     with ctrl1:
         search = st.text_input("🔍 Search posts", placeholder="Type to filter…", key="lib_search")
     with ctrl2:
-        # Build module list from DB (or fallback session)
         if _CORE_AVAILABLE:
-            all_posts_for_modules = _db.get_posts()
+            try:
+                all_posts_for_modules = _db.get_posts()
+            except Exception:
+                all_posts_for_modules = []
         else:
             all_posts_for_modules = st.session_state.get("post_library", [])
         modules = ["All Modules"] + sorted({p["module"] for p in all_posts_for_modules})
@@ -2184,8 +2249,8 @@ def render_post_library():
             stats = _db.get_stats()
             total_count = stats["total"]
         except Exception:
-            st.error("⚠️ Could not load Post Library.")
-            with st.expander("🔍 Details (for debugging)"):
+            st.error("⚠️ Could not load Post Library — see diagnostics above.")
+            with st.expander("🔍 Full traceback"):
                 st.code(traceback.format_exc())
             return
     else:
@@ -2215,10 +2280,23 @@ def render_post_library():
         }
 
     if total_count == 0:
-        st.info(
-            "📭 **Your library is empty.** Generate a post in any module and it will appear here "
-            "automatically. Start with 🔥 **Viral Hook Analyzer** or 🚀 **Post Generator**."
-        )
+        # Tailor the empty-state message to whether the DB is even connected
+        if _CORE_AVAILABLE and _hc and _hc.get("ok"):
+            st.info(
+                "📭 **Your library is empty.** Generate a post in any module and click "
+                "**📚 Save**. It will appear here. Start with 🚀 **Post Generator** or "
+                "🔥 **Viral Hook Analyzer**."
+            )
+        elif _CORE_AVAILABLE and _hc and not _hc.get("ok"):
+            st.info(
+                "📭 **Library shows empty because Supabase isn't connected yet.** "
+                "Fix the diagnostics above, then click **🔄 Refresh**."
+            )
+        else:
+            st.info(
+                "📭 **Session library is empty.** Posts you save in this session will "
+                "appear here until you refresh the browser. Add Supabase to keep them."
+            )
         return
 
     # ── Stats row ─────────────────────────────────────────────────────────────
@@ -2337,7 +2415,7 @@ def render_post_library():
         </div>
         """, unsafe_allow_html=True)
 
-        act1, act2, act3, act4, act5 = st.columns([1, 1, 1, 1, 0.4])
+        act1, act2, act3, act4, act5, act6 = st.columns([1, 1, 1, 1, 1, 0.4])
         with act1:
             copy_to_clipboard_button(post["content"], "📋 Copy", key=f"lib_cp_{post['id']}")
         with act2:
@@ -2351,31 +2429,306 @@ def render_post_library():
                             item["starred"] = not item["starred"]
                 st.rerun()
         with act3:
-            if st.button("🔥 Analyze Hook", key=f"lib_hook_{post['id']}"):
+            if st.button("🔥 Hook", key=f"lib_hook_{post['id']}",
+                         help="Send this post to the Viral Hook Analyzer"):
                 st.session_state["hook_analyzer_input"] = post["content"]
-                st.session_state["current_page"] = "🔥 Viral Hook Analyzer"
+                st.session_state["_pending_nav"] = "🔥 Viral Hook Analyzer"
                 st.rerun()
         with act4:
+            # NEW: Schedule this post into a weekly slot
+            if st.button("📅 Schedule", key=f"lib_sched_{post['id']}",
+                         help="Pin this post to a weekly day + time slot",
+                         disabled=not (_CORE_AVAILABLE and _hc and _hc.get("ok"))):
+                st.session_state["_lib_schedule_target"] = post["id"]
+                st.rerun()
+        with act5:
             st.download_button(
                 "⬇️ Save", data=post["content"],
                 file_name=f"post_{post['id']}.txt", mime="text/plain",
                 key=f"lib_dl_{post['id']}",
             )
-        with act5:
+        with act6:
             if st.button("🗑️", key=f"lib_del_{post['id']}", help="Delete this post"):
                 if _CORE_AVAILABLE:
                     _db.delete_post(post["id"])
-                    # Sync session counter
-                    st.session_state["session_posts_generated"] = max(
-                        0, st.session_state.get("session_posts_generated", 1) - 1
-                    )
                 else:
                     st.session_state["post_library"] = [
                         p for p in st.session_state["post_library"] if p["id"] != post["id"]
                     ]
                 st.rerun()
 
+        # ── Inline schedule picker (rendered when this post is the target) ──
+        _target = st.session_state.get("_lib_schedule_target")
+        if _target == post["id"] and _CORE_AVAILABLE:
+            with st.container():
+                st.markdown(
+                    "<div style='background:#F0F7FF;border:1.5px solid #C7D9F5;"
+                    "border-radius:10px;padding:0.9rem;margin:0.5rem 0;'>"
+                    "<strong>📅 Pin this post to a weekly slot</strong>"
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
+                _sd, _ss, _sn = st.columns([1, 1.2, 1.6])
+                with _sd:
+                    _day = st.selectbox(
+                        "Day", _db.VALID_DAYS,
+                        index=1,  # Tuesday — peak LinkedIn day
+                        key=f"sched_day_{post['id']}",
+                    )
+                with _ss:
+                    _slot = st.selectbox(
+                        "Time slot", _db.VALID_SLOTS,
+                        index=0,  # Morning 7-9 AM
+                        key=f"sched_slot_{post['id']}",
+                    )
+                with _sn:
+                    _note = st.text_input(
+                        "Note (optional)",
+                        placeholder="e.g. Test contrarian hook",
+                        key=f"sched_note_{post['id']}",
+                        max_chars=200,
+                    )
+                _sc1, _sc2 = st.columns(2)
+                with _sc1:
+                    if st.button("✅ Confirm schedule",
+                                 key=f"sched_save_{post['id']}",
+                                 type="primary",
+                                 use_container_width=True):
+                        try:
+                            _db.schedule_post(post["id"], _day, _slot, note=_note)
+                            st.session_state.pop("_lib_schedule_target", None)
+                            st.success(f"✅ Scheduled for {_day}, {_slot}.")
+                            st.rerun()
+                        except Exception as _e:
+                            st.error(f"Could not save schedule: {_e}")
+                with _sc2:
+                    if st.button("Cancel", key=f"sched_cancel_{post['id']}",
+                                 use_container_width=True):
+                        st.session_state.pop("_lib_schedule_target", None)
+                        st.rerun()
+
         st.markdown("<hr style='margin:0.4rem 0; border-color:#f0f0f0;'>", unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────
+# 📅 CONTENT SCHEDULER — Weekly posting plan
+#
+# LinkedIn growth is fundamentally about CONSISTENCY: 3× a week, every week.
+# This page turns the Library into an executable plan. The user pins saved
+# posts to weekday + time-slot cells, sees the whole week at a glance, and
+# can copy each post to clipboard right before they post on LinkedIn.
+# ─────────────────────────────────────────────
+def render_content_scheduler():
+    st.markdown("""
+    <div class="main-header">
+        <div class="v-badge">Consistency Beats Frequency</div>
+        <h1>📅 Content Scheduler</h1>
+        <p>Pin saved posts to specific weekday + time slots. The plan you actually execute.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if not _CORE_AVAILABLE:
+        st.error(
+            "❌ The Content Scheduler requires Supabase to be connected. "
+            "Add `SUPABASE_URL` and `SUPABASE_KEY` to your Streamlit secrets, "
+            "then run `supabase_schema.sql` in your Supabase SQL editor."
+        )
+        return
+
+    # ── Health gate ───────────────────────────────────────────────────────────
+    try:
+        _hc = _db.health_check()
+    except Exception as _e:
+        _hc = {"ok": False, "error": f"health_check crashed: {_e}"}
+
+    if not _hc.get("ok"):
+        st.error(f"❌ Scheduler unavailable: {_hc.get('error', 'unknown error')}")
+        st.info(
+            "Open the **📚 Post Library** page — the diagnostics there will tell "
+            "you exactly what to fix."
+        )
+        return
+
+    # ── Education strip ───────────────────────────────────────────────────────
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.info(
+            "**📈 Why a schedule?**\n\n"
+            "LinkedIn rewards consistency more than volume. Posting 3× per "
+            "week every week beats 7× one week and 0× the next."
+        )
+    with c2:
+        st.warning(
+            "**⏰ Best windows (WAT for Nigeria)**\n\n"
+            "Tuesday & Thursday 7-9 AM, Wednesday 12-2 PM, Friday 6-8 PM. "
+            "Pre-warm with comments on others' posts 30 min before."
+        )
+    with c3:
+        st.success(
+            "**🎯 How this works**\n\n"
+            "1. Save posts in any module → they go to your Library.\n"
+            "2. In the Library, click **📅 Schedule** on a post.\n"
+            "3. This page shows your full week at a glance."
+        )
+
+    st.markdown("---")
+
+    # ── Load schedule ─────────────────────────────────────────────────────────
+    try:
+        schedule = _db.get_schedule()
+    except Exception as _e:
+        st.error(f"Could not load schedule: {_e}")
+        with st.expander("🔍 Details"):
+            import traceback as _tb
+            st.code(_tb.format_exc())
+        return
+
+    # ── Top stats ─────────────────────────────────────────────────────────────
+    _scheduled = len([s for s in schedule if s.get("post")])
+    _orphans   = len([s for s in schedule if not s.get("post")])
+    _days_full = len({s["day_of_week"] for s in schedule if s.get("post")})
+
+    sc1, sc2, sc3 = st.columns(3)
+    with sc1: st.metric("📌 Posts scheduled", _scheduled)
+    with sc2: st.metric("🗓️ Active days this week", f"{_days_full} / 7")
+    with sc3: st.metric("🎯 Target", "3 / week")
+
+    if _orphans:
+        st.warning(
+            f"⚠️ {_orphans} scheduled slot(s) reference posts that have been deleted "
+            f"from your library. They're shown below — click **Remove** to clean up."
+        )
+
+    if _scheduled == 0 and _orphans == 0:
+        st.info(
+            "📭 **No posts scheduled yet.** Open **📚 Post Library**, click "
+            "**📅 Schedule** on any saved post, and it'll appear here."
+        )
+        if st.button("→ Open Post Library", type="primary"):
+            st.session_state["_pending_nav"] = "📚 Post Library"
+            st.rerun()
+        return
+
+    st.markdown("---")
+    st.markdown("### 📋 Your week at a glance")
+
+    # ── Weekly grid: one expander per day, only days that have posts ─────────
+    by_day: dict[str, list] = {}
+    for item in schedule:
+        by_day.setdefault(item["day_of_week"], []).append(item)
+
+    for day in _db.VALID_DAYS:
+        if day not in by_day:
+            continue
+        items = by_day[day]
+        _post_count = sum(1 for i in items if i.get("post"))
+        _label = f"📅 **{day}** — {_post_count} post{'s' if _post_count != 1 else ''}"
+        with st.expander(_label, expanded=True):
+            for item in items:
+                _slot   = item["time_slot"]
+                _post   = item.get("post")
+                _note   = item.get("note", "")
+                _key_id = f"{day}_{_slot}".replace(" ", "_").replace("(", "").replace(")", "")
+
+                if _post is None:
+                    # Orphan slot
+                    cols = st.columns([0.7, 0.3])
+                    with cols[0]:
+                        st.markdown(
+                            f"<div style='background:#fff3f3;border:1px solid #ffcccc;"
+                            f"border-radius:8px;padding:0.7rem;'>"
+                            f"<strong>{_slot}</strong> — "
+                            f"<em style='color:#e63946;'>Original post deleted</em>"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+                    with cols[1]:
+                        if st.button("🗑️ Remove",
+                                     key=f"sched_orphan_{_key_id}",
+                                     use_container_width=True):
+                            try:
+                                _db.unschedule_post(day, _slot)
+                                st.rerun()
+                            except Exception as _e:
+                                st.error(f"Failed: {_e}")
+                    continue
+
+                # Healthy slot — render the post card
+                _content    = _post["content"]
+                _module     = _post["module"]
+                _preview    = _content[:280] + ("…" if len(_content) > 280 else "")
+                _note_html  = (
+                    f"<div style='font-size:0.78rem;color:#666;font-style:italic;"
+                    f"margin-top:4px;'>📝 {_note}</div>" if _note else ""
+                )
+                st.markdown(
+                    f"<div style='background:white;border:1px solid #E1E9F5;"
+                    f"border-radius:10px;padding:1rem 1.2rem;margin-bottom:0.5rem;'>"
+                    f"<div style='display:flex;justify-content:space-between;"
+                    f"align-items:center;margin-bottom:0.5rem;font-size:0.78rem;'>"
+                    f"<span style='background:#EAF4FF;color:#0A66C2;padding:2px 10px;"
+                    f"border-radius:10px;font-weight:700;'>{_slot}</span>"
+                    f"<span style='color:#888;'>{_module}</span>"
+                    f"</div>"
+                    f"<div style='font-size:0.88rem;color:#333;line-height:1.55;"
+                    f"white-space:pre-wrap;'>{_preview}</div>"
+                    f"{_note_html}"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+
+                _bc1, _bc2, _bc3 = st.columns([1, 1, 1])
+                with _bc1:
+                    copy_to_clipboard_button(
+                        _content, "📋 Copy post",
+                        key=f"sched_cp_{_key_id}",
+                    )
+                with _bc2:
+                    if st.button("🔄 Move slot",
+                                 key=f"sched_move_{_key_id}",
+                                 use_container_width=True,
+                                 help="Unpin this slot and re-schedule from the Library"):
+                        try:
+                            _db.unschedule_post(day, _slot)
+                            st.session_state["_pending_nav"] = "📚 Post Library"
+                            st.rerun()
+                        except Exception as _e:
+                            st.error(f"Failed: {_e}")
+                with _bc3:
+                    if st.button("🗑️ Unschedule",
+                                 key=f"sched_unp_{_key_id}",
+                                 use_container_width=True):
+                        try:
+                            _db.unschedule_post(day, _slot)
+                            st.rerun()
+                        except Exception as _e:
+                            st.error(f"Failed: {_e}")
+
+    # ── Export the week as a checklist ────────────────────────────────────────
+    if _scheduled > 0:
+        st.markdown("---")
+        _export_lines = ["# Weekly LinkedIn Plan", ""]
+        for day in _db.VALID_DAYS:
+            items = [i for i in by_day.get(day, []) if i.get("post")]
+            if not items:
+                continue
+            _export_lines.append(f"## {day}")
+            for it in items:
+                _export_lines.append(f"- **{it['time_slot']}** — {it['post']['module']}")
+                if it.get("note"):
+                    _export_lines.append(f"  > {it['note']}")
+                _export_lines.append("")
+                _export_lines.append("```")
+                _export_lines.append(it["post"]["content"])
+                _export_lines.append("```")
+                _export_lines.append("")
+        st.download_button(
+            "⬇️ Download this week's plan (.md)",
+            data="\n".join(_export_lines),
+            file_name=f"linkedin_week_{datetime.now().strftime('%Y%m%d')}.md",
+            mime="text/markdown",
+            use_container_width=True,
+        )
 
 
 # ─────────────────────────────────────────────
@@ -2682,6 +3035,8 @@ def main():
         render_carousel_planner()
     elif selected_page == "📚 Post Library":
         render_post_library()
+    elif selected_page == "📅 Content Scheduler":
+        render_content_scheduler()
     elif selected_page in MODULE_MAP:
         mod_name, mod_file, render_fn = MODULE_MAP[selected_page]
         try:
