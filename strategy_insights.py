@@ -6,6 +6,7 @@ import streamlit as st
 from gemini_client import generate_text, get_profile_context, stream_text
 from library import save_post_to_library
 from industry_profiles import get_industry_voice_block
+from core.voice import HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES
 
 
 CREATOR_ARCHETYPES = {
@@ -31,12 +32,9 @@ HOOK_FORMULAS = [
 ]
 
 _BANNED_STRATEGY = """
-BANNED PHRASES — none of these should appear in any output:
-"leverage", "synergy", "game-changer", "thought leader", "content machine",
-"actionable insights", "crush it", "go viral", "algorithm hack", "hustle",
-"passionate about", "journey", "disrupt", "innovative", "unlock your potential",
-"level up", "deep dive", "masterclass", "playbook" (used loosely),
-"unpopular opinion:" (as opener), "hot take:", "pro tip:"
+ADDITIONAL BANNED STRATEGY-SPECIFIC PHRASES:
+"content machine", "go viral", "algorithm hack", "viral formula",
+"algorithm cheat code"
 """
 
 
@@ -45,7 +43,9 @@ def build_strategy_prompt(creator_type, niche, goal):
     hooks_formatted = "\n".join([f"{i+1}. {h}" for i, h in enumerate(HOOK_FORMULAS)])
     profile_ctx     = get_profile_context()
     industry_voice  = get_industry_voice_block(niche)
-    return f"""You study what actually works on LinkedIn — not the theory, the real patterns. You've watched thousands of posts succeed and fail. You know the difference between a creator who posts and one who grows.
+    return f"""{HUMAN_VOICE_PRIMER}
+
+You study what actually works on LinkedIn — not the theory, the real patterns. You've watched thousands of posts succeed and fail. You know the difference between a creator who posts and one who grows.
 
 Build a strategy playbook for this creator:{profile_ctx}
 {industry_voice}
@@ -57,7 +57,9 @@ Build a strategy playbook for this creator:{profile_ctx}
 Write this like you're a mentor who has seen it work, not a consultant filling a template.
 Every line should be something they can act on today.
 
+{BANNED}
 {_BANNED_STRATEGY}
+{HUMAN_SIGNATURES}
 
 ---
 

@@ -6,6 +6,7 @@ import streamlit as st
 from gemini_client import generate_text, get_profile_context, stream_text
 from library import save_post_to_library
 from industry_profiles import get_industry_voice_block
+from core.voice import HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES
 
 
 CONTENT_PILLARS = {
@@ -21,11 +22,10 @@ CONTENT_PILLARS = {
 }
 
 _BANNED_IDEAS = """
-BANNED content angles:
+ADDITIONAL BANNED CONTENT ANGLES (on top of the global voice rules):
 - "X lessons I learned from Y years in Z" (overused title structure)
 - Anything starting with "I'm excited to..."
 - "X things about [topic] that will change your life"
-- "Journey", "game-changer", "hustle", "crush it", "level up"
 - Generic inspiration without a specific story or number behind it
 """
 
@@ -34,7 +34,9 @@ def build_ideas_prompt(niche, role, pillars, count, timeframe):
     pillar_list    = "\n".join([f"- {p}: {CONTENT_PILLARS[p]}" for p in pillars])
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(niche)
-    return f"""You generate LinkedIn content ideas the way a sharp editor would — specific, usable, and grounded in how real practitioners actually talk about their work.
+    return f"""{HUMAN_VOICE_PRIMER}
+
+You are working as a sharp editor generating LinkedIn content ideas — specific, usable, and grounded in how real practitioners in {niche} actually talk about their work.
 
 Not generic. Not "share your journey". Real angles a real {niche} professional would actually post.{profile_ctx}
 {industry_voice}
@@ -46,7 +48,9 @@ CREATOR:
 - Content pillars to use:
 {pillar_list}
 
+{BANNED}
 {_BANNED_IDEAS}
+{HUMAN_SIGNATURES}
 
 Generate {count} content ideas.
 

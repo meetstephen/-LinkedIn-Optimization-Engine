@@ -6,20 +6,24 @@ versus what your content says, and scores the gap.
 """
 import streamlit as st
 from gemini_client import get_profile_context, stream_text
+from industry_profiles import get_industry_voice_block
 from library import save_post_to_library
+from core.voice import HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES
 
 
 def build_scanner_prompt(
     headline: str, about: str, recent_posts: str,
     claimed_niche: str, claimed_audience: str,
 ) -> str:
-    profile_ctx = get_profile_context()
-    return f"""You are a brand strategist who analyses LinkedIn profiles the way a
-talent scout or investor does — looking for consistency, clarity, and authenticity.
-You're famous for finding the gap between what someone claims to be and what their
-content actually demonstrates.{profile_ctx}
+    profile_ctx    = get_profile_context()
+    industry_voice = get_industry_voice_block(claimed_niche) if claimed_niche.strip() else ""
 
-PROFILE DATA:
+    return f"""{HUMAN_VOICE_PRIMER}
+
+You are working as a brand strategist who reviews LinkedIn profiles the way a hiring partner or premium client does — looking for consistency, clarity, and authenticity. You are famous for finding the gap between what someone claims to be and what their content actually demonstrates. You quote the exact lines that create the gap. You do not pad the analysis.{profile_ctx}
+{industry_voice}
+
+PROFILE DATA
 Headline: {headline}
 About Section: {about or 'Not provided'}
 Claimed Niche: {claimed_niche or 'Not specified'}
@@ -28,8 +32,10 @@ Claimed Target Audience: {claimed_audience or 'Not specified'}
 RECENT POSTS / CONTENT SAMPLES:
 \"\"\"{recent_posts}\"\"\"
 
-Analyse the consistency between their profile positioning and their actual content.
-Be direct. Be specific. Quote the exact lines that create the gaps.
+{BANNED}
+{HUMAN_SIGNATURES}
+
+Analyse the consistency between their profile positioning and their actual content. Be direct. Be specific. Quote the exact lines that create the gaps. The reader should finish this report knowing exactly what to fix.
 
 ---
 
@@ -37,7 +43,7 @@ Be direct. Be specific. Quote the exact lines that create the gaps.
 
 | Dimension | Score | Finding |
 |-----------|-------|---------|
-| Headline ↔ Content alignment | X/20 | [specific finding] |
+| Headline ↔ Content alignment | X/20 | [specific finding — quote a line] |
 | Niche clarity | X/20 | [specific finding] |
 | Audience targeting | X/20 | [specific finding] |
 | Tone consistency | X/20 | [specific finding] |
@@ -51,17 +57,17 @@ Quote the profile line. Quote the content that contradicts it.
 Say exactly what a visitor thinks when they notice it.
 
 ## WHAT YOUR PROFILE PROMISES
-List 3-4 things your headline/about section signals about you.
+List 3-4 things your headline / about section signals about you.
 
 ## WHAT YOUR CONTENT DELIVERS
 List 3-4 things your recent posts actually demonstrate.
 
 ## THE GAPS (in order of damage)
 For each gap:
-❌ Profile says: "[exact quote]"
-📝 Content shows: "[what the posts actually demonstrate]"
-💥 Reader confusion: "[what a visitor thinks when they see this]"
-✅ Fix: "[one specific, actionable change]"
+- Profile says: "[exact quote]"
+- Content shows: "[what the posts actually demonstrate]"
+- Reader confusion: "[what a visitor thinks when they see this]"
+- Fix: "[one specific, actionable change]"
 
 ## WHAT'S WORKING (keep this)
 2-3 things that ARE consistent and should be preserved.
@@ -89,7 +95,7 @@ def render_brand_scanner():
     </div>
     """, unsafe_allow_html=True)
 
-    col1, col2 = st.columns(3)
+    col1, col2, col3 = st.columns(3)
     with col1:
         st.info("**The Problem**\n\nYour headline says 'Fintech Strategist' but your posts are all about personal development. A visitor notices in 8 seconds. They leave.")
     with col2:

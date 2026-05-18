@@ -10,14 +10,7 @@ import streamlit as st
 from gemini_client import get_profile_context, stream_text, generate_text
 from industry_profiles import get_industry_voice_block
 from library import save_post_to_library, bump_generated
-
-_BANNED = """
-BANNED: "game-changer", "dive in", "leverage", "synergy", "actionable",
-"thought leader", "passionate about", "journey", "hustle", "disrupt",
-"innovative", "I'm excited to share", "in today's fast-paced world",
-"at the end of the day", "circle back", "move the needle", "unlock",
-"level up", "deep dive", "playbook", "paradigm shift", "win-win"
-"""
+from core.voice import HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES, STRUCTURE_RULES
 
 
 def build_repurpose_prompt(idea: str, niche: str, audience: str, formats: list) -> str:
@@ -67,8 +60,9 @@ def build_repurpose_prompt(idea: str, niche: str, audience: str, formats: list) 
             "Label COMMENT 1-3."
         )
 
-    return f"""You are a world-class LinkedIn content strategist who specialises in
-repurposing one strong idea into multiple content formats without losing authenticity.
+    return f"""{HUMAN_VOICE_PRIMER}
+
+You are working as a content strategist who repurposes one strong idea into multiple formats without losing authenticity. Same voice across every format. Same human warmth. No brand-deck energy.
 {profile_ctx}
 {industry_voice}
 
@@ -79,9 +73,11 @@ TARGET AUDIENCE: {audience}
 NICHE: {niche}
 FORMATS REQUESTED: {formats_str}
 
-{_BANNED}
+{BANNED}
+{HUMAN_SIGNATURES}
+{STRUCTURE_RULES}
 
-Produce ONLY the requested formats below. Label each section clearly.
+Produce ONLY the requested formats below. Label each section clearly. Each format must sound like the same person wrote it — same voice, same specificity, same point of view.
 {section_text}
 """
 

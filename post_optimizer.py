@@ -6,6 +6,9 @@ import streamlit as st
 from gemini_client import generate_text, get_profile_context, stream_text
 from library import save_post_to_library, bump_optimized
 from industry_profiles import get_industry_voice_block
+from core.voice import (
+    HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES,
+)
 
 
 OPTIMIZATION_GOALS = {
@@ -16,66 +19,15 @@ OPTIMIZATION_GOALS = {
     "Personal Branding":     "unmistakably you — a distinctive voice that people remember",
 }
 
-# ── Expanded banned phrases ──────────────────────────────────────────────────
-_BANNED = """
-BANNED WORDS & PHRASES — if any appear in the rewrite, the post fails:
-  "game-changer", "game-changing", "dive in", "let's dive in", "let's dive into",
-  "let's unpack", "unpack this", "leverage", "synergy", "actionable", "actionable insights",
-  "thought leader", "passionate about", "journey", "transformation", "transformative",
-  "crushing it", "hustle", "hustle culture", "grind", "disrupt", "disruption",
-  "innovative", "cutting-edge", "best practices",
-  "I'm excited to share", "I'm thrilled to announce", "I'm proud to share",
-  "in today's fast-paced world", "in today's digital landscape", "in today's world",
-  "at the end of the day", "needless to say", "it goes without saying",
-  "in conclusion", "in summary", "circle back", "touch base",
-  "bandwidth", "move the needle", "reach out",
-  "unlock", "unlock your potential", "level up", "skyrocket", "scale your",
-  "deep dive", "masterclass", "playbook", "blueprint",
-  "it's a marathon not a sprint", "fail forward", "embrace failure", "fail fast",
-  "ecosystem" (used vaguely), "stakeholders", "deliverables", "key takeaways",
-  "pro tip:", "hot take:", "this is your sign", "reminder:", "PSA:",
-  "unpopular opinion:" (as opener), "I'll say what no one else will",
-  "this changed everything", "changed my life", "I wish I knew this sooner",
-  "the secret to", "you won't believe", "what nobody tells you",
-  "period." / "full stop." (mic-drop endings), "we need to talk about",
-  "value-add", "low-hanging fruit", "paradigm shift", "next level", "win-win"
-"""
-
-# ── Human writer signatures — what the rewrite must contain ─────────────────
-_HUMAN_SIGNATURES = """
-HUMAN WRITER SIGNATURES — the rewrite must contain at least 3 of these:
-
-1. SPECIFIC NUMBERS: Not "a lot of money" → "₦2.4 million". Not "many years" → "7 years".
-   If the original has no numbers, invent a plausible specific one.
-
-2. SPECIFIC TIME STAMPS: "On a Wednesday in March…" / "By month 4…" / "Three weeks before…"
-
-3. SPECIFIC PLACES: Name the actual city, building, neighbourhood, or office.
-   Not "a client in Lagos" → "a client in Ikeja GRA".
-
-4. DIALOGUE FRAGMENTS: One line of actual speech.
-   "She said: 'The clause was always there.'" — not paraphrased, said.
-
-5. SELF-INTERRUPTION: Used once. "And honestly?" / "Here's the thing." / "I mean that literally."
-
-6. CONTRAST SENTENCES: Long sentence → immediately followed by a very short one.
-   "We had invested 14 months and ₦9 million into this product.
-   No one used it."
-
-7. EARNED VULNERABILITY: One sentence where the writer admits they were wrong or afraid.
-   Not "failure is my teacher" → "I told my co-founder it would work. It didn't."
-
-8. INDUSTRY-NATIVE PROOF: One reference only a real practitioner uses naturally —
-   a specific regulation, case name, system, or internal term.
-"""
-
 
 def build_optimizer_prompt(original_post: str, goal: str, niche: str = "") -> str:
     goal_desc      = OPTIMIZATION_GOALS.get(goal, goal)
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(niche) if niche.strip() else ""
 
-    return f"""You edit LinkedIn posts the way a world-class editor improves a first draft — you keep the writer's voice, cut what doesn't serve the reader, and make every line do more work. You NEVER make the post sound more generic or more "AI-written" than the original.{profile_ctx}
+    return f"""{HUMAN_VOICE_PRIMER}
+
+You are working as a world-class editor improving a first draft. Keep the writer's voice. Cut what doesn't serve the reader. Make every line do more work. Never make the post sound more generic or more "AI-written" than the original.{profile_ctx}
 
 ORIGINAL POST:
 \"\"\"
@@ -84,8 +36,8 @@ ORIGINAL POST:
 
 GOAL: {goal} — {goal_desc}
 
-{_BANNED}
-{_HUMAN_SIGNATURES}
+{BANNED}
+{HUMAN_SIGNATURES}
 {industry_voice}
 
 DELIVER EXACTLY THIS STRUCTURE:
@@ -156,10 +108,14 @@ def render_post_optimizer():
 
     # ── Pipeline-fed content from Post Generator ─────────────────────────────
     _piped_content = st.session_state.pop("po_content_pipe", None)
+    _handoff_note  = st.session_state.pop("po_handoff_note", None)
     if _piped_content:
         # Use a separate state key to seed the widget without value+key conflict
         st.session_state["po_content"] = _piped_content
-        st.info("✅ Post received from Post Generator — ready to optimize.")
+        if _handoff_note:
+            st.success(f"✅ Received: **{_handoff_note}** — pre-filled below. Pick a goal and hit Optimize.")
+        else:
+            st.success("✅ Post received from Post Generator — pre-filled below.")
 
     original_post = st.text_area(
         "📝 Paste Your LinkedIn Post Here",

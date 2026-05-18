@@ -8,6 +8,9 @@ import streamlit.components.v1 as _components
 from gemini_client import generate_text, get_profile_context, stream_text
 from industry_profiles import get_industry_voice_block
 from library import save_post_to_library, bump_generated
+from core.voice import (
+    HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES, STRUCTURE_RULES,
+)
 
 
 # ── Unicode formatting helpers ─────────────────────────────────────────────
@@ -240,72 +243,6 @@ FRAMEWORK_DESCRIPTIONS = {
     "Personal Story Arc":              "Specific moment → what you felt → what you did → what you now know",
 }
 
-# ── Banned phrases — injected into every generation prompt ─────────────────
-_BANNED_PHRASES = """
-BANNED WORDS & PHRASES — writing any of these means the post fails:
-  "game-changer", "game-changing", "dive in", "let's dive in", "let's dive into",
-  "let's unpack", "unpack this", "leverage", "synergy", "actionable", "actionable insights",
-  "thought leader", "passionate about", "journey", "transformation", "transformative",
-  "crushing it", "hustle", "hustle culture", "grind", "disrupt", "disruption",
-  "innovative", "cutting-edge", "best practices",
-  "I'm excited to share", "I'm thrilled to announce", "I'm proud to share",
-  "in today's fast-paced world", "in today's digital landscape", "in today's world",
-  "at the end of the day", "needless to say", "it goes without saying",
-  "in conclusion", "in summary", "circle back", "touch base",
-  "bandwidth", "move the needle", "reach out",
-  "unlock", "unlock your potential", "level up", "skyrocket", "scale your",
-  "deep dive", "masterclass", "playbook", "blueprint",
-  "it's a marathon not a sprint", "fail forward", "embrace failure", "fail fast",
-  "ecosystem" (used vaguely), "stakeholders", "deliverables", "key takeaways",
-  "pro tip:", "hot take:", "this is your sign", "reminder:", "PSA:",
-  "unpopular opinion:" (as opener), "I'll say what no one else will",
-  "this changed everything", "changed my life", "I wish I knew this sooner",
-  "the secret to", "you won't believe", "what nobody tells you",
-  "period." / "full stop." (mic-drop endings), "we need to talk about",
-  "value-add", "low-hanging fruit", "paradigm shift", "next level", "win-win"
-"""
-
-# ── Human writer signatures — what separates a real post from AI filler ─────
-_HUMAN_SIGNATURES = """
-HUMAN WRITER SIGNATURES — use at least 3 of these per post:
-
-1. SPECIFIC NUMBERS: Not "a lot of money" → "₦2.4 million". Not "many years" → "7 years".
-   Not "significant growth" → "31% in 90 days". If no real number, invent a plausible specific one.
-
-2. SPECIFIC TIME STAMPS: "On a Wednesday in March..." / "By month 4..." /
-   "Three weeks before the deadline..." — anchor the story in time.
-
-3. SPECIFIC PLACES: Name the actual city, building, neighbourhood, court, ward, or market.
-   Not "a client in Lagos" → "a client in Ikeja GRA".
-
-4. DIALOGUE FRAGMENTS: One line of actual speech from a real moment.
-   "The client said: 'We already signed it.'" — not paraphrased, said.
-
-5. SELF-INTERRUPTION: Used once per post only.
-   "And honestly?" / "Here's the thing." / "I mean that literally."
-
-6. CONTRAST SENTENCES: After a long sentence, a very short one.
-   "We had invested 14 months and ₦9 million. No one used it."
-
-7. EARNED VULNERABILITY: One sentence admitting the writer was wrong or afraid.
-   Not "failure is my teacher" → "I told my co-founder it would work. It didn't."
-
-8. INDUSTRY-NATIVE PROOF: One reference only a real practitioner would make naturally —
-   a specific regulation, case name, system, or internal term.
-"""
-
-# ── Voice rules: formatting and structure ────────────────────────────────────
-_STRUCTURE_RULES = """
-STRUCTURE & FORMATTING RULES:
-HOOK: Never start with "I". No questions as hooks. No emojis in line 1.
-  Create an information gap. Under 12 words.
-BODY: One idea per line. Blank line between paragraphs. Max 3 lines per paragraph.
-  No dashes as bullets. Numbered lists only when the number is in the hook.
-CTA: One genuine question at the end — maximum.
-  No "drop a comment below", "smash the like button", "share this if you agree".
-"""
-
-
 def build_post_prompt(
     topic: str,
     niche: str,
@@ -327,7 +264,7 @@ Do not ignore or paraphrase away the specifics. Build the post around these exac
 {story_beats.strip()}
 """
 
-    return f"""You write LinkedIn posts for a specific type of creator: someone with real experience, real mistakes, and no need to impress anyone. Their posts feel like they came from a human being, not a content team.
+    return f"""{HUMAN_VOICE_PRIMER}
 
 You are writing for this specific person:
 - Topic: {topic}
@@ -337,9 +274,9 @@ You are writing for this specific person:
 - Framework: {framework} — {framework_desc}{profile_ctx}
 {beats_block}
 {industry_voice}
-{_BANNED_PHRASES}
-{_HUMAN_SIGNATURES}
-{_STRUCTURE_RULES}
+{BANNED}
+{HUMAN_SIGNATURES}
+{STRUCTURE_RULES}
 
 Write 2 COMPLETELY DIFFERENT post variations. Same message. Different angle. Different structure. Different hook.
 
@@ -596,10 +533,15 @@ def render_post_generator():
                         st.code(content, language=None)
 
                 with btn_col2:
-                    if st.button("🔧 Optimize", key=f"opt_v{idx}",
-                                 use_container_width=True, help="Send to Post Optimizer"):
+                    if st.button("🔧 Send to Optimizer", key=f"opt_v{idx}",
+                                 use_container_width=True,
+                                 help="Open Post Optimizer with this post pre-filled"):
                         st.session_state["po_content_pipe"] = content  # pipe key, not widget key
+                        st.session_state["po_handoff_note"] = (
+                            f"Variation {idx} from Post Generator"
+                        )
                         st.session_state["_pending_nav"]    = "🔧 Post Optimizer"
+                        st.toast(f"Variation {idx} sent to Post Optimizer", icon="🔧")
                         st.rerun()
 
                 with btn_col3:
