@@ -167,10 +167,13 @@ def render_strategy_insights():
 
         try:
             st.info("⚡ Generating your playbook — streams in real time…")
-            result = st.write_stream(stream_text(
-                build_strategy_prompt(creator_type, niche, goal),
-                temperature=0.8, max_tokens=8000,
-            ))
+            _stream_box = st.empty()
+            with _stream_box.container():
+                result = st.write_stream(stream_text(
+                    build_strategy_prompt(creator_type, niche, goal),
+                    temperature=0.8, max_tokens=8000,
+                ))
+            _stream_box.empty()
             st.session_state["si_last_result"]    = result
             st.session_state["si_last_creator"]   = creator_type
             st.session_state["si_last_niche"]     = niche

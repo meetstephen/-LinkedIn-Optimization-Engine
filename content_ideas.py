@@ -121,10 +121,13 @@ def render_content_ideas():
 
         try:
             st.info("⚡ Generating content ideas — streams in real time…")
-            result = st.write_stream(stream_text(
-                build_ideas_prompt(niche, role, pillars, count, timeframe),
-                temperature=0.88, max_tokens=8000,
-            ))
+            _stream_box = st.empty()
+            with _stream_box.container():
+                result = st.write_stream(stream_text(
+                    build_ideas_prompt(niche, role, pillars, count, timeframe),
+                    temperature=0.88, max_tokens=8000,
+                ))
+            _stream_box.empty()
             st.session_state["ci_last_result"] = result
             st.session_state["ci_last_niche"]  = niche
             st.session_state["ci_last_count"]  = count

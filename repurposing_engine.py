@@ -174,6 +174,7 @@ def render_repurposing_engine():
 
         st.info(f"⚡ Generating {len(formats)} formats — output streams in real time…")
 
+        _stream_box = st.empty()
         try:
             prompt = build_repurpose_prompt(
                 idea,
@@ -181,9 +182,12 @@ def render_repurposing_engine():
                 audience or "Professionals on LinkedIn",
                 formats,
             )
-            result = st.write_stream(
-                stream_text(prompt, temperature=0.85, max_tokens=10000)
-            )
+            with _stream_box.container():
+                result = st.write_stream(
+                    stream_text(prompt, temperature=0.85, max_tokens=10000)
+                )
+            # Clear the raw stream — the formatted per-format expanders below render it cleanly
+            _stream_box.empty()
             st.session_state["re_last_result"]  = result
             st.session_state["re_last_formats"] = list(formats)
             st.session_state["session_repurposed"] = (

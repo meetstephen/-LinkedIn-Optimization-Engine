@@ -168,11 +168,14 @@ def render_engagement_intelligence():
                      disabled=not post_text.strip()):
             try:
                 st.info("⚡ Generating comments…")
-                result = st.write_stream(stream_text(
-                    build_comment_prompt(post_text, comment_goal,
-                                         comment_niche or "Professional"),
-                    temperature=0.85, max_tokens=4000,
-                ))
+                _stream_box = st.empty()
+                with _stream_box.container():
+                    result = st.write_stream(stream_text(
+                        build_comment_prompt(post_text, comment_goal,
+                                             comment_niche or "Professional"),
+                        temperature=0.85, max_tokens=4000,
+                    ))
+                _stream_box.empty()
                 st.session_state["ei_comments_result"] = result
             except Exception as e:
                 st.error(f"Generation failed: {str(e)}")
@@ -242,11 +245,14 @@ def render_engagement_intelligence():
                      disabled=not dm_context.strip()):
             try:
                 st.info("⚡ Writing your DMs…")
-                result = st.write_stream(stream_text(
-                    build_dm_prompt(dm_context, dm_type,
-                                    dm_niche or "Professional"),
-                    temperature=0.82, max_tokens=3000,
-                ))
+                _stream_box = st.empty()
+                with _stream_box.container():
+                    result = st.write_stream(stream_text(
+                        build_dm_prompt(dm_context, dm_type,
+                                        dm_niche or "Professional"),
+                        temperature=0.82, max_tokens=3000,
+                    ))
+                _stream_box.empty()
                 st.session_state["ei_dms_result"] = result
             except Exception as e:
                 st.error(f"Generation failed: {str(e)}")
@@ -300,12 +306,15 @@ def render_engagement_intelligence():
                      disabled=not net_situation.strip()):
             try:
                 st.info("⚡ Writing your responses…")
-                result = st.write_stream(stream_text(
-                    build_networking_prompt(
-                        net_situation, net_niche or "Professional"
-                    ),
-                    temperature=0.8, max_tokens=3000,
-                ))
+                _stream_box = st.empty()
+                with _stream_box.container():
+                    result = st.write_stream(stream_text(
+                        build_networking_prompt(
+                            net_situation, net_niche or "Professional"
+                        ),
+                        temperature=0.8, max_tokens=3000,
+                    ))
+                _stream_box.empty()
                 st.session_state["ei_net_result"] = result
             except Exception as e:
                 st.error(f"Generation failed: {str(e)}")

@@ -158,12 +158,16 @@ def render_about_optimizer():
             return
 
         st.info("⚡ Writing your About section — streams in real time…")
+        _stream_box = st.empty()
         try:
-            result = st.write_stream(stream_text(
-                build_about_prompt(current_about, name, role, industry,
-                                   superpowers, achievements, goal),
-                temperature=0.78, max_tokens=8000,
-            ))
+            with _stream_box.container():
+                result = st.write_stream(stream_text(
+                    build_about_prompt(current_about, name, role, industry,
+                                       superpowers, achievements, goal),
+                    temperature=0.78, max_tokens=8000,
+                ))
+            # Clear the raw stream — the formatted result panel below renders it cleanly
+            _stream_box.empty()
             # Persist result so save / download buttons survive reruns
             st.session_state["ao_last_result"]   = result
             st.session_state["ao_last_industry"] = industry
