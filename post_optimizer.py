@@ -1,10 +1,10 @@
 """
-Post Optimizer Module — Rewrites and scores existing LinkedIn posts
+Post Optimizer Module — Diagnoses and rewrites existing LinkedIn posts
 for maximum engagement and virality potential.
 """
 import streamlit as st
 from gemini_client import generate_text, get_profile_context, stream_text
-from library import save_post_to_library
+from library import save_post_to_library, bump_optimized
 from industry_profiles import get_industry_voice_block
 
 
@@ -127,20 +127,42 @@ Not "improved the hook" — say exactly what you changed it from and to, and why
 """
 
 
+def _extract_rewritten(result: str) -> str:
+    """Pull the REWRITTEN VERSION section out of an optimizer result."""
+    lines, in_block, out = result.split("\n"), False, []
+    for line in lines:
+        if "REWRITTEN VERSION" in line.upper():
+            in_block = True
+            continue
+        if in_block and line.startswith("##"):
+            break
+        if in_block:
+            out.append(line)
+    return "\n".join(out).strip()
+
+
+def _extract_score(result: str) -> str:
+    """Find the OVERALL: XX/100 line and return the score string."""
+    for line in result.split("\n"):
+        if "OVERALL" in line.upper():
+            raw = line.split(":")[-1].strip() if ":" in line else "—"
+            return raw.replace("**", "").strip()
+    return "—"
+
+
 def render_post_optimizer():
     st.header("🔧 LinkedIn Post Optimizer")
     st.markdown("Paste your existing post and get a full diagnosis + professional rewrite with engagement score.")
 
-    # ── Patch 1c: Enlarged input (320px) + niche field ───────────────────────
-    # Pre-fill from pipeline (post_generator sends content via session state)
+    # ── Pipeline-fed content from Post Generator ─────────────────────────────
     _piped_content = st.session_state.pop("po_content_pipe", None)
     if _piped_content:
+        # Use a separate state key to seed the widget without value+key conflict
         st.session_state["po_content"] = _piped_content
-        st.info("✅ Post received from Post Generator — ready to optimize!")
+        st.info("✅ Post received from Post Generator — ready to optimize.")
 
     original_post = st.text_area(
         "📝 Paste Your LinkedIn Post Here",
-        value=st.session_state.get("po_content", ""),
         placeholder=(
             "Paste your existing LinkedIn post here…\n\n"
             "The more complete the post, the more specific the diagnosis. "
@@ -179,80 +201,91 @@ def render_post_optimizer():
                 original_post, goal,
                 niche=st.session_state.get("po_niche", ""),
             )
-            # Stream into a container — write_stream returns the full text
             with st.container():
                 result = st.write_stream(
                     stream_text(prompt, temperature=0.72, max_tokens=8000)
                 )
 
-            st.session_state["session_posts_optimized"] = (
-                st.session_state.get("session_posts_optimized", 0) + 1
-            )
-            st.success("✅ Optimization complete!")
-            st.markdown("---")
-
-            col1, col2 = st.columns(2)
-            with col1:
-                st.subheader("❌ Original Post")
-                st.markdown(
-                    f'<div style="background:#fff3f3;padding:1rem;border-radius:8px;'
-                    f'border-left:4px solid #ff4444;font-size:0.9rem;line-height:1.6;">'
-                    f'{original_post.replace(chr(10), "<br>")}</div>',
-                    unsafe_allow_html=True,
-                )
-            with col2:
-                st.subheader("✅ After AI Analysis")
-                score_line = ""
-                for line in result.split("\n"):
-                    if "OVERALL" in line.upper():
-                        score_line = line
-                        break
-                if score_line:
-                    _raw_score   = score_line.split(":")[-1].strip() if ":" in score_line else "—"
-                    _clean_score = _raw_score.replace("**", "").strip()
-                    st.metric("Engagement Score", _clean_score)
-                st.markdown(
-                    f"<div style='font-size:0.8rem;color:#555;margin-top:0.5rem;'>"
-                    f"Industry: <strong>{st.session_state.get('po_niche','—') or '—'}</strong><br>"
-                    f"Goal: <strong>{goal}</strong></div>",
-                    unsafe_allow_html=True,
-                )
-
-            st.markdown("---")
-            # Full output already rendered by st.write_stream above
+            # Persist the result so save buttons / pipelines survive reruns
+            st.session_state["po_last_result"]   = result
+            st.session_state["po_last_original"] = original_post
+            st.session_state["po_last_goal"]     = goal
+            st.session_state["po_last_niche"]    = st.session_state.get("po_niche", "")
             st.session_state["last_generated_post"] = result
-
-            st.markdown("---")
-            st.markdown("**Send the optimized post to:**")
-            pipe1, pipe2 = st.columns(2)
-            with pipe1:
-                if st.button("🔥 Check Hook in Analyzer", use_container_width=True,
-                             key="opt_to_hook",
-                             help="Run the rewritten hook through the Viral Hook Analyzer"):
-                    _lines   = result.split("\n")
-                    _in, _rw = False, []
-                    for _line in _lines:
-                        if "REWRITTEN VERSION" in _line.upper():
-                            _in = True; continue
-                        if _in and _line.startswith("##"):
-                            break
-                        if _in:
-                            _rw.append(_line)
-                    _rewritten = "\n".join(_rw).strip() or original_post
-                    st.session_state["hook_analyzer_input"] = _rewritten
-                    st.session_state["_pending_nav"] = "🔥 Viral Hook Analyzer"
-                    st.rerun()
-            with pipe2:
-                if st.button("📚 Save to Post Library", use_container_width=True,
-                             key="opt_to_library",
-                             help="Save the full optimization report to your Post Library"):
-                    ok, msg = save_post_to_library(
-                        result, "🔧 Post Optimizer", tags=["optimized"]
-                    )
-                    st.success(msg) if ok else st.warning(msg)
+            bump_optimized()
 
         except Exception as e:
             st.error(f"Optimization failed: {str(e)}")
             with st.expander("🔍 Error details"):
                 import traceback as _tb
                 st.code(_tb.format_exc())
+            return
+
+    # ── Render last result + actions (always renders when result exists) ───
+    result = st.session_state.get("po_last_result", "")
+    if not result:
+        return
+
+    last_original = st.session_state.get("po_last_original", "")
+    last_goal     = st.session_state.get("po_last_goal", goal)
+    last_niche    = st.session_state.get("po_last_niche", "")
+
+    st.success("✅ Optimization complete.")
+    st.markdown("---")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("❌ Original Post")
+        st.markdown(
+            f'<div style="background:#fff3f3;padding:1rem;border-radius:8px;'
+            f'border-left:4px solid #ff4444;font-size:0.9rem;line-height:1.6;">'
+            f'{last_original.replace(chr(10), "<br>")}</div>',
+            unsafe_allow_html=True,
+        )
+    with col2:
+        st.subheader("✅ After AI Analysis")
+        st.metric("Engagement Score", _extract_score(result))
+        st.markdown(
+            f"<div style='font-size:0.8rem;color:#555;margin-top:0.5rem;'>"
+            f"Industry: <strong>{last_niche or '—'}</strong><br>"
+            f"Goal: <strong>{last_goal}</strong></div>",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("---")
+    with st.expander("📄 Full Optimization Report", expanded=True):
+        st.markdown(result)
+
+    st.markdown("---")
+    st.markdown("**Send the optimized post to:**")
+    pipe1, pipe2, pipe3 = st.columns(3)
+    with pipe1:
+        if st.button("🔥 Check Hook in Analyzer", use_container_width=True,
+                     key="opt_to_hook",
+                     help="Run the rewritten hook through the Viral Hook Analyzer"):
+            rewritten = _extract_rewritten(result) or last_original
+            st.session_state["hook_analyzer_input"] = rewritten
+            st.session_state["_pending_nav"] = "🔥 Viral Hook Analyzer"
+            st.rerun()
+    with pipe2:
+        if st.button("🎨 Make Visual", use_container_width=True,
+                     key="opt_to_image",
+                     help="Generate a LinkedIn image for this post"):
+            rewritten = _extract_rewritten(result) or last_original
+            st.session_state["ig_post_content"] = rewritten[:500]
+            st.session_state["_pending_nav"] = "🎨 Image Generator"
+            st.rerun()
+    with pipe3:
+        if st.button("📚 Save to Post Library", use_container_width=True,
+                     key="opt_to_library",
+                     help="Save the full optimization report to your Post Library"):
+            ok, msg = save_post_to_library(
+                result, "🔧 Post Optimizer",
+                tags=["optimized", last_goal.lower().replace(" ", "-")],
+            )
+            st.success(msg) if ok else st.warning(msg)
+
+    if st.button("🔄 Start a fresh optimization", key="po_reset"):
+        for k in ("po_last_result", "po_last_original", "po_last_goal", "po_last_niche"):
+            st.session_state.pop(k, None)
+        st.rerun()

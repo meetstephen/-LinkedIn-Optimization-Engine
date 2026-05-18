@@ -166,26 +166,37 @@ def render_engagement_intelligence():
         if st.button("💬 Generate Strategic Comments", type="primary",
                      use_container_width=True, key="ei_gen_comments",
                      disabled=not post_text.strip()):
-            if not post_text.strip():
-                st.error("Paste a post to comment on.")
-            else:
+            try:
                 st.info("⚡ Generating comments…")
-                try:
-                    result = st.write_stream(stream_text(
-                        build_comment_prompt(post_text, comment_goal,
-                                             comment_niche or "Professional"),
-                        temperature=0.85, max_tokens=4000,
-                    ))
-                    save_col, _ = st.columns([1, 2])
-                    with save_col:
-                        if st.button("📚 Save to Library", key="ei_save_comments"):
-                            ok, msg = save_post_to_library(
-                                result, "💬 Engagement Intelligence",
-                                tags=["comments", "engagement"]
-                            )
-                            st.success(msg) if ok else st.warning(msg)
-                except Exception as e:
-                    st.error(f"Generation failed: {str(e)}")
+                result = st.write_stream(stream_text(
+                    build_comment_prompt(post_text, comment_goal,
+                                         comment_niche or "Professional"),
+                    temperature=0.85, max_tokens=4000,
+                ))
+                st.session_state["ei_comments_result"] = result
+            except Exception as e:
+                st.error(f"Generation failed: {str(e)}")
+
+        # Persistent result + save block
+        _r = st.session_state.get("ei_comments_result", "")
+        if _r:
+            st.markdown("---")
+            with st.expander("📄 Generated Comments", expanded=True):
+                st.markdown(_r)
+            sc1, sc2 = st.columns(2)
+            with sc1:
+                if st.button("📚 Save to Library", key="ei_save_comments",
+                             use_container_width=True):
+                    ok, msg = save_post_to_library(
+                        _r, "💬 Engagement Intelligence",
+                        tags=["comments", "engagement"]
+                    )
+                    st.success(msg) if ok else st.warning(msg)
+            with sc2:
+                if st.button("🔄 Clear", key="ei_reset_comments",
+                             use_container_width=True):
+                    st.session_state.pop("ei_comments_result", None)
+                    st.rerun()
 
     # ── Tab 2: DM Templates ───────────────────────────────────────────────────
     with tab2:
@@ -229,24 +240,36 @@ def render_engagement_intelligence():
         if st.button("📨 Generate DM Templates", type="primary",
                      use_container_width=True, key="ei_gen_dms",
                      disabled=not dm_context.strip()):
-            if not dm_context.strip():
-                st.error("Describe the DM context.")
-            else:
+            try:
                 st.info("⚡ Writing your DMs…")
-                try:
-                    result = st.write_stream(stream_text(
-                        build_dm_prompt(dm_context, dm_type,
-                                        dm_niche or "Professional"),
-                        temperature=0.82, max_tokens=3000,
-                    ))
-                    if st.button("📚 Save to Library", key="ei_save_dms"):
-                        ok, msg = save_post_to_library(
-                            result, "💬 Engagement Intelligence",
-                            tags=["dm", "outreach"]
-                        )
-                        st.success(msg) if ok else st.warning(msg)
-                except Exception as e:
-                    st.error(f"Generation failed: {str(e)}")
+                result = st.write_stream(stream_text(
+                    build_dm_prompt(dm_context, dm_type,
+                                    dm_niche or "Professional"),
+                    temperature=0.82, max_tokens=3000,
+                ))
+                st.session_state["ei_dms_result"] = result
+            except Exception as e:
+                st.error(f"Generation failed: {str(e)}")
+
+        _r = st.session_state.get("ei_dms_result", "")
+        if _r:
+            st.markdown("---")
+            with st.expander("📄 Generated DMs", expanded=True):
+                st.markdown(_r)
+            sc1, sc2 = st.columns(2)
+            with sc1:
+                if st.button("📚 Save to Library", key="ei_save_dms",
+                             use_container_width=True):
+                    ok, msg = save_post_to_library(
+                        _r, "💬 Engagement Intelligence",
+                        tags=["dm", "outreach"]
+                    )
+                    st.success(msg) if ok else st.warning(msg)
+            with sc2:
+                if st.button("🔄 Clear", key="ei_reset_dms",
+                             use_container_width=True):
+                    st.session_state.pop("ei_dms_result", None)
+                    st.rerun()
 
     # ── Tab 3: Networking Responses ───────────────────────────────────────────
     with tab3:
@@ -275,22 +298,34 @@ def render_engagement_intelligence():
         if st.button("🤝 Generate Networking Templates", type="primary",
                      use_container_width=True, key="ei_gen_net",
                      disabled=not net_situation.strip()):
-            if not net_situation.strip():
-                st.error("Describe the networking situation.")
-            else:
+            try:
                 st.info("⚡ Writing your responses…")
-                try:
-                    result = st.write_stream(stream_text(
-                        build_networking_prompt(
-                            net_situation, net_niche or "Professional"
-                        ),
-                        temperature=0.8, max_tokens=3000,
-                    ))
-                    if st.button("📚 Save to Library", key="ei_save_net"):
-                        ok, msg = save_post_to_library(
-                            result, "💬 Engagement Intelligence",
-                            tags=["networking", "connection"]
-                        )
-                        st.success(msg) if ok else st.warning(msg)
-                except Exception as e:
-                    st.error(f"Generation failed: {str(e)}")
+                result = st.write_stream(stream_text(
+                    build_networking_prompt(
+                        net_situation, net_niche or "Professional"
+                    ),
+                    temperature=0.8, max_tokens=3000,
+                ))
+                st.session_state["ei_net_result"] = result
+            except Exception as e:
+                st.error(f"Generation failed: {str(e)}")
+
+        _r = st.session_state.get("ei_net_result", "")
+        if _r:
+            st.markdown("---")
+            with st.expander("📄 Generated Templates", expanded=True):
+                st.markdown(_r)
+            sc1, sc2 = st.columns(2)
+            with sc1:
+                if st.button("📚 Save to Library", key="ei_save_net",
+                             use_container_width=True):
+                    ok, msg = save_post_to_library(
+                        _r, "💬 Engagement Intelligence",
+                        tags=["networking", "connection"]
+                    )
+                    st.success(msg) if ok else st.warning(msg)
+            with sc2:
+                if st.button("🔄 Clear", key="ei_reset_net",
+                             use_container_width=True):
+                    st.session_state.pop("ei_net_result", None)
+                    st.rerun()

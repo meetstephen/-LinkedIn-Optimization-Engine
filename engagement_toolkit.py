@@ -5,6 +5,7 @@ and posting time analyzer all in one.
 import streamlit as st
 from gemini_client import generate_text, get_profile_context, stream_text
 from industry_profiles import get_industry_voice_block
+from library import save_post_to_library
 
 
 POSTING_TIMES = {
@@ -189,9 +190,30 @@ def render_engagement_toolkit():
                                            niche=st.session_state.get("hook_niche", "")),
                         temperature=0.92, max_tokens=6000,
                     ))
-                    st.success("✅ Hooks generated!")
+                    st.session_state["et_hooks_result"] = result
                 except Exception as e:
                     st.error(f"Error: {str(e)}")
+
+        # Persistent result + save block (survives reruns)
+        _r = st.session_state.get("et_hooks_result", "")
+        if _r:
+            st.markdown("---")
+            with st.expander("📄 Generated Hooks", expanded=True):
+                st.markdown(_r)
+            sc1, sc2 = st.columns(2)
+            with sc1:
+                if st.button("📚 Save to Library", key="et_save_hooks",
+                             use_container_width=True):
+                    ok, msg = save_post_to_library(
+                        _r, "⚡ Engagement Toolkit",
+                        tags=["hooks", st.session_state.get("hook_tone", "").lower()]
+                    )
+                    st.success(msg) if ok else st.warning(msg)
+            with sc2:
+                if st.button("🔄 Clear", key="et_reset_hooks",
+                             use_container_width=True):
+                    st.session_state.pop("et_hooks_result", None)
+                    st.rerun()
 
     with tab2:
         st.subheader("📢 CTA Generator")
@@ -222,9 +244,29 @@ def render_engagement_toolkit():
                                          niche=st.session_state.get("cta_niche", "")),
                         temperature=0.82, max_tokens=6000,
                     ))
-                    st.success("✅ CTAs generated!")
+                    st.session_state["et_ctas_result"] = result
                 except Exception as e:
                     st.error(f"Error: {str(e)}")
+
+        _r = st.session_state.get("et_ctas_result", "")
+        if _r:
+            st.markdown("---")
+            with st.expander("📄 Generated CTAs", expanded=True):
+                st.markdown(_r)
+            sc1, sc2 = st.columns(2)
+            with sc1:
+                if st.button("📚 Save to Library", key="et_save_ctas",
+                             use_container_width=True):
+                    ok, msg = save_post_to_library(
+                        _r, "⚡ Engagement Toolkit",
+                        tags=["ctas", st.session_state.get("cta_goal", "").lower().replace(" ", "-")]
+                    )
+                    st.success(msg) if ok else st.warning(msg)
+            with sc2:
+                if st.button("🔄 Clear", key="et_reset_ctas",
+                             use_container_width=True):
+                    st.session_state.pop("et_ctas_result", None)
+                    st.rerun()
 
     with tab3:
         st.subheader("#️⃣ Hashtag Optimizer")
@@ -250,9 +292,29 @@ def render_engagement_toolkit():
                         build_hashtag_prompt(ht_content, ht_industry or "General"),
                         temperature=0.7, max_tokens=4000,
                     ))
-                    st.success("✅ Hashtag strategy ready!")
+                    st.session_state["et_hashtags_result"] = result
                 except Exception as e:
                     st.error(f"Error: {str(e)}")
+
+        _r = st.session_state.get("et_hashtags_result", "")
+        if _r:
+            st.markdown("---")
+            with st.expander("📄 Hashtag Strategy", expanded=True):
+                st.markdown(_r)
+            sc1, sc2 = st.columns(2)
+            with sc1:
+                if st.button("📚 Save to Library", key="et_save_ht",
+                             use_container_width=True):
+                    ok, msg = save_post_to_library(
+                        _r, "⚡ Engagement Toolkit",
+                        tags=["hashtags", st.session_state.get("ht_industry", "").lower()[:20]]
+                    )
+                    st.success(msg) if ok else st.warning(msg)
+            with sc2:
+                if st.button("🔄 Clear", key="et_reset_ht",
+                             use_container_width=True):
+                    st.session_state.pop("et_hashtags_result", None)
+                    st.rerun()
 
     with tab4:
         st.subheader("⏰ Optimal Posting Times")

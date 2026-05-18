@@ -165,34 +165,52 @@ def render_strategy_insights():
             st.error("Please enter your niche.")
             return
 
-        with st.spinner("Building your playbook..."):
-            try:
-                st.info("⚡ Generating your playbook — streams in real time…")
-                result = st.write_stream(stream_text(
-                    build_strategy_prompt(creator_type, niche, goal),
-                    temperature=0.8, max_tokens=8000,
-                ))
-                st.success("Strategy playbook generated!")
-                st.markdown("---")
+        try:
+            st.info("⚡ Generating your playbook — streams in real time…")
+            result = st.write_stream(stream_text(
+                build_strategy_prompt(creator_type, niche, goal),
+                temperature=0.8, max_tokens=8000,
+            ))
+            st.session_state["si_last_result"]    = result
+            st.session_state["si_last_creator"]   = creator_type
+            st.session_state["si_last_niche"]     = niche
+        except Exception as e:
+            st.error(f"Generation failed: {str(e)}")
+            with st.expander("Error details"):
+                import traceback as _tb
+                st.code(_tb.format_exc())
+            return
 
-                dl_col, sv_col = st.columns(2)
-                with dl_col:
-                    st.download_button(
-                        label="📥 Download Strategy Playbook",
-                        data=result,
-                        file_name=f"linkedin_strategy_{creator_type.replace(' ', '_').lower()}.txt",
-                        mime="text/plain",
-                        use_container_width=True,
-                    )
-                with sv_col:
-                    if st.button("📚 Save to Post Library", use_container_width=True,
-                                 key="si_save_library"):
-                        ok, msg = save_post_to_library(result, "🧠 Strategy Insights",
-                                                tags=["strategy", creator_type.lower().replace(" ", "-")])
-                        st.success(msg) if ok else st.warning(msg)
+    # ── Result panel — survives reruns ─────────────────────────────────────
+    result = st.session_state.get("si_last_result", "")
+    if not result:
+        return
 
-            except Exception as e:
-                st.error(f"Generation failed: {str(e)}")
-                with st.expander("Error details"):
-                    import traceback as _tb
-                    st.code(_tb.format_exc())
+    _ct = st.session_state.get("si_last_creator", creator_type)
+    _ni = st.session_state.get("si_last_niche", niche)
+
+    st.success("Strategy playbook generated.")
+    st.markdown("---")
+    with st.expander("📄 Full Strategy Playbook", expanded=True):
+        st.markdown(result)
+
+    dl_col, sv_col, rs_col = st.columns(3)
+    with dl_col:
+        st.download_button(
+            label="📥 Download Playbook",
+            data=result,
+            file_name=f"linkedin_strategy_{_ct.replace(' ', '_').lower()}.txt",
+            mime="text/plain",
+            use_container_width=True,
+        )
+    with sv_col:
+        if st.button("📚 Save to Post Library", use_container_width=True,
+                     key="si_save_library"):
+            ok, msg = save_post_to_library(result, "🧠 Strategy Insights",
+                                           tags=["strategy", _ct.lower().replace(" ", "-")])
+            st.success(msg) if ok else st.warning(msg)
+    with rs_col:
+        if st.button("🔄 New playbook", use_container_width=True, key="si_reset"):
+            for k in ("si_last_result", "si_last_creator", "si_last_niche"):
+                st.session_state.pop(k, None)
+            st.rerun()

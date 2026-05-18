@@ -940,26 +940,34 @@ def save_to_history(post_type: str, content: str):
 
 
 def save_to_library(content: str, module: str, score: int = 0, tags: list = None):
-    """Save a post to the Post Library (DB-backed) and bump session counters."""
-    if _CORE_AVAILABLE:
-        _db.save_post(content, module, score=score, tags=tags or [])
-    else:
-        # Legacy in-memory fallback (no persistence)
+    """
+    Save a post to the Post Library (DB-backed) and bump the SAVED counter only.
+    Generation counters belong to whichever module created the content — saving
+    must never inflate them.
+    """
+    # Delegate to the canonical helper for consistent behaviour across modules
+    try:
+        from library import save_post_to_library as _slib
+        ok, _msg = _slib(content, module, score=score, tags=tags or [])
+        save_to_history(module, content)
+        return ok
+    except Exception:
+        # Last-ditch session fallback so the UI never crashes
         entry = {
-            "id": int(time.time() * 1000),
-            "content": content.strip(),
-            "module": module,
-            "score": score,
-            "tags": tags or [],
+            "id":         int(time.time() * 1000),
+            "content":    content.strip(),
+            "module":     module,
+            "score":      score,
+            "tags":       tags or [],
             "created_at": datetime.now().strftime("%b %d, %Y · %I:%M %p"),
-            "starred": False,
+            "starred":    False,
         }
         st.session_state.setdefault("post_library", []).insert(0, entry)
-
-    st.session_state["session_posts_generated"] = (
-        st.session_state.get("session_posts_generated", 0) + 1
-    )
-    save_to_history(module, content)
+        st.session_state["session_posts_saved"] = (
+            st.session_state.get("session_posts_saved", 0) + 1
+        )
+        save_to_history(module, content)
+        return True
 
 
 def inject_profile_context() -> str:
@@ -1435,9 +1443,13 @@ def render_sidebar():
         # ── Session Stats ──────────────────────────────────
         st.markdown("<hr style='border-color:rgba(255,255,255,0.2);'>", unsafe_allow_html=True)
         posts_gen   = st.session_state.get("session_posts_generated", 0)
+        posts_saved = st.session_state.get("session_posts_saved", 0)
         mins_saved  = posts_gen * 12   # avg 12 min saved per AI-generated post
-        history_ct  = (_db.get_stats()["total"] if _CORE_AVAILABLE
-                       else len(st.session_state.get("post_library", [])))
+        try:
+            history_ct = (_db.get_stats()["total"] if _CORE_AVAILABLE
+                          else len(st.session_state.get("post_library", [])))
+        except Exception:
+            history_ct = len(st.session_state.get("post_library", []))
         hooks_done  = st.session_state.get("hooks_analyzed", 0)
         st.markdown(f"""
         <div style="font-size:0.78rem; color:rgba(255,255,255,0.85); text-align:center;">
@@ -1452,11 +1464,11 @@ def render_sidebar():
                 </div>
                 <div>
                     <div style="font-size:1.4rem; font-weight:800;">{history_ct}</div>
-                    <div style="opacity:0.75; font-size:0.7rem;">Saved Posts</div>
+                    <div style="opacity:0.75; font-size:0.7rem;">In Library</div>
                 </div>
             </div>
             <div style="margin-top:0.5rem; opacity:0.8; font-size:0.72rem;">
-                🔥 {hooks_done} hook{'s' if hooks_done != 1 else ''} analyzed this session
+                💾 {posts_saved} saved · 🔥 {hooks_done} hook{'s' if hooks_done != 1 else ''} analyzed
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -2067,7 +2079,8 @@ Rules: every rewrite ≤210 chars, distinctly different techniques, genuinely vi
             with st.expander(f"**{i+1}. {label_rw}** — {rw_chars} chars {fits}", expanded=(i == 0)):
                 rw_c1, rw_c2 = st.columns([0.55, 0.45])
                 with rw_c1:
-                    st.markdown(f"> {hook_text.replace(chr(10), '  \n> ')}")
+                    _hook_md = hook_text.replace(chr(10), "  \n> ")
+                    st.markdown(f"> {_hook_md}")
                     copy_to_clipboard_button(hook_text, f"📋 Copy Rewrite {i+1}", key=f"hook_rw_copy_{i}")
                 with rw_c2:
                     rw_init = (author_name[0] if author_name else "Y").upper()

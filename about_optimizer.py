@@ -164,57 +164,76 @@ def render_about_optimizer():
                                    superpowers, achievements, goal),
                 temperature=0.78, max_tokens=8000,
             ))
-            st.success("About section optimized!")
-            st.markdown("---")
-
-            # Before/After preview (only when user pasted existing About)
-            if current_about.strip():
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.subheader("Before")
-                    st.markdown(
-                        f'<div style="background:#fff3f3;padding:1rem;border-radius:8px;'
-                        f'border-left:4px solid #ff6b6b;font-size:0.9rem;">'
-                        f'{current_about.replace(chr(10), "<br>")}</div>',
-                        unsafe_allow_html=True)
-                with col2:
-                    st.subheader("Rewritten Section (Preview)")
-                    lines = result.split("\n")
-                    in_section, preview_lines = False, []
-                    for line in lines:
-                        if "REWRITTEN ABOUT" in line.upper():
-                            in_section = True; continue
-                        if in_section and line.startswith("##"):
-                            break
-                        if in_section:
-                            preview_lines.append(line)
-                    preview = "\n".join(preview_lines).strip()
-                    st.markdown(
-                        f'<div style="background:#f0fff4;padding:1rem;border-radius:8px;'
-                        f'border-left:4px solid #00c851;font-size:0.9rem;">'
-                        f'{preview.replace(chr(10), "<br>") if preview else "Scroll up — full output streamed above"}</div>',
-                        unsafe_allow_html=True)
-
-            # NOTE: full result already rendered by st.write_stream above — no duplicate here
-            st.markdown("---")
-            pipe1, pipe2 = st.columns(2)
-            with pipe1:
-                st.download_button(
-                    label="📥 Download About Section",
-                    data=result,
-                    file_name="linkedin_about_section.txt",
-                    mime="text/plain",
-                    use_container_width=True,
-                )
-            with pipe2:
-                if st.button("📚 Save to Post Library", use_container_width=True,
-                             key="ao_save_library"):
-                    ok, msg = save_post_to_library(result, "💼 About Optimizer",
-                                                   tags=["about-section", industry.lower()[:20]])
-                    st.success(msg) if ok else st.warning(msg)
-
+            # Persist result so save / download buttons survive reruns
+            st.session_state["ao_last_result"]   = result
+            st.session_state["ao_last_industry"] = industry
+            st.session_state["ao_last_before"]   = current_about
         except Exception as e:
             st.error(f"Optimization failed: {str(e)}")
             with st.expander("Error details"):
                 import traceback as _tb
                 st.code(_tb.format_exc())
+            return
+
+    # ── Result panel — always renders when a result exists ────────────────
+    result = st.session_state.get("ao_last_result", "")
+    if not result:
+        return
+
+    _ind     = st.session_state.get("ao_last_industry", industry)
+    _before  = st.session_state.get("ao_last_before", "")
+
+    st.success("About section optimized.")
+    st.markdown("---")
+
+    # Before/After preview when user pasted existing About
+    if _before.strip():
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("Before")
+            st.markdown(
+                f'<div style="background:#fff3f3;padding:1rem;border-radius:8px;'
+                f'border-left:4px solid #ff6b6b;font-size:0.9rem;">'
+                f'{_before.replace(chr(10), "<br>")}</div>',
+                unsafe_allow_html=True)
+        with col2:
+            st.subheader("Rewritten Section (Preview)")
+            lines, in_section, preview_lines = result.split("\n"), False, []
+            for line in lines:
+                if "REWRITTEN ABOUT" in line.upper():
+                    in_section = True; continue
+                if in_section and line.startswith("##"):
+                    break
+                if in_section:
+                    preview_lines.append(line)
+            preview = "\n".join(preview_lines).strip()
+            st.markdown(
+                f'<div style="background:#f0fff4;padding:1rem;border-radius:8px;'
+                f'border-left:4px solid #00c851;font-size:0.9rem;">'
+                f'{preview.replace(chr(10), "<br>") if preview else "Scroll up — full output streamed above"}</div>',
+                unsafe_allow_html=True)
+
+    st.markdown("---")
+    with st.expander("📄 Full Output", expanded=False):
+        st.markdown(result)
+
+    pipe1, pipe2, pipe3 = st.columns(3)
+    with pipe1:
+        st.download_button(
+            label="📥 Download .txt",
+            data=result,
+            file_name="linkedin_about_section.txt",
+            mime="text/plain",
+            use_container_width=True,
+        )
+    with pipe2:
+        if st.button("📚 Save to Post Library", use_container_width=True,
+                     key="ao_save_library"):
+            ok, msg = save_post_to_library(result, "💼 About Optimizer",
+                                           tags=["about-section", _ind.lower()[:20]])
+            st.success(msg) if ok else st.warning(msg)
+    with pipe3:
+        if st.button("🔄 Start fresh", use_container_width=True, key="ao_reset"):
+            for k in ("ao_last_result", "ao_last_industry", "ao_last_before"):
+                st.session_state.pop(k, None)
+            st.rerun()
