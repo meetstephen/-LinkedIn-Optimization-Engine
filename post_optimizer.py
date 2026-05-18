@@ -196,15 +196,18 @@ def render_post_optimizer():
             return
 
         st.info("⚡ Streaming analysis — results appear as they're written…")
+        _stream_box = st.empty()
         try:
             prompt = build_optimizer_prompt(
                 original_post, goal,
                 niche=st.session_state.get("po_niche", ""),
             )
-            with st.container():
+            with _stream_box.container():
                 result = st.write_stream(
                     stream_text(prompt, temperature=0.72, max_tokens=8000)
                 )
+            # Clear the raw stream — the formatted report below is the single source of truth
+            _stream_box.empty()
 
             # Persist the result so save buttons / pipelines survive reruns
             st.session_state["po_last_result"]   = result

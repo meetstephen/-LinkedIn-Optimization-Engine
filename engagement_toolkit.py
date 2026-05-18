@@ -185,11 +185,14 @@ def render_engagement_toolkit():
             else:
                 st.info("⚡ Writing your hooks…")
                 try:
-                    result = st.write_stream(stream_text(
-                        build_hooks_prompt(hook_topic, hook_tone, hook_count,
-                                           niche=st.session_state.get("hook_niche", "")),
-                        temperature=0.92, max_tokens=6000,
-                    ))
+                    _stream_box = st.empty()
+                    with _stream_box.container():
+                        result = st.write_stream(stream_text(
+                            build_hooks_prompt(hook_topic, hook_tone, hook_count,
+                                               niche=st.session_state.get("hook_niche", "")),
+                            temperature=0.92, max_tokens=6000,
+                        ))
+                    _stream_box.empty()
                     st.session_state["et_hooks_result"] = result
                 except Exception as e:
                     st.error(f"Error: {str(e)}")
@@ -239,11 +242,14 @@ def render_engagement_toolkit():
             else:
                 st.info("⚡ Writing CTAs…")
                 try:
-                    result = st.write_stream(stream_text(
-                        build_cta_prompt(cta_context, cta_goal,
-                                         niche=st.session_state.get("cta_niche", "")),
-                        temperature=0.82, max_tokens=6000,
-                    ))
+                    _stream_box = st.empty()
+                    with _stream_box.container():
+                        result = st.write_stream(stream_text(
+                            build_cta_prompt(cta_context, cta_goal,
+                                             niche=st.session_state.get("cta_niche", "")),
+                            temperature=0.82, max_tokens=6000,
+                        ))
+                    _stream_box.empty()
                     st.session_state["et_ctas_result"] = result
                 except Exception as e:
                     st.error(f"Error: {str(e)}")
@@ -288,10 +294,13 @@ def render_engagement_toolkit():
             else:
                 st.info("⚡ Building hashtag strategy…")
                 try:
-                    result = st.write_stream(stream_text(
-                        build_hashtag_prompt(ht_content, ht_industry or "General"),
-                        temperature=0.7, max_tokens=4000,
-                    ))
+                    _stream_box = st.empty()
+                    with _stream_box.container():
+                        result = st.write_stream(stream_text(
+                            build_hashtag_prompt(ht_content, ht_industry or "General"),
+                            temperature=0.7, max_tokens=4000,
+                        ))
+                    _stream_box.empty()
                     st.session_state["et_hashtags_result"] = result
                 except Exception as e:
                     st.error(f"Error: {str(e)}")

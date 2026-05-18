@@ -1,309 +1,232 @@
-# 🚀 LinkedIn Optimization Engine
+# ⚡ LinkedEdge — LinkedIn Optimization Engine
 
-> **AI-powered LinkedIn growth toolkit** — Transform your LinkedIn presence from beginner to thought leader using Gemini AI, Stability AI (SDXL), and Hugging Face.
-
----
-
-## 📸 Features Overview
-
-| Module | Description | AI Used |
-|--------|-------------|---------|
-| 🚀 **Post Generator** | 2–3 viral post variations with frameworks, hooks & CTAs | Gemini 1.5 Flash |
-| 🔧 **Post Optimizer** | Diagnose + rewrite existing posts with engagement score | Gemini 1.5 Flash |
-| 💼 **About Optimizer** | Personal brand story + keyword optimization | Gemini 1.5 Flash |
-| 🌟 **Profile Enhancer** | Profile score (0–100) + 30-day transformation roadmap | Gemini 1.5 Flash |
-| 💡 **Content Ideas** | Full content calendar by niche and pillar | Gemini 1.5 Flash |
-| 🧠 **Strategy Insights** | Creator playbooks, hook formulas, algorithm tactics | Gemini 1.5 Flash |
-| 🎨 **Image Generator** | Professional LinkedIn visuals (SDXL → HF fallback) | Stability AI + HF |
-| ⚡ **Engagement Toolkit** | Hooks, CTAs, hashtags, optimal posting times | Gemini 1.5 Flash |
+> **AI-powered LinkedIn growth toolkit.** 15 modules. Built for the Nigerian professional market and configurable for any audience worldwide.
+>
+> Every post auto-saves to a persistent Post Library. Every AI module reads your profile and writes in your voice. Production-ready Streamlit app, deploys in minutes.
 
 ---
 
-## 🛠️ Installation & Setup
+## What's inside
 
-### Prerequisites
-- Python 3.9 or higher
-- pip package manager
+| # | Module | What it does |
+|---|--------|-------------|
+| 1 | 🔥 **Viral Hook Analyzer** | Scores any hook 0–100 across 5 dimensions, returns 5 power rewrites + live mobile preview |
+| 2 | 🚀 **Post Generator** | Two complete post variations from any topic, with story-beats input, Unicode bold/italic formatter, and live LinkedIn feed preview |
+| 3 | 🔧 **Post Optimizer** | Diagnoses an existing post (hook · clarity · emotional pull · formatting · CTA), assigns a score, rewrites it with 5 explained edits |
+| 4 | ♻️ **Repurposing Engine** | One idea → text post + 7-slide carousel + 5 hooks + 5 CTAs + 3 strategic comments |
+| 5 | 💬 **Engagement Intelligence** | Strategic comments, DM templates, and networking responses — three generators in one |
+| 6 | 🔍 **Brand Scanner** | Compares what your profile claims vs. what your content proves; scores the gap; gives a 5-day fix |
+| 7 | 💼 **About Optimizer** | 3-paragraph About section rewrite + 3 headline options + before/after + key improvements |
+| 8 | 🌟 **Profile Enhancer** | Full profile audit (0–100), 30-day action plan, 3 quick wins under 20 min each |
+| 9 | 💡 **Content Ideas** | Up to 20 ideas across selected pillars, with hooks, hashtags, and one "post this week" pick |
+| 10 | 🧠 **Strategy Insights** | Creator playbook for your archetype: hooks, post blueprints, posting rhythm, 90-day roadmap |
+| 11 | 🎨 **Image Generator** | LinkedIn visuals via Stability AI SDXL (primary) → Hugging Face (fallback). Prompt auto-derived from your post |
+| 12 | ⚡ **Engagement Toolkit** | Hooks, CTAs, hashtags, and WAT-aware posting times |
+| 13 | 🎠 **Carousel Planner** | AI-generated slide titles + bodies + emojis with a slide-by-slide LinkedIn-style preview |
+| 14 | 📚 **Post Library** | Persistent (Supabase). Search, star, filter by module, sort by score, export `.txt`/`.json`, re-import. Live diagnostics tell you exactly what's wrong if it's empty. |
+| 15 | 📅 **Content Scheduler** | Pin saved posts to weekday + time slots. See your full week at a glance. Export as a `.md` checklist. |
 
-### Step 1: Clone or Download
+Plus:
+- **🇳🇬 Nigerian Voice Mode** — a sidebar toggle that injects Nigerian context (CBN, NBA, naira, WAT times, geographic diversity beyond Lagos) into every prompt.
+- **Tone presets** — fine-grained Nigerian voice (Legal, Fintech, Founder, Storyteller, etc.).
+- **Profile-aware AI** — your role, industry, audience, voice sample feed every module's prompt.
+- **Cross-module pipelines** — e.g. `Post Generator → Hook Analyzer`, `Optimizer → Image Generator`, `Repurposing → Carousel Planner`.
+
+---
+
+## Quick start (5 minutes)
+
+### 1. Clone and install
 
 ```bash
-# Download the project files or clone if using git
-cd linkedin_optimizer
-```
-
-### Step 2: Create Virtual Environment (Recommended)
-
-```bash
-# Create virtual environment
-python -m venv venv
-
-# Activate (Windows)
-venv\Scripts\activate
-
-# Activate (macOS/Linux)
-source venv/bin/activate
-```
-
-### Step 3: Install Dependencies
-
-```bash
+git clone https://github.com/meetstephen/-LinkedIn-Optimization-Engine.git
+cd -LinkedIn-Optimization-Engine
+python -m venv venv && source venv/bin/activate     # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Step 4: Configure API Keys
+### 2. Get API keys (all free tiers)
 
-You have two options:
+| Service | Why | Where |
+|---------|-----|-------|
+| **Gemini** (required) | Powers every text feature | [aistudio.google.com](https://aistudio.google.com/app/apikey) |
+| **Stability AI** (optional) | Primary image engine | [platform.stability.ai](https://platform.stability.ai/account/keys) |
+| **Hugging Face** (optional) | Image fallback | [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) |
+| **Supabase** (optional but recommended) | Persistent library + profile | [supabase.com](https://supabase.com) |
 
-#### Option A: Via the App (Recommended for beginners)
-Just run the app — there's a sidebar panel to enter keys directly. They're stored in session state only.
+### 3. Configure
 
-#### Option B: Via .env file
-```bash
-# Copy the example file
-cp .env.example .env
+Pick **one** of these — easiest first:
 
-# Edit .env and add your actual keys
+**Option A — Streamlit secrets (recommended for deployment).** Create `.streamlit/secrets.toml`:
+```toml
+GEMINI_API_KEY    = "AIza..."
+STABILITY_API_KEY = "sk-..."
+HF_API_KEY        = "hf_..."
+SUPABASE_URL      = "https://xxxxx.supabase.co"
+SUPABASE_KEY      = "<your-anon-public-key>"
 ```
 
----
+**Option B — `.env` file** (local dev). Copy `.env.example` to `.env` and fill in your keys.
 
-## 🔑 Getting Your API Keys (All Free)
+**Option C — In-app sidebar.** Run the app and paste keys into the sidebar's **Configure API Keys** panel. Session-only.
 
-### 1. Gemini API Key (Required for all text features)
-1. Go to [aistudio.google.com](https://aistudio.google.com)
-2. Sign in with your Google account
-3. Click **"Get API Key"** → **"Create API key"**
-4. Copy your key (starts with `AIza...`)
-- **Free tier**: 60 req/min, 1M tokens/day with Gemini 1.5 Flash ✅
+### 4. Set up Supabase (for persistent library)
 
-### 2. Stability AI API Key (Primary image generation)
-1. Go to [platform.stability.ai](https://platform.stability.ai)
-2. Sign up / Log in
-3. Go to **Account** → **API Keys** → **Create API Key**
-4. Copy your key (starts with `sk-...`)
-- **Free credits**: New accounts get free credits to start ✅
+If you skip this, the Post Library still works — but only for the current browser session.
 
-### 3. Hugging Face API Key (Fallback image generation)
-1. Go to [huggingface.co](https://huggingface.co) and sign up
-2. Go to **Settings** → **Access Tokens**
-3. Click **"New token"** → Set role to **Read**
-4. Copy your key (starts with `hf_...`)
-- **Free tier**: Inference API calls included ✅
+1. Create a free project at [supabase.com](https://supabase.com).
+2. Open **SQL Editor → New query**.
+3. Paste the entire contents of [`supabase_schema.sql`](./supabase_schema.sql) and click **Run**.
+4. Copy `Project URL` and the `anon public` key from **Project Settings → API** into your secrets/env (above).
 
----
-
-## 🚀 Running the App
+### 5. Run
 
 ```bash
-# From the linkedin_optimizer directory
 streamlit run app.py
 ```
 
-The app will open at **http://localhost:8501**
-
-### Optional flags:
-```bash
-# Run on a specific port
-streamlit run app.py --server.port 8080
-
-# Run without browser auto-opening
-streamlit run app.py --server.headless true
-
-# Allow external access (for server deployment)
-streamlit run app.py --server.address 0.0.0.0
-```
+The app opens at <http://localhost:8501>.
 
 ---
 
-## 📁 Project Structure
+## Deploy to Streamlit Cloud (free, public URL)
+
+1. Push this repo to GitHub.
+2. Go to [share.streamlit.io](https://share.streamlit.io) → **New app**.
+3. Pick the repo and set the main file to `app.py`.
+4. Click **Advanced settings → Secrets** and paste the same TOML block from Option A above.
+5. Deploy. Done.
+
+> **Note on the WebSocket keep-alive:** the bundled `.streamlit/config.toml` raises `maxMessageSize` to 200 MB so long Gemini streams don't disconnect. The bundled GitHub Action in `.github/workflows/keep_alive.yml` pings the deployed URL daily so Streamlit Cloud doesn't sleep the app.
+
+---
+
+## Project layout
 
 ```
-linkedin_optimizer/
+.
+├── app.py                       # Main router + Home, Hook Analyzer, Library, Carousel pages
 │
-├── app.py                    # Main Streamlit app + page router
+├── core/                        # Shared infrastructure
+│   ├── ai.py                    #   Central Gemini wrapper with retry + JSON validation
+│   ├── db.py                    #   Supabase persistence (lb_posts + lb_profiles)
+│   └── state.py                 #   Session-state init + profile auto-load on cold start
 │
-├── modules/                  # Feature modules (one per page)
-│   ├── post_generator.py     # Viral post creation with frameworks
-│   ├── post_optimizer.py     # Post diagnosis + rewrite + scoring
-│   ├── about_optimizer.py    # About section transformation
-│   ├── profile_enhancer.py   # Profile score + 30-day roadmap
-│   ├── content_ideas.py      # Content calendar generator
-│   ├── strategy_insights.py  # Creator playbooks + tactics
-│   ├── image_generator.py    # AI visual generation (UI layer)
-│   └── engagement_toolkit.py # Hooks, CTAs, hashtags, timing
+├── library.py                   # Single source of truth for save-to-library
+├── gemini_client.py             # Streaming Gemini wrapper used by per-module prompts
+├── image_client.py              # Stability AI + Hugging Face image generation
+├── industry_profiles.py         # Industry voice blocks + Nigerian tone presets
 │
-├── utils/                    # Shared utilities
-│   ├── gemini_client.py      # Gemini API wrapper
-│   └── image_client.py       # Image APIs (Stability + HF fallback)
+├── post_generator.py            # 🚀 Post Generator
+├── post_optimizer.py            # 🔧 Post Optimizer
+├── about_optimizer.py           # 💼 About Optimizer
+├── profile_enhancer.py          # 🌟 Profile Enhancer
+├── content_ideas.py             # 💡 Content Ideas
+├── strategy_insights.py         # 🧠 Strategy Insights
+├── image_generator.py           # 🎨 Image Generator
+├── engagement_toolkit.py        # ⚡ Engagement Toolkit
+├── engagement_intelligence.py   # 💬 Engagement Intelligence
+├── repurposing_engine.py        # ♻️ Repurposing Engine
+├── brand_scanner.py             # 🔍 Brand Scanner
 │
-├── requirements.txt          # Python dependencies
-├── .env.example              # API keys template
-└── README.md                 # This file
+├── supabase_schema.sql          # One-time DB migration
+├── requirements.txt
+├── .env.example
+├── .streamlit/config.toml       # Theme + maxMessageSize for streaming
+└── .github/workflows/keep_alive.yml
 ```
 
 ---
 
-## 🎨 Image Generation Architecture
+## How the persistence layer works
 
 ```
-User Input (Post Content)
-        ↓
-Prompt Engineering (build_image_prompt)
-  - Extract key theme
-  - Apply style preset (SDXL / Minimalist / Corporate / etc.)
-  - Add negative prompts
-        ↓
-Try PRIMARY: Stability AI SDXL
-  ├── Success → Return image bytes
-  └── Fail (rate limit / error) ↓
-        ↓
-Try FALLBACK: Hugging Face Inference API
-  ├── Try SDXL → Stable Diffusion 1.5 → SD 1.4 (in order)
-  ├── Success → Return image bytes
-  └── Fail → Return error message
+┌──────────────┐  generate ─►  ┌──────────────┐
+│   Module     │               │ session_state│
+│  (any of 14) │               │  *_last_*    │
+└──────────────┘               └──────────────┘
+       │                              │
+       │ save click                   │ render persistent
+       ▼                              ▼
+┌──────────────┐              ┌──────────────┐
+│ library.py   │── Supabase ─►│  lb_posts    │
+│ save_post_to │   available? │  (persistent)│
+│ _library     │── no ────────►│ session post_│
+└──────────────┘                │ library    │
+                                │  (fallback) │
+                                └──────────────┘
 ```
 
-### Style Presets Available:
-- **Corporate Professional** — Business photography style
-- **Modern Minimalist** — Flat illustration, clean design
-- **Tech & Innovation** — Dark background, neon accents
-- **Warm & Human** — Documentary-style photography
-- **Infographic / Data** — Charts and visual data
-- **Sketch / Illustrated** — Hand-drawn business illustrations
+Every module follows the same contract:
 
----
-
-## 📐 Content Frameworks Available
-
-### Post Generator Frameworks:
-1. **Hook → Story → Insight → CTA** — Classic viral formula
-2. **Problem → Agitation → Solution** — Copywriting powerhouse
-3. **Listicle (Numbered Tips)** — High-share format
-4. **Before → After → Bridge** — Transformation posts
-5. **Contrarian Statement** — High-engagement debates
-6. **Personal Story Arc** — Vulnerability-driven growth
-
-### Creator Archetypes (Strategy Module):
-- The Educator, The Storyteller, The Contrarian Thinker
-- The Results Poster, The Community Builder
-- The Niche Expert, The Document Builder
-
----
-
-## ⚡ Key Technical Details
-
-### Gemini Integration
 ```python
-# Uses Gemini 1.5 Flash for speed + cost efficiency
-model = genai.GenerativeModel("gemini-1.5-flash")
-# Configurable temperature (0.7–0.95 depending on task)
-# Max tokens: 2048–3000 per request
+from library import save_post_to_library, bump_generated
+
+# After successful generation:
+bump_generated()                          # +1 to "Posts Generated"
+st.session_state["mod_last_result"] = r   # survives reruns
+
+# On save click (rendered OUTSIDE the if-button block):
+ok, msg = save_post_to_library(content, "🚀 Post Generator", tags=[...])
+st.success(msg) if ok else st.warning(msg)
 ```
 
-### Image Generation Fallback Logic
-```python
-def generate_image(post_content, style, stability_key, hf_key):
-    prompt = build_image_prompt(post_content, style)     # 1. Engineer prompt
-    
-    if stability_key:
-        img, err = generate_image_stability(prompt, ...)  # 2. Try primary
-        if img: return img, "stability", "✅ Stability AI"
-        st.warning(f"Stability failed: {err}, trying fallback...")
-    
-    if hf_key:
-        img, err = generate_image_huggingface(prompt, ...) # 3. Try fallback
-        if img: return img, "huggingface", "✅ HuggingFace"
-    
-    return None, "failed", "Both APIs failed"
-```
+This is what enables save buttons to work after generation — clicking save no longer wipes the AI output.
 
 ---
 
-## 🔧 Customization Guide
+## Counters (Home page stats)
 
-### Adding New Post Frameworks
-In `modules/post_generator.py`:
-```python
-FRAMEWORK_DESCRIPTIONS["Your Framework Name"] = "Description of the framework"
-```
+| Counter | When it increments |
+|---------|-------------------|
+| `session_posts_generated` | Once per successful AI generation in any module |
+| `session_posts_saved` | Once per **save** click (from `library.save_post_to_library`) |
+| `session_posts_optimized` | Once per Post Optimizer run |
+| `session_repurposed` | Once per Repurposing Engine run |
+| `hooks_analyzed` | Once per Viral Hook Analyzer run |
 
-### Adding New Image Styles
-In `utils/image_client.py`:
-```python
-STYLE_PRESETS["Your Style Name"] = "detailed style description for SDXL"
-```
-
-### Adding New Niche Keywords
-In `modules/about_optimizer.py`:
-```python
-INDUSTRY_KEYWORDS["Your Industry"] = "keyword1, keyword2, keyword3"
-```
+Saving a post does **not** inflate `session_posts_generated`.
 
 ---
 
-## 🌐 Deployment
+## Customising the app
 
-### Streamlit Community Cloud (Free)
-1. Push code to GitHub
-2. Go to [share.streamlit.io](https://share.streamlit.io)
-3. Connect your repo
-4. Add API keys as **Secrets** in the Streamlit dashboard:
-   ```toml
-   GEMINI_API_KEY = "AIza..."
-   STABILITY_API_KEY = "sk-..."
-   HUGGING_FACE_API_KEY = "hf_..."
-   ```
-5. Modify `app.py` to read from `st.secrets`:
-   ```python
-   st.session_state["gemini_api_key"] = st.secrets.get("GEMINI_API_KEY", "")
-   ```
-
-### Docker Deployment
-```dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY . .
-EXPOSE 8501
-CMD ["streamlit", "run", "app.py", "--server.address=0.0.0.0"]
-```
+| Want to | Edit |
+|---------|------|
+| Add a content framework | `post_generator.py` → `FRAMEWORK_DESCRIPTIONS` |
+| Add an image style | `image_client.py` → `STYLE_PRESETS` |
+| Add an industry's voice block | `industry_profiles.py` → `INDUSTRY_VOICES` |
+| Add a Nigerian tone preset | `industry_profiles.py` → `NIGERIAN_TONE_PRESETS` |
+| Change the default Gemini model | Sidebar → **🤖 Gemini Model**, or `core/state.py` defaults |
+| Change theme colours | `.streamlit/config.toml` |
 
 ---
 
-## ❓ Troubleshooting
+## Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| `ModuleNotFoundError: google.generativeai` | Run `pip install google-generativeai` |
-| Gemini API 429 error | You've hit rate limits — wait 60 seconds or upgrade plan |
-| Images not generating | Check Stability AI credits, then verify HF key is set |
-| `ValueError: Gemini API key not set` | Add key in sidebar **Configure API Keys** panel |
-| Streamlit not found | Run `pip install streamlit` |
-| App crashes on startup | Ensure Python 3.9+ with `python --version` |
-
----
-
-## 📜 Legal & Ethics
-
-- ✅ No LinkedIn scraping or data extraction
-- ✅ All content is AI-generated simulation (no real profiles copied)
-- ✅ Creator tactics are simulated from publicly available best practices
-- ✅ Images generated are original (not scraped or watermarked content)
-- ❌ Not affiliated with LinkedIn or Microsoft in any way
+| Symptom | Fix |
+|---------|-----|
+| `ValueError: Gemini API key not set` | Open the sidebar → **Configure API Keys** and paste your Gemini key |
+| Post Library shows "📭 empty" after saving | Run `supabase_schema.sql` in your Supabase SQL editor and re-deploy |
+| Library says "Saved in-session only" | Supabase keys missing or `lb_posts` table not created — see step 4 above |
+| Images fail to generate | Check Stability AI credit balance, then verify the HF key is set as a fallback |
+| `429 Too many requests` from Gemini | Free tier is 60 req/min; switch to Gemini 2.5 Flash-Lite in the sidebar or wait a minute |
+| App disconnects mid-stream on Streamlit Cloud | Confirm `.streamlit/config.toml` is committed (raises `maxMessageSize`) |
 
 ---
 
-## 🤝 Contributing
+## Legal / ethics
 
-Feel free to extend the app with:
-- Additional post frameworks
-- New image style presets
-- More industry keyword sets
-- Multi-language support
-- Analytics dashboard
+- ✅ No LinkedIn scraping, no profile harvesting
+- ✅ All output is AI-generated suggestion — users review before posting
+- ✅ Industry references draw on publicly known regulators and best practice
+- ❌ Not affiliated with LinkedIn or Microsoft
 
 ---
 
-*Built with Streamlit · Gemini AI · Stability AI (SDXL) · Hugging Face Inference API*
+## Stack
+
+Python 3.9+ · [Streamlit](https://streamlit.io) · [Google Gemini](https://aistudio.google.com) ·
+[Stability AI SDXL](https://platform.stability.ai) · [Hugging Face](https://huggingface.co) ·
+[Supabase](https://supabase.com)

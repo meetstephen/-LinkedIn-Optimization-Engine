@@ -189,11 +189,14 @@ def render_profile_enhancer():
         }
 
         st.info("⚡ Scoring your profile — streams in real time…")
+        _stream_box = st.empty()
         try:
-            result = st.write_stream(stream_text(
-                build_profile_prompt(profile_data),
-                temperature=0.72, max_tokens=8000,
-            ))
+            with _stream_box.container():
+                result = st.write_stream(stream_text(
+                    build_profile_prompt(profile_data),
+                    temperature=0.72, max_tokens=8000,
+                ))
+            _stream_box.empty()
             st.session_state["pe_last_result"]   = result
             st.session_state["pe_last_industry"] = industry
         except Exception as e:

@@ -156,14 +156,17 @@ def render_brand_scanner():
             return
 
         st.info("⚡ Scanning your brand — analysis streams in real time…")
+        _stream_box = st.empty()
         try:
-            result = st.write_stream(stream_text(
-                build_scanner_prompt(
-                    headline, about, recent_posts,
-                    claimed_niche, claimed_audience,
-                ),
-                temperature=0.7, max_tokens=6000,
-            ))
+            with _stream_box.container():
+                result = st.write_stream(stream_text(
+                    build_scanner_prompt(
+                        headline, about, recent_posts,
+                        claimed_niche, claimed_audience,
+                    ),
+                    temperature=0.7, max_tokens=6000,
+                ))
+            _stream_box.empty()
             st.session_state["bs_last_result"] = result
         except Exception as e:
             st.error(f"Scan failed: {str(e)}")
