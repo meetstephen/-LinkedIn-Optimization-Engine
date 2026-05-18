@@ -1,19 +1,16 @@
 """
 core/state.py — Session-state helpers and initialisation for LinkedBoost AI.
 
-Key changes vs old version:
-  1. Profile loaded from Supabase on every cold start → survives page refreshes & reboots
-  2. user_id derived ONLY from user-entered key (not the shared st.secrets key)
-     → each user with their own Gemini key gets their own isolated space
+Multi-user mode (post-v3):
+  • If a user is signed in (auth_user["id"] set), user_id == that UUID.
+    Each user gets their own posts, profile and schedule. This is the
+    canonical path now that lb_users / lb_login_events exist.
+  • If no one is signed in, fall back to the legacy single-tenant scheme
+    so the app still works during local dev with auth disabled.
 
-User-ID derivation:
-  • User has entered their OWN Gemini key  → SHA-256(key)[:16]  (stable, unique per user)
-  • No key entered yet                     → "anon_<uuid>"       (session-scoped)
-
-  IMPORTANT: The shared GEMINI_API_KEY in st.secrets is used only to pre-fill
-  the sidebar input — it is NOT used to derive the user_id. This way, two users
-  who both happen to use the same shared key still get different session IDs
-  until they personalise with their own key.
+Legacy single-tenant fallback:
+  • User has entered their OWN Gemini key  → SHA-256(key)[:16]
+  • No key entered                         → SHA-256(SUPABASE_URL)[:16]
 """
 from __future__ import annotations
 
@@ -56,33 +53,37 @@ def _ensure_user_id() -> str:
     """
     Derive a STABLE user_id that survives reboots and page refreshes.
 
-    Priority order:
-      1. Already set this session and not anonymous  → keep it (never re-derive mid-session).
-      2. User entered their OWN Gemini key (≠ shared secrets key) → SHA-256(their_key)[:16].
-      3. No personal key entered → SHA-256(SUPABASE_URL)[:16] as the stable owner identity.
+    Priority order (highest → lowest):
+      1. Authenticated user (auth_user["id"])  →  the canonical user UUID.
+         This is the multi-user path. Each signed-in person has their own
+         Supabase row, their own posts, their own profile.
+      2. user_id already set this session and not anonymous  →  keep it.
+      3. User entered their OWN Gemini key (≠ shared secrets key) → SHA-256(their_key)[:16].
+      4. No personal key entered → SHA-256(SUPABASE_URL)[:16] as the stable owner identity.
 
-    WHY #3 matters: the shared GEMINI_API_KEY from st.secrets pre-fills the sidebar input,
-    so entered_key == shared_key for most users of a single-owner deployment. The old code
-    fell through to uuid.uuid4() — a NEW random ID every reboot — so the profile saved under
-    session A was invisible to session B. Using the Supabase URL as the stable seed gives the
-    app owner a consistent identity across every reboot without exposing the API key.
+    Paths 3-4 are legacy fallbacks for the pre-auth single-tenant mode and
+    only fire when no one is logged in (e.g. local dev with auth disabled).
     """
-    # Keep whatever was already set this session (and is stable, non-anonymous)
+    # ① Authenticated user wins, always. This is the multi-user happy path.
+    auth_user = st.session_state.get("auth_user")
+    if auth_user and auth_user.get("id"):
+        uid = str(auth_user["id"])
+        st.session_state["user_id"] = uid
+        return uid
+
+    # ② Keep whatever was already set this session (and is stable, non-anonymous)
     existing = st.session_state.get("user_id", "")
     if existing and not existing.startswith("anon_"):
         return existing
 
+    # ③/④ Legacy single-tenant fallback (no one logged in)
     entered_key = st.session_state.get("gemini_api_key", "")
     shared_key  = get_secret("GEMINI_API_KEY")
     user_has_own_key = bool(entered_key and entered_key != shared_key)
 
     if user_has_own_key:
-        # Visitor/user with their own API key → unique stable ID per person
         uid = _derive_user_id(entered_key)
     else:
-        # App owner (or anyone using the shared pre-filled key) → stable owner ID.
-        # Use SUPABASE_URL as seed: it never changes between reboots.
-        # Fall back to shared_key hash, then a literal constant — always stable.
         stable_seed = (
             get_secret("SUPABASE_URL")
             or shared_key

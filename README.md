@@ -102,6 +102,32 @@ The app opens at <http://localhost:8501>.
 
 ---
 
+## Multi-user mode & Admin Console
+
+LinkedEdge ships with built-in email + password authentication. Every signed-in user has their own isolated Post Library, Profile and Schedule — backed by Supabase, persistent across reboots.
+
+### How it works
+- The login/signup gateway is shown automatically when no one is logged in.
+- Passwords are hashed with **bcrypt** (12 rounds) before being stored. Plaintext passwords are never written to the database.
+- The authenticated user's UUID becomes the per-row `user_id` in `lb_posts`, `lb_profiles`, `lb_schedule`. Two users with the same Gemini key still see *only their own* posts.
+- Every successful login, signup, logout and failed attempt is recorded in `lb_login_events` for audit.
+
+### Bootstrap your first admin
+1. Set `BOOTSTRAP_ADMIN_EMAIL` in your secrets/env to the email you want to use.
+2. Sign up through the app's **Sign Up** tab using that exact email.
+3. The new account is automatically promoted to admin and gains the **🛡️ Admin Console** entry in the sidebar.
+
+You can also flip `is_admin` manually from the Supabase Table Editor (`lb_users` → `is_admin = true`).
+
+### What the Admin Console shows
+- **Live tiles**: total users, active users, admins, signups today, logins today / 7-day, total posts.
+- **Users tab**: searchable user list with last login, login count, post count, status. Promote / demote, deactivate / reactivate, hard-delete (with 2-click confirm). Self-actions are disabled so you can't lock yourself out.
+- **Recent Activity tab**: live feed of the last 100 login / signup / logout / failed-login events, filterable by event type.
+
+> **Disabling auth for local dev.** If neither `lb_users` nor `bcrypt` are available, the app silently falls back to the legacy single-tenant mode (one shared library keyed by `SUPABASE_URL`). Re-enable auth by running the latest `supabase_schema.sql` migration and reinstalling `requirements.txt`.
+
+---
+
 ## Project layout
 
 ```

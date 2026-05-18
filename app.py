@@ -45,9 +45,11 @@ try:
     from core import db as _db          # DB persistence
     from core import ai as _ai          # Central AI client
     from core import state as _state    # State helpers
+    from core import auth as _auth      # NEW — multi-user auth
     _CORE_AVAILABLE = True
 except ImportError:
     _CORE_AVAILABLE = False
+    _auth = None  # type: ignore
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1123,6 +1125,9 @@ def render_sidebar():
             "📚 Post Library",
             "📅 Content Scheduler",
         ]
+        # Admins-only entry — appended dynamically so non-admins never see it.
+        if _CORE_AVAILABLE and _auth is not None and _auth.require_admin():
+            pages.append("🛡️ Admin Console")
         selected_page = st.radio(
             "Navigate to",
             pages,
@@ -1473,6 +1478,47 @@ def render_sidebar():
             </div>
         </div>
         """, unsafe_allow_html=True)
+
+        # ── Account block — logged-in identity + logout ──────────────────
+        if _CORE_AVAILABLE and _auth is not None and _auth.is_logged_in():
+            _u = _auth.current_user() or {}
+            _initials = ((_u.get("name") or _u.get("email", "?"))[:1] or "?").upper()
+            _admin_pill = (
+                "<span style='background:rgba(255,107,53,0.25);color:#FFB347;"
+                "padding:1px 7px;border-radius:99px;font-size:0.62rem;"
+                "font-weight:800;letter-spacing:0.4px;margin-left:6px;'>ADMIN</span>"
+                if _u.get("is_admin") else ""
+            )
+            st.markdown(
+                f"""
+                <hr style="border-color:rgba(255,255,255,0.15);margin:1rem 0 0.6rem 0;">
+                <div style="display:flex;align-items:center;gap:10px;
+                            background:rgba(255,255,255,0.08);
+                            border:1px solid rgba(255,255,255,0.12);
+                            border-radius:10px;padding:0.6rem 0.8rem;">
+                    <div style="width:34px;height:34px;border-radius:50%;
+                                background:linear-gradient(135deg,#7DD3FC,#0A66C2);
+                                display:flex;align-items:center;justify-content:center;
+                                font-weight:900;color:white;font-size:0.95rem;
+                                flex-shrink:0;">{_initials}</div>
+                    <div style="overflow:hidden;">
+                        <div style="font-weight:700;font-size:0.84rem;color:white;
+                                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                            {_u.get("name") or _u.get("email", "")}{_admin_pill}
+                        </div>
+                        <div style="font-size:0.7rem;color:rgba(255,255,255,0.65);
+                                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                            {_u.get("email", "")}
+                        </div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            if st.button("🚪 Log out", key="sb_logout", use_container_width=True):
+                _auth.log_out()
+                st.session_state["current_page"] = "🏠 Home"
+                st.rerun()
 
     return selected_page
 
@@ -3003,6 +3049,20 @@ def main():
     _prewarm_utils()
     init_session_state()
 
+    # ── AUTH GATE ─────────────────────────────────────────────────────────────
+    # If multi-user auth is available and no one is logged in, show the
+    # login/signup gateway and bail out — no feature pages, no sidebar.
+    if _CORE_AVAILABLE and _auth is not None and not _auth.is_logged_in():
+        try:
+            auth_pages = load_module("auth_pages", "auth_pages.py")
+            auth_pages.render_auth_gateway()
+        except Exception as e:
+            st.error(f"Authentication unavailable: {e}")
+            with st.expander("🔍 Full error details"):
+                import traceback
+                st.code(traceback.format_exc(), language="python")
+        return
+
     # ── Cross-module navigation ───────────────────────────────────────────────
     # Pipeline buttons set st.session_state["_pending_nav"] = "🔧 Post Optimizer"
     # We honour it here BEFORE render_sidebar() so the radio index is correct.
@@ -3037,6 +3097,20 @@ def main():
         render_post_library()
     elif selected_page == "📅 Content Scheduler":
         render_content_scheduler()
+    elif selected_page == "🛡️ Admin Console":
+        # Hard gate — even if the page key was injected manually
+        if _CORE_AVAILABLE and _auth is not None and _auth.require_admin():
+            try:
+                admin_mod = load_module("admin", "admin.py")
+                admin_mod.render_admin_dashboard()
+            except Exception as e:
+                st.error(f"⚠️ Admin Console failed to load: {e}")
+                with st.expander("🔍 Full error details"):
+                    import traceback
+                    st.code(traceback.format_exc(), language="python")
+        else:
+            st.error("🛡️ Admin access required.")
+            st.session_state["current_page"] = "🏠 Home"
     elif selected_page in MODULE_MAP:
         mod_name, mod_file, render_fn = MODULE_MAP[selected_page]
         try:
