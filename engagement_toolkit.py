@@ -6,6 +6,7 @@ import streamlit as st
 from gemini_client import generate_text, get_profile_context, stream_text
 from industry_profiles import get_industry_voice_block
 from library import save_post_to_library
+from core.voice import HUMAN_VOICE_PRIMER, SHORT_PRIMER, BANNED
 
 
 POSTING_TIMES = {
@@ -41,29 +42,20 @@ POSTING_TIMES = {
     },
 }
 
-_BANNED = """
-BANNED WORDS & PHRASES — if any appear in output, the response fails:
-  "game-changer", "dive in", "let's dive in", "let's unpack", "leverage", "synergy",
-  "actionable", "thought leader", "passionate about", "journey", "crushing it",
-  "hustle", "disrupt", "innovative", "cutting-edge", "best practices",
-  "I'm excited to share", "I'm thrilled", "in today's fast-paced world",
-  "at the end of the day", "needless to say", "in conclusion", "circle back",
-  "touch base", "move the needle", "unlock", "level up", "deep dive",
-  "masterclass", "playbook", "paradigm shift", "pro tip:", "hot take:",
-  "this is your sign", "unpopular opinion:" (as opener), "period." (mic-drop ending),
-  "we need to talk about", "value-add", "low-hanging fruit", "win-win"
-"""
+_BANNED = BANNED
 
 
 def build_hooks_prompt(topic, tone, count, niche=""):
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(niche) if niche.strip() else ""
-    return f"""You write LinkedIn hooks the way a great headline writer works — every word earns its place, and the reader has no choice but to keep reading.{profile_ctx}
+    return f"""{HUMAN_VOICE_PRIMER}
+
+You are working as a great headline writer — every word earns its place, and the reader has no choice but to keep reading.{profile_ctx}
 {industry_voice}
 Write {count} hooks for this topic: {topic}
 Tone: {tone}
 
-{_BANNED}
+{BANNED}
 
 Hook rules — non-negotiable:
 - Never open with "I" as the first word
@@ -88,12 +80,14 @@ Number them 1 through {count}. No preamble.
 def build_cta_prompt(post_context, cta_goal, niche=""):
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(niche) if niche.strip() else ""
-    return f"""You write CTAs for LinkedIn posts that feel like a natural end to the conversation — not a sales pitch, not a desperate ask. The best CTAs make the reader think they thought of the response themselves.{profile_ctx}
+    return f"""{SHORT_PRIMER}
+
+You are writing CTAs for LinkedIn posts that feel like a natural end to the conversation — not a sales pitch, not a desperate ask. The best CTAs make the reader think they thought of the response themselves.{profile_ctx}
 {industry_voice}
 Post context: {post_context}
 Goal: {cta_goal}
 
-{_BANNED}
+{BANNED}
 
 Additional CTA rules:
 - No "drop a comment below" — they know how comments work
@@ -127,7 +121,9 @@ def build_hashtag_prompt(post_content, industry):
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(industry) if industry.strip() else ""
     ng_context     = "\nNigerian context: include Nigeria-specific hashtags where relevant (e.g. #NigeriaLinkedIn #LagosBusinesses #NaijaTwitter #MadeInNigeria #AfricanBusiness)." if st.session_state.get("nigerian_mode") else ""
-    return f"""You know how LinkedIn hashtags actually work — not in theory, in practice. Most people either use 30 generic ones or none at all. You find the specific combination that puts a post in front of the right people.{profile_ctx}
+    return f"""{SHORT_PRIMER}
+
+You know how LinkedIn hashtags actually work — not in theory, in practice. Most people either use 30 generic ones or none at all. You find the specific combination that puts a post in front of the right people.{profile_ctx}
 {industry_voice}
 Post: {post_content}
 Industry: {industry}{ng_context}

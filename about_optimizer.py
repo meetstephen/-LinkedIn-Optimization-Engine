@@ -6,6 +6,7 @@ import streamlit as st
 from gemini_client import generate_text, get_profile_context, stream_text
 from library import save_post_to_library
 from industry_profiles import get_industry_voice_block
+from core.voice import HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES
 
 
 INDUSTRY_KEYWORDS = {
@@ -24,12 +25,12 @@ INDUSTRY_KEYWORDS = {
 }
 
 _BANNED_ABOUT = """
-NEVER write these in the About section or any recommendations:
-"passionate about", "I am a dedicated", "results-driven professional",
-"thought leader", "I'm excited to", "game-changer", "journey", "synergy",
-"I thrive in", "I am committed to", "dynamic", "I help people reach their potential",
-"fast-paced environment", "innovative solutions", "leverage", "stakeholder",
-"value-add", "I wear many hats", "seasoned professional", "extensive experience"
+ADDITIONAL ABOUT-SECTION-SPECIFIC BANS:
+"I am a dedicated", "results-driven professional",
+"I thrive in", "I am committed to", "dynamic",
+"I help people reach their potential", "fast-paced environment",
+"innovative solutions", "I wear many hats", "seasoned professional",
+"extensive experience"
 """
 
 
@@ -37,7 +38,9 @@ def build_about_prompt(current_about, name, role, industry, superpowers, achieve
     keywords       = INDUSTRY_KEYWORDS.get(industry, INDUSTRY_KEYWORDS["Other"])
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(industry)
-    return f"""You write LinkedIn About sections that read like a person wrote them after a long honest conversation — not like a resume, not like a brand deck. The reader should finish it knowing exactly who this person is, what they've done, and why they matter.{profile_ctx}
+    return f"""{HUMAN_VOICE_PRIMER}
+
+You write LinkedIn About sections that read like a person wrote them after a long honest conversation — not like a resume, not like a brand deck. The reader should finish it knowing exactly who this person is, what they've done, and why they matter.{profile_ctx}
 {industry_voice}
 
 PERSON:
@@ -54,7 +57,9 @@ CURRENT ABOUT:
 {current_about if current_about.strip() else "Nothing written yet — build from scratch."}
 \"\"\"
 
+{BANNED}
 {_BANNED_ABOUT}
+{HUMAN_SIGNATURES}
 
 DELIVER:
 

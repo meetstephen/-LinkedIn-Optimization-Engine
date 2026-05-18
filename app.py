@@ -975,58 +975,27 @@ def save_to_library(content: str, module: str, score: int = 0, tags: list = None
 def inject_profile_context() -> str:
     """
     Returns a formatted profile block to inject into any AI prompt.
-    When the user has filled their profile, every module's AI output becomes
-    personalised to their role, industry, audience, and voice automatically.
-    Returns an empty string when no profile data exists (safe to concatenate).
+    Delegates to gemini_client.get_profile_context() to keep ONE source of truth
+    for profile + Nigerian voice mode across the entire app — no drift between
+    modules and the in-app prompts (Hook Analyzer, Carousel Planner, etc.).
     """
-    p = st.session_state.get("user_profile", {})
-    parts = []
-    if p.get("name"):            parts.append(f"- Name: {p['name']}")
-    if p.get("headline"):        parts.append(f"- LinkedIn Headline: {p['headline']}")
-    if p.get("role"):            parts.append(f"- Current Role / Position: {p['role']}")
-    if p.get("industry"):        parts.append(f"- Industry / Niche: {p['industry']}")
-    if p.get("audience"):        parts.append(f"- Target Audience: {p['audience']}")
-    if p.get("content_pillars"): parts.append(f"- Content Pillars: {', '.join(p['content_pillars'])}")
-    if p.get("tone"):            parts.append(f"- Preferred Writing Tone: {p['tone']}")
-    if p.get("voice_sample"):    parts.append(
-        f"- Writing Voice Sample (match this style closely):\n\"\"\"\n{p['voice_sample'][:400].strip()}\n\"\"\""
-    )
-    if not parts:
-        return ""
-
-    base = (
-        "\n\nUSER PROFILE — tailor ALL output specifically and concretely to this person. "
-        "Use their industry, role, and audience in every example and suggestion:\n"
-        + "\n".join(parts)
-    )
-
-    # ── Nigerian Professional Voice Mode ──────────────────────────────────────
-    if st.session_state.get("nigerian_mode", False):
-        base += """
-
-NIGERIAN PROFESSIONAL VOICE MODE — ACTIVE:
-You are writing for a Nigerian LinkedIn professional audience. Apply ALL of the following:
-
-1. CULTURAL TONE: Warm, confident, community-oriented. Nigerian professionals value earned respect,
-   resilience narratives, and collective uplift — not just personal wins.
-2. LOCAL CONTEXT: Reference Nigerian business realities naturally — NAIRA pricing, Lagos traffic
-   hustle, Abuja government contracting dynamics, power supply constraints, fintech disruption
-   (e.g. Flutterwave, Paystack, Moniepoint), and telco penetration.
-3. NIGERIAN INDUSTRIES: Ground examples in: fintech/banking, legal practice, oil & gas,
-   agribusiness, real estate, healthcare, education-tech, government/civil service, media.
-4. INSTITUTIONS: Reference where relevant — NCC, CBN, CAC, NBA (Nigerian Bar Association),
-   SEC, NAFDAC, EFCC, Lagos State Government, federal MDAs.
-5. UNIVERSITIES & CREDENTIALS: Mention Nigerian universities (UNILAG, OAU, Unilorin, ABSU)
-   and professional certifications (ICAN, CIBN, NIM, CISA-NG, SAN) where fitting.
-6. LANGUAGE FLAVOUR: Posts should FEEL written by a Nigerian professional — not a Silicon Valley
-   content team. Use occasional Pidgin-inflected phrasing where culturally appropriate (e.g.
-   "e no easy" in a story hook, "we move" as a CTA) — but keep it professional overall.
-7. WAT TIME AWARENESS: Posting time advice must be in West Africa Time (WAT, UTC+1).
-   Best windows for Nigerian LinkedIn: Tue & Thu 7-9am WAT, Wed 12-2pm WAT, Fri 6-8pm WAT.
-8. AVOID: Silicon Valley jargon ("disrupting", "10x your growth"), dollar-centric examples,
-   US-centric statistics or cultural references as primary examples."""
-
-    return base
+    try:
+        from gemini_client import get_profile_context as _canon
+        return _canon()
+    except Exception:
+        # Fallback: minimal context block so the app never crashes here
+        p = st.session_state.get("user_profile", {})
+        parts = []
+        if p.get("name"):     parts.append(f"- Name: {p['name']}")
+        if p.get("headline"): parts.append(f"- LinkedIn Headline: {p['headline']}")
+        if p.get("role"):     parts.append(f"- Current Role: {p['role']}")
+        if p.get("industry"): parts.append(f"- Industry / Niche: {p['industry']}")
+        if not parts:
+            return ""
+        return (
+            "\n\nUSER PROFILE — tailor output specifically to this person:\n"
+            + "\n".join(parts)
+        )
 
 
 # ─────────────────────────────────────────────
@@ -1976,13 +1945,22 @@ def render_viral_hook_analyzer():
     if analyze_btn and user_text.strip():
         with st.spinner("🔥 Analyzing across 5 LinkedIn dimensions…"):
             _profile_ctx = inject_profile_context()
-            prompt = f"""You are a world-class LinkedIn content strategist. Analyze the hook/opening of this post.{_profile_ctx}
+            try:
+                from core.voice import BANNED as _VOICE_BANNED, SHORT_PRIMER as _VOICE_PRIMER
+            except Exception:
+                _VOICE_BANNED = ""
+                _VOICE_PRIMER = ""
+            prompt = f"""{_VOICE_PRIMER}
+
+You are working as a world-class LinkedIn content strategist analysing the hook/opening of a post. Be honest. Be specific. Quote the exact words that work or fail.{_profile_ctx}
 
 HOOK (first 210 chars — what LinkedIn shows before '…see more'):
 \"\"\"{user_text[:210].strip()}\"\"\"
 
 FULL POST (context only):
 \"\"\"{user_text}\"\"\"
+
+{_VOICE_BANNED}
 
 Return ONLY a JSON object — no markdown, no backticks, no preamble:
 {{
@@ -1994,7 +1972,7 @@ Return ONLY a JSON object — no markdown, no backticks, no preamble:
     "bold_claim":        <0-20>,
     "readability":       <0-20>
   }},
-  "verdict": "<2-sentence honest verdict>",
+  "verdict": "<2-sentence honest verdict — quote one specific line from the hook>",
   "strengths":  ["<strength 1>", "<strength 2>"],
   "weaknesses": ["<weakness 1>", "<weakness 2>"],
   "rewrites": [
@@ -2008,7 +1986,13 @@ Return ONLY a JSON object — no markdown, no backticks, no preamble:
   "predicted_ctr": "<estimated see-more CTR vs average>"
 }}
 
-Rules: every rewrite ≤210 chars, distinctly different techniques, genuinely viral-worthy."""
+Rules:
+- Every rewrite ≤210 chars
+- Each rewrite uses a distinctly different technique
+- Every rewrite must sound like a real person typed it on their phone — not a brand voice
+- No rewrite may contain any banned phrase listed above
+- No rewrite starts with "I"
+- No rewrite is a question"""
 
             try:
                 if _CORE_AVAILABLE:
@@ -2831,11 +2815,20 @@ def render_carousel_planner():
         if st.button("🤖 Generate Carousel Slides", type="primary",
                      disabled=not bool(ai_topic.strip()), key="carousel_gen_btn", use_container_width=True):
             _profile_ctx = inject_profile_context()
-            prompt = f"""You are a world-class LinkedIn carousel content strategist.{_profile_ctx}
+            try:
+                from core.voice import BANNED as _VOICE_BANNED, SHORT_PRIMER as _VOICE_PRIMER
+            except Exception:
+                _VOICE_BANNED = ""
+                _VOICE_PRIMER = ""
+            prompt = f"""{_VOICE_PRIMER}
+
+You are working as a world-class LinkedIn carousel content strategist. Each slide sounds like the same person wrote it — same human voice, same specificity, same point of view.{_profile_ctx}
 
 Create a {ai_slides_count}-slide LinkedIn carousel on: "{ai_topic}"
 Tone: {carousel_tone}
 Final slide CTA: {carousel_cta or 'Follow me for more insights like this.'}
+
+{_VOICE_BANNED}
 
 Return ONLY a JSON array — no markdown, no backticks, no preamble:
 [
@@ -2845,11 +2838,12 @@ Return ONLY a JSON array — no markdown, no backticks, no preamble:
 ]
 
 Rules:
-- Slide 1: Bold hook claim or curiosity-gap statement that makes people swipe
+- Slide 1: Bold hook claim or curiosity-gap statement that makes people swipe — never starts with "I", no questions, no emojis in the title text itself
 - Middle slides: ONE clear insight per slide — no padding
 - Each title ≤8 words, each body ≤40 words
-- Body text should feel written by a human professional, not a bot
-- Last slide: compelling CTA with clear next action"""
+- Body text must contain at least one specific number, name, or concrete detail per slide
+- Body text should feel written by a human professional, not a bot — no banned phrases
+- Last slide: clear CTA with a specific next action — not "follow for more"-style filler"""
 
             with st.spinner("🎠 Building your carousel…"):
                 try:

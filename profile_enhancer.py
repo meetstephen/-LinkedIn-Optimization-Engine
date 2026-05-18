@@ -6,15 +6,14 @@ import streamlit as st
 from gemini_client import generate_text, get_profile_context, stream_text
 from library import save_post_to_library
 from industry_profiles import get_industry_voice_block
+from core.voice import HUMAN_VOICE_PRIMER, BANNED
 
 
 _BANNED_PROFILE = """
-NEVER write these phrases anywhere in the output:
-"passionate about", "results-driven professional", "thought leader", "leverage",
-"synergy", "game-changer", "I thrive in fast-paced environments",
+ADDITIONAL BANNED PHRASES SPECIFIC TO PROFILES & HEADLINES:
+"results-driven professional", "I thrive in fast-paced environments",
 "dynamic professional", "I am committed to excellence", "seasoned professional",
 "I bring X years of experience", "I help people reach their potential",
-"innovative solutions", "value-add", "stakeholder", "circle back",
 "I wear many hats", "extensive experience", "proven track record",
 "motivated self-starter", "detail-oriented"
 """
@@ -23,7 +22,9 @@ NEVER write these phrases anywhere in the output:
 def build_profile_prompt(profile_data):
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(profile_data.get("industry", ""))
-    return f"""You review LinkedIn profiles the way a hiring manager or premium client does — quickly, honestly, looking for specific signals of credibility, clarity, and character. You give real feedback, not padded encouragement.{profile_ctx}
+    return f"""{HUMAN_VOICE_PRIMER}
+
+You are reviewing a LinkedIn profile the way a hiring manager or premium client does — quickly, honestly, looking for specific signals of credibility, clarity, and character. You give real feedback, not padded encouragement.{profile_ctx}
 {industry_voice}
 
 PROFILE BEING REVIEWED:
@@ -41,6 +42,7 @@ PROFILE BEING REVIEWED:
 - Goal: {profile_data['goal']}
 - Achievements: {profile_data['achievements']}
 
+{BANNED}
 {_BANNED_PROFILE}
 
 ---
