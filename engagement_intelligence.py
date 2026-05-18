@@ -9,6 +9,7 @@ from gemini_client import get_profile_context, stream_text
 from industry_profiles import get_industry_voice_block
 from library import save_post_to_library
 from core.voice import HUMAN_VOICE_PRIMER, SHORT_PRIMER, BANNED
+from core import validator as _validator
 
 
 def build_comment_prompt(post_text: str, goal: str, niche: str) -> str:
@@ -292,6 +293,11 @@ def render_engagement_intelligence():
         _r = st.session_state.get("ei_comments_result", "")
         if _r:
             st.markdown("---")
+            # Voice Validator badge — comment-mode rules (no hook checks)
+            _validator.render_voice_score(
+                _validator.validate_comment(_r),
+                key="vs_ei_comments",
+            )
             with st.expander("📄 Generated Comments — each anchored to a specific line in the post", expanded=True):
                 st.markdown(_r)
             sc1, sc2 = st.columns(2)
@@ -368,6 +374,10 @@ def render_engagement_intelligence():
         _r = st.session_state.get("ei_dms_result", "")
         if _r:
             st.markdown("---")
+            _validator.render_voice_score(
+                _validator.validate_comment(_r),
+                key="vs_ei_dms",
+            )
             with st.expander("📄 Generated DMs", expanded=True):
                 st.markdown(_r)
             sc1, sc2 = st.columns(2)
@@ -430,6 +440,10 @@ def render_engagement_intelligence():
         _r = st.session_state.get("ei_net_result", "")
         if _r:
             st.markdown("---")
+            _validator.render_voice_score(
+                _validator.validate_comment(_r),
+                key="vs_ei_net",
+            )
             with st.expander("📄 Generated Templates", expanded=True):
                 st.markdown(_r)
             sc1, sc2 = st.columns(2)

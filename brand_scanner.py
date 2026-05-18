@@ -8,15 +8,17 @@ import streamlit as st
 from gemini_client import get_profile_context, stream_text
 from industry_profiles import get_industry_voice_block
 from library import save_post_to_library
-from core.voice import HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES
+from core.voice import HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES, story_beats_block
 
 
 def build_scanner_prompt(
     headline: str, about: str, recent_posts: str,
     claimed_niche: str, claimed_audience: str,
+    proof_beats: str = "",
 ) -> str:
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(claimed_niche) if claimed_niche.strip() else ""
+    beats_block    = story_beats_block(proof_beats, label="PROOF POINTS")
 
     return f"""{HUMAN_VOICE_PRIMER}
 
@@ -31,7 +33,7 @@ Claimed Target Audience: {claimed_audience or 'Not specified'}
 
 RECENT POSTS / CONTENT SAMPLES:
 \"\"\"{recent_posts}\"\"\"
-
+{beats_block}
 {BANNED}
 {HUMAN_SIGNATURES}
 
@@ -146,6 +148,28 @@ def render_brand_scanner():
             key="bs_posts",
         )
 
+    # ── Proof points — bridge the gap between profile claims & content ────
+    with st.expander("✍️ Proof Points — optional, the proof the rewriter uses to bridge the gap", expanded=False):
+        st.markdown(
+            "Drop 3-5 specific proof points: cases you've handled, deals closed, "
+            "regulations you've navigated, results in numbers. The scanner uses "
+            "these as **evidence** when rewriting your unified brand statement — "
+            "so the recommended fixes are grounded in what you've actually done, "
+            "not what your profile claims."
+        )
+        st.text_area(
+            "Your proof points",
+            placeholder=(
+                "e.g.:\n"
+                "- Led ₦12B Lagos hotel acquisition (2023)\n"
+                "- 4-year Supreme Court appeal — won on s.35(1) CFRN\n"
+                "- Built corporate practice from 0 → 18 retainer clients in 24 months\n"
+                "- Trained 40+ lawyers on CAMA 2020 Part XI"
+            ),
+            height=140,
+            key="bs_proof_beats",
+        )
+
     st.markdown("---")
 
     if st.button(
@@ -169,6 +193,7 @@ def render_brand_scanner():
                     build_scanner_prompt(
                         headline, about, recent_posts,
                         claimed_niche, claimed_audience,
+                        proof_beats=st.session_state.get("bs_proof_beats", ""),
                     ),
                     temperature=0.7, max_tokens=6000,
                 ))

@@ -167,6 +167,7 @@ def init_session_state() -> None:
             "name": "", "headline": "", "role": "", "industry": "",
             "audience": "", "content_pillars": [],
             "tone": "Professional & Authoritative", "voice_sample": "",
+            "voice_fingerprint": {},
         },
     }
 

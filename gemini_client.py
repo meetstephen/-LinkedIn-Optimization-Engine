@@ -29,6 +29,20 @@ def get_profile_context() -> str:
             f"\"\"\"\n{p['voice_sample'][:400].strip()}\n\"\"\""
         )
 
+    # ── Voice Fingerprint — structured analysis of the user's writing.
+    # When present, this gives Gemini explicit per-user voice rules
+    # (avg sentence length, signature phrases, structure, tells) instead of
+    # just the raw 400-char sample. Output dramatically more on-voice.
+    _fp = p.get("voice_fingerprint") or {}
+    if _fp:
+        try:
+            from core.voice_fingerprint import fingerprint_block as _fp_block
+            _fp_text = _fp_block(_fp)
+            if _fp_text:
+                parts.append(_fp_text)
+        except Exception:
+            pass
+
     if not parts:
         return ""
 

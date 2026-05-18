@@ -326,12 +326,22 @@ def save_profile(profile: dict, onboarding_complete: bool = False, nigerian_mode
         "content_pillars":      json.dumps(profile.get("content_pillars", [])),
         "tone":                 profile.get("tone", "Professional & Authoritative"),
         "voice_sample":         profile.get("voice_sample", ""),
+        "voice_fingerprint":    profile.get("voice_fingerprint", {}) or {},
         "onboarding_complete":  onboarding_complete,
         "nigerian_mode":        nigerian_mode,
         "nigerian_tone_preset": nigerian_tone_preset,
         "updated_at":           datetime.now(timezone.utc).isoformat(),
     }
-    client.table("lb_profiles").upsert(row, on_conflict="user_id").execute()
+    try:
+        client.table("lb_profiles").upsert(row, on_conflict="user_id").execute()
+    except Exception as e:
+        # Older schemas may not have voice_fingerprint yet — retry without it
+        msg = str(e).lower()
+        if "voice_fingerprint" in msg or "column" in msg:
+            row.pop("voice_fingerprint", None)
+            client.table("lb_profiles").upsert(row, on_conflict="user_id").execute()
+        else:
+            raise
 
 
 def load_profile() -> dict:
@@ -341,7 +351,8 @@ def load_profile() -> dict:
     """
     _empty_profile = {
         "name": "", "headline": "", "role": "", "industry": "", "audience": "",
-        "content_pillars": [], "tone": "Professional & Authoritative", "voice_sample": "",
+        "content_pillars": [], "tone": "Professional & Authoritative",
+        "voice_sample": "", "voice_fingerprint": {},
     }
     _empty = {"profile": _empty_profile, "onboarding_complete": False, "nigerian_mode": True}
 
@@ -356,15 +367,24 @@ def load_profile() -> dict:
             try:    pillars = json.loads(pillars)
             except: pillars = []
 
+        # voice_fingerprint may be JSONB (already a dict), TEXT (JSON-encoded), or absent
+        fp = row.get("voice_fingerprint", {}) or {}
+        if isinstance(fp, str):
+            try:    fp = json.loads(fp)
+            except: fp = {}
+        if not isinstance(fp, dict):
+            fp = {}
+
         profile = {
-            "name":            row.get("name", ""),
-            "headline":        row.get("headline", ""),
-            "role":            row.get("role", ""),
-            "industry":        row.get("industry", ""),
-            "audience":        row.get("audience", ""),
-            "content_pillars": pillars,
-            "tone":            row.get("tone", "Professional & Authoritative"),
-            "voice_sample":    row.get("voice_sample", ""),
+            "name":              row.get("name", ""),
+            "headline":          row.get("headline", ""),
+            "role":              row.get("role", ""),
+            "industry":          row.get("industry", ""),
+            "audience":          row.get("audience", ""),
+            "content_pillars":   pillars,
+            "tone":              row.get("tone", "Professional & Authoritative"),
+            "voice_sample":      row.get("voice_sample", ""),
+            "voice_fingerprint": fp,
         }
         return {
             "profile":              profile,

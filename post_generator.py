@@ -10,7 +10,10 @@ from industry_profiles import get_industry_voice_block
 from library import save_post_to_library, bump_generated
 from core.voice import (
     HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES, STRUCTURE_RULES,
+    story_beats_block, STORY_BEATS_PLACEHOLDER,
 )
+from core import validator as _validator
+from core import polish as _polish
 
 
 # ── Unicode formatting helpers ─────────────────────────────────────────────
@@ -256,13 +259,7 @@ def build_post_prompt(
     profile_ctx      = get_profile_context()
     industry_voice   = get_industry_voice_block(niche)
 
-    beats_block = ""
-    if story_beats.strip():
-        beats_block = f"""
-STORY BEATS — the writer has provided these raw details. Use them.
-Do not ignore or paraphrase away the specifics. Build the post around these exact moments:
-{story_beats.strip()}
-"""
+    beats_block = story_beats_block(story_beats)
 
     return f"""{HUMAN_VOICE_PRIMER}
 
@@ -448,6 +445,10 @@ def render_post_generator():
                 continue
             with st.expander(f"📄 {label}", expanded=True):
 
+                # ── Voice Validator badge — runs on every render ──────────
+                _vs_report = _validator.validate_post(content)
+                _validator.render_voice_score(_vs_report, key=f"vs_v{idx}")
+
                 # ── Tabs: Raw text / Preview / Formatter ──────────────────
                 _tab_raw, _tab_prev, _tab_fmt = st.tabs([
                     "📝 Post Text",
@@ -522,6 +523,67 @@ def render_post_generator():
                         )
                     else:
                         st.info("Select a scope, then click Bold or Italic to see the result.")
+
+                # ── Polish (two-pass) ──────────────────────────────────────
+                _polish_key = f"pg_polished_v{idx}"
+                _polish_report_key = f"pg_polish_report_v{idx}"
+                _polished = st.session_state.get(_polish_key, "")
+
+                p_col1, p_col2 = st.columns([1, 3])
+                with p_col1:
+                    if st.button(
+                        "✨ Polish",
+                        key=f"polish_v{idx}",
+                        use_container_width=True,
+                        help="Run a second pass: critique against voice rules, then rewrite. Costs ~2× tokens.",
+                    ):
+                        try:
+                            with st.spinner("Polishing — second pass running…"):
+                                gen, _orig_report = _polish.polish_stream(
+                                    content,
+                                    profile_ctx=get_profile_context(),
+                                    industry_voice=get_industry_voice_block(
+                                        st.session_state.get("pg_niche", "")
+                                    ),
+                                )
+                                # Drain the generator into a single string
+                                polished_text = "".join(list(gen))
+                            st.session_state[_polish_key] = polished_text.strip()
+                            st.session_state[_polish_report_key] = _orig_report
+                            st.rerun()
+                        except Exception as _e:
+                            st.error(f"Polish failed: {_e}")
+                with p_col2:
+                    if _polished:
+                        st.caption("✨ Polished version generated below")
+
+                if _polished:
+                    st.markdown("**✨ Polished version**")
+                    st.markdown(
+                        f"<div style='background:#F0FFF4;padding:1rem;border-radius:8px;"
+                        f"border-left:4px solid #00c851;font-size:0.9rem;line-height:1.6;"
+                        f"white-space:pre-wrap;'>{_html.escape(_polished)}</div>",
+                        unsafe_allow_html=True,
+                    )
+                    _polished_report = _validator.validate_post(_polished)
+                    _validator.render_voice_score(_polished_report, key=f"vs_polished_v{idx}")
+                    pp_col1, pp_col2 = st.columns(2)
+                    with pp_col1:
+                        if st.button("📚 Save polished",
+                                     key=f"save_polished_v{idx}",
+                                     use_container_width=True):
+                            ok, msg = save_post_to_library(
+                                _polished, "🚀 Post Generator (Polished)",
+                                tags=["generated", f"variation-{idx}", "polished"],
+                            )
+                            st.success(msg) if ok else st.warning(msg)
+                    with pp_col2:
+                        if st.button("✕ Discard polish",
+                                     key=f"discard_polished_v{idx}",
+                                     use_container_width=True):
+                            st.session_state.pop(_polish_key, None)
+                            st.session_state.pop(_polish_report_key, None)
+                            st.rerun()
 
                 # ── Pipeline buttons ───────────────────────────────────────
                 st.markdown("**Send this post to:**")
