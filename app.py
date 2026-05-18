@@ -2902,6 +2902,17 @@ Rules:
 
     slides = st.session_state.get("carousel_slides", [])
 
+    # Invalidate the cached PDF whenever the slides change — otherwise the
+    # download button could hand out a stale render after the user edits.
+    _slides_signature = hash(tuple(
+        (s.get("emoji", ""), s.get("title", ""), s.get("body", ""))
+        for s in slides
+    ))
+    if st.session_state.get("carousel_pdf_signature") != _slides_signature:
+        st.session_state.pop("carousel_pdf_bytes", None)
+        st.session_state.pop("carousel_pdf_meta", None)
+        st.session_state["carousel_pdf_signature"] = _slides_signature
+
     # Add / remove buttons
     ctrl_c1, ctrl_c2, ctrl_c3 = st.columns([1, 1, 2])
     with ctrl_c1:
@@ -3002,6 +3013,123 @@ Rules:
 
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("<hr style='margin:0.8rem 0; border-color:#f0f0f0;'>", unsafe_allow_html=True)
+
+    # ── 📄 LinkedIn-ready PDF export ──────────────────────────────────────
+    # The single highest-leverage feature in this module: turn the slides
+    # into a multi-page PDF that uploads straight to LinkedIn's "document
+    # post" form. 1080×1350 = LinkedIn's max-real-estate vertical aspect.
+    st.markdown("---")
+    st.markdown("### 📄 Download as LinkedIn-Ready PDF")
+    st.caption(
+        "Each slide renders to 1080×1350 px and assembles into a multi-page PDF — "
+        "the exact format LinkedIn's **document post** upload accepts. "
+        "No Canva. No copy-paste. Just download → drag into LinkedIn → publish."
+    )
+
+    _pdf_c1, _pdf_c2, _pdf_c3 = st.columns([1, 1.4, 1.4])
+
+    # Theme picker
+    with _pdf_c1:
+        try:
+            from carousel_pdf import THEMES as _PDF_THEMES
+            _theme_options = {tid: t["label"] for tid, t in _PDF_THEMES.items()}
+        except Exception:
+            _theme_options = {"linkedin_blue": "LinkedIn Blue"}
+        _pdf_theme_id = st.selectbox(
+            "🎨 Theme",
+            list(_theme_options.keys()),
+            format_func=lambda k: _theme_options[k],
+            key="carousel_pdf_theme",
+        )
+
+    # Author footer toggle
+    with _pdf_c2:
+        _profile_name = st.session_state.get("user_profile", {}).get("name", "")
+        _pdf_author = st.text_input(
+            "✏️ Footer name (optional)",
+            value=_profile_name,
+            placeholder="Stephen Oyim",
+            help="Printed bottom-left of every slide. Leave blank for none.",
+            key="carousel_pdf_author",
+        )
+
+    # Build button
+    with _pdf_c3:
+        st.markdown(
+            "<div style='font-size:0.78rem;color:#888;margin-bottom:8px;'>"
+            "&nbsp;</div>",  # spacer to align with the inputs
+            unsafe_allow_html=True,
+        )
+        _build_pdf = st.button(
+            "📄 Build PDF",
+            type="primary",
+            key="carousel_pdf_build",
+            use_container_width=True,
+        )
+
+    # Build & cache the PDF in session state so the download button can
+    # appear on the next rerun without rebuilding (PIL renders are fast
+    # but not instant for 10+ slides).
+    if _build_pdf:
+        try:
+            from carousel_pdf import render_carousel_pdf as _render_pdf
+            with st.spinner("🎨 Rendering slides… this takes ~1s per slide."):
+                _pdf_bytes = _render_pdf(
+                    slides,
+                    theme=_pdf_theme_id,
+                    author=(_pdf_author or "").strip(),
+                )
+                st.session_state["carousel_pdf_bytes"] = _pdf_bytes
+                st.session_state["carousel_pdf_meta"] = {
+                    "slides": len(slides),
+                    "theme":  _pdf_theme_id,
+                    "kb":     round(len(_pdf_bytes) / 1024, 1),
+                }
+            st.success(
+                f"✅ PDF rendered — {len(slides)} slides, "
+                f"{st.session_state['carousel_pdf_meta']['kb']} KB. "
+                f"Click ⬇️ below to download."
+            )
+        except ModuleNotFoundError:
+            st.error(
+                "❌ Pillow isn't installed. Run "
+                "`pip install Pillow` and restart the app."
+            )
+        except Exception as _pdf_err:
+            st.error(f"⚠️ PDF render failed: {_pdf_err}")
+            with st.expander("🔍 Details"):
+                st.code(traceback.format_exc())
+
+    # Download button — only appears once a PDF is in the cache
+    _pdf_cache = st.session_state.get("carousel_pdf_bytes")
+    if _pdf_cache:
+        _meta = st.session_state.get("carousel_pdf_meta", {})
+        st.download_button(
+            label=(
+                f"⬇️ Download Carousel PDF "
+                f"({_meta.get('slides', 0)} slides · {_meta.get('kb', 0)} KB)"
+            ),
+            data=_pdf_cache,
+            file_name=f"linkedin_carousel_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+            type="primary",
+            key="carousel_pdf_download",
+        )
+        with st.expander("📋 How to post this to LinkedIn", expanded=False):
+            st.markdown(
+                """
+1. **Click ⬇️ Download Carousel PDF** above.
+2. Open LinkedIn → click **Start a post** at the top of your feed.
+3. Click the **📄 document icon** (next to the image icon) — labelled *"Add a document"*.
+4. Drag the downloaded PDF in, or click to upload it.
+5. **Add a title** for the document (LinkedIn requires this — keep it under 100 chars; reuse Slide 1's title).
+6. Type your post caption above the carousel — your hook goes here.
+7. **Post**. LinkedIn renders it as a swipeable carousel in feed.
+
+> **Tip:** LinkedIn's algorithm rewards dwell time. Carousels generate ~3× the impressions of plain text precisely because each swipe = a positive engagement signal.
+                """
+            )
 
     # Save all slides at once
     st.markdown("---")
