@@ -72,18 +72,63 @@ CREATE INDEX IF NOT EXISTS lb_schedule_user_idx
     ON lb_schedule (user_id);
 
 
--- ── 4. ROW LEVEL SECURITY ───────────────────────────────────────────────────
-ALTER TABLE lb_posts    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE lb_profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE lb_schedule ENABLE ROW LEVEL SECURITY;
+-- ── 4. USERS (NEW — multi-user auth) ────────────────────────────────────────
+-- Each row is one signed-up user. Authentication is handled in the app layer
+-- with bcrypt password hashing, not Supabase Auth, so this works on the free
+-- tier without any extra config.
+CREATE TABLE IF NOT EXISTS lb_users (
+    id              UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    email           TEXT         NOT NULL UNIQUE,
+    password_hash   TEXT         NOT NULL,
+    name            TEXT         DEFAULT '',
+    is_admin        BOOLEAN      NOT NULL DEFAULT FALSE,
+    is_active       BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    last_login_at   TIMESTAMPTZ,
+    login_count     INTEGER      NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS lb_users_email_idx
+    ON lb_users (LOWER(email));
+
+
+-- ── 5. LOGIN EVENTS (NEW — admin audit trail) ───────────────────────────────
+-- One row per successful login. The admin dashboard reads from here to show
+-- "who's online today" / "recent activity" / "logins per day" charts.
+CREATE TABLE IF NOT EXISTS lb_login_events (
+    id           BIGSERIAL    PRIMARY KEY,
+    user_id      UUID         NOT NULL,
+    email        TEXT         NOT NULL,           -- denormalised for cheap admin queries
+    event_type   TEXT         NOT NULL DEFAULT 'login',  -- 'login' | 'signup' | 'logout' | 'failed_login'
+    user_agent   TEXT         DEFAULT '',
+    occurred_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS lb_login_events_user_idx
+    ON lb_login_events (user_id, occurred_at DESC);
+
+CREATE INDEX IF NOT EXISTS lb_login_events_recent_idx
+    ON lb_login_events (occurred_at DESC);
+
+
+-- ── 6. ROW LEVEL SECURITY ───────────────────────────────────────────────────
+ALTER TABLE lb_posts        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lb_profiles     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lb_schedule     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lb_users        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lb_login_events ENABLE ROW LEVEL SECURITY;
 
 -- Drop any pre-existing permissive policies (idempotent re-runs)
-DROP POLICY IF EXISTS lb_posts_anon_all     ON lb_posts;
-DROP POLICY IF EXISTS lb_profiles_anon_all  ON lb_profiles;
-DROP POLICY IF EXISTS lb_schedule_anon_all  ON lb_schedule;
+DROP POLICY IF EXISTS lb_posts_anon_all         ON lb_posts;
+DROP POLICY IF EXISTS lb_profiles_anon_all      ON lb_profiles;
+DROP POLICY IF EXISTS lb_schedule_anon_all      ON lb_schedule;
+DROP POLICY IF EXISTS lb_users_anon_all         ON lb_users;
+DROP POLICY IF EXISTS lb_login_events_anon_all  ON lb_login_events;
 
--- Permissive policies — fine for a single-tenant deploy where user_id is the secret.
--- For a multi-tenant SaaS, replace with auth.uid()-based policies later.
+-- Permissive policies — the app layer enforces ownership via user_id filters.
+-- The anon key is the only key shipped to clients, so this matches the rest
+-- of the schema. Tighten to auth.uid()-based policies once you migrate to
+-- Supabase Auth proper.
 CREATE POLICY lb_posts_anon_all
     ON lb_posts FOR ALL
     TO anon
@@ -102,8 +147,20 @@ CREATE POLICY lb_schedule_anon_all
     USING (true)
     WITH CHECK (true);
 
+CREATE POLICY lb_users_anon_all
+    ON lb_users FOR ALL
+    TO anon
+    USING (true)
+    WITH CHECK (true);
 
--- ── 5. SANITY CHECK ─────────────────────────────────────────────────────────
--- After running, you should see THREE tables in your Supabase Table Editor:
---   lb_posts, lb_profiles, lb_schedule
--- All rows are auto-created the first time the app saves something.
+CREATE POLICY lb_login_events_anon_all
+    ON lb_login_events FOR ALL
+    TO anon
+    USING (true)
+    WITH CHECK (true);
+
+
+-- ── 7. SANITY CHECK ─────────────────────────────────────────────────────────
+-- After running, you should see FIVE tables in your Supabase Table Editor:
+--   lb_posts, lb_profiles, lb_schedule, lb_users, lb_login_events
+-- Rows are auto-created the first time the app writes to them.
