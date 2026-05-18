@@ -48,11 +48,17 @@ CREATE TABLE IF NOT EXISTS lb_profiles (
     content_pillars      TEXT        DEFAULT '[]',
     tone                 TEXT        DEFAULT 'Professional & Authoritative',
     voice_sample         TEXT        DEFAULT '',
+    voice_fingerprint    JSONB       DEFAULT '{}'::jsonb,
     onboarding_complete  BOOLEAN     DEFAULT FALSE,
     nigerian_mode        BOOLEAN     DEFAULT TRUE,
     nigerian_tone_preset TEXT        DEFAULT '',
     updated_at           TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Migration: add voice_fingerprint to existing installs that pre-date this column.
+-- Safe to re-run — Postgres no-ops when the column already exists.
+ALTER TABLE lb_profiles
+    ADD COLUMN IF NOT EXISTS voice_fingerprint JSONB DEFAULT '{}'::jsonb;
 
 
 -- ── 3. CONTENT SCHEDULE (NEW) ───────────────────────────────────────────────

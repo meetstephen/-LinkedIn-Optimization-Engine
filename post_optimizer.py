@@ -9,6 +9,8 @@ from industry_profiles import get_industry_voice_block
 from core.voice import (
     HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES,
 )
+from core import validator as _validator
+from core import polish as _polish
 
 
 OPTIMIZATION_GOALS = {
@@ -215,6 +217,67 @@ def render_post_optimizer():
     with st.expander("📄 Full Optimization Report", expanded=True):
         st.markdown(result)
 
+    # ── Voice Validator on the rewritten section ───────────────────────────
+    _rewritten = _extract_rewritten(result)
+    if _rewritten:
+        st.markdown("**🎙️ Voice check on the rewritten version**")
+        _vs_report = _validator.validate_post(_rewritten)
+        _validator.render_voice_score(_vs_report, key="vs_optimizer")
+
+    # ── Polish (two-pass) ──────────────────────────────────────────────────
+    if _rewritten:
+        po_col1, po_col2 = st.columns([1, 3])
+        with po_col1:
+            if st.button(
+                "✨ Polish rewrite",
+                key="po_polish_btn",
+                use_container_width=True,
+                help="Run a second pass: critique against voice rules, then rewrite. Costs ~2× tokens.",
+            ):
+                try:
+                    with st.spinner("Polishing — second pass running…"):
+                        gen, _orig_report = _polish.polish_stream(
+                            _rewritten,
+                            profile_ctx=get_profile_context(),
+                            industry_voice=get_industry_voice_block(last_niche)
+                                if last_niche else "",
+                        )
+                        polished_text = "".join(list(gen))
+                    st.session_state["po_polished"] = polished_text.strip()
+                    st.rerun()
+                except Exception as _e:
+                    st.error(f"Polish failed: {_e}")
+        _polished = st.session_state.get("po_polished", "")
+        with po_col2:
+            if _polished:
+                st.caption("✨ Polished version generated below")
+
+        if _polished:
+            st.markdown("**✨ Polished rewrite**")
+            st.markdown(
+                f"<div style='background:#F0FFF4;padding:1rem;border-radius:8px;"
+                f"border-left:4px solid #00c851;font-size:0.9rem;line-height:1.6;"
+                f"white-space:pre-wrap;'>{_polished}</div>",
+                unsafe_allow_html=True,
+            )
+            _polished_report = _validator.validate_post(_polished)
+            _validator.render_voice_score(_polished_report, key="vs_po_polished")
+            pp1, pp2 = st.columns(2)
+            with pp1:
+                if st.button("📚 Save polished", key="po_save_polished",
+                             use_container_width=True):
+                    ok, msg = save_post_to_library(
+                        _polished, "🔧 Post Optimizer (Polished)",
+                        tags=["optimized", "polished",
+                              last_goal.lower().replace(" ", "-")],
+                    )
+                    st.success(msg) if ok else st.warning(msg)
+            with pp2:
+                if st.button("✕ Discard polish", key="po_discard_polished",
+                             use_container_width=True):
+                    st.session_state.pop("po_polished", None)
+                    st.rerun()
+
     st.markdown("---")
     st.markdown("**Send the optimized post to:**")
     pipe1, pipe2, pipe3 = st.columns(3)
@@ -245,6 +308,7 @@ def render_post_optimizer():
             st.success(msg) if ok else st.warning(msg)
 
     if st.button("🔄 Start a fresh optimization", key="po_reset"):
-        for k in ("po_last_result", "po_last_original", "po_last_goal", "po_last_niche"):
+        for k in ("po_last_result", "po_last_original", "po_last_goal",
+                  "po_last_niche", "po_polished"):
             st.session_state.pop(k, None)
         st.rerun()

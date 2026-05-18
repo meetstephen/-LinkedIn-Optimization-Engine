@@ -6,7 +6,7 @@ import streamlit as st
 from gemini_client import generate_text, get_profile_context, stream_text
 from library import save_post_to_library
 from industry_profiles import get_industry_voice_block
-from core.voice import HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES
+from core.voice import HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES, story_beats_block
 
 
 INDUSTRY_KEYWORDS = {
@@ -34,10 +34,11 @@ ADDITIONAL ABOUT-SECTION-SPECIFIC BANS:
 """
 
 
-def build_about_prompt(current_about, name, role, industry, superpowers, achievements, goal):
+def build_about_prompt(current_about, name, role, industry, superpowers, achievements, goal, defining_moment=""):
     keywords       = INDUSTRY_KEYWORDS.get(industry, INDUSTRY_KEYWORDS["Other"])
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(industry)
+    beats_block    = story_beats_block(defining_moment, label="DEFINING MOMENT")
     return f"""{HUMAN_VOICE_PRIMER}
 
 You write LinkedIn About sections that read like a person wrote them after a long honest conversation — not like a resume, not like a brand deck. The reader should finish it knowing exactly who this person is, what they've done, and why they matter.{profile_ctx}
@@ -51,7 +52,7 @@ PERSON:
 - Achievements: {achievements}
 - Goal: {goal}
 - Keywords to weave in naturally (not stuffed): {keywords}
-
+{beats_block}
 CURRENT ABOUT:
 \"\"\"
 {current_about if current_about.strip() else "Nothing written yet — build from scratch."}
@@ -152,6 +153,28 @@ def render_about_optimizer():
                                   placeholder="Paste your current LinkedIn About section here...",
                                   height=140)
 
+    # ── Defining Moment beats — the single most powerful injection for an About section
+    with st.expander("✍️ One Defining Moment — optional, but the single biggest specificity lever", expanded=False):
+        st.markdown(
+            "Tell me one moment that defines your career — a case you won, a "
+            "deal you almost lost, the day you realised what you actually do. "
+            "Real names (anonymised), real numbers, real dialogue. The AI weaves "
+            "this exact moment into the rewrite so it reads like **you**, not a "
+            "rewrite of every About section on LinkedIn."
+        )
+        st.text_area(
+            "Your defining moment",
+            placeholder=(
+                "e.g.:\n"
+                "- The day a Lagos founder called me at 11pm — Federal High Court, next morning\n"
+                "- ₦80M contract on the line, one missed clause in the arbitration agreement\n"
+                "- We filed the injunction at 8:14am. The judge granted it before lunch.\n"
+                "- That's when I stopped reviewing contracts the way they taught us in NLS."
+            ),
+            height=140,
+            key="ao_defining_moment",
+        )
+
     st.markdown("---")
 
     if st.button("Optimize My About Section", type="primary", use_container_width=True):
@@ -168,7 +191,8 @@ def render_about_optimizer():
             with _stream_box.container():
                 result = st.write_stream(stream_text(
                     build_about_prompt(current_about, name, role, industry,
-                                       superpowers, achievements, goal),
+                                       superpowers, achievements, goal,
+                                       defining_moment=st.session_state.get("ao_defining_moment", "")),
                     temperature=0.78, max_tokens=8000,
                 ))
             # Clear the raw stream — the formatted result panel below renders it cleanly

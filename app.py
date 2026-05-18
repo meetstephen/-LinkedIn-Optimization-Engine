@@ -1183,7 +1183,34 @@ def render_sidebar():
                     "content_pillars": [x.strip() for x in _pillars_raw.split(",") if x.strip()],
                     "tone":            _tone,
                     "voice_sample":    _voice.strip(),
+                    # Preserve any existing fingerprint — we only recompute when sample changes
+                    "voice_fingerprint": _p.get("voice_fingerprint", {}) or {},
                 }
+
+                # ── Voice Fingerprint — recompute only when the sample actually changed.
+                # This costs one Gemini call, so we never trigger it on rerun unless
+                # the writing sample is genuinely new content (≥60 chars).
+                _fp_msg = ""
+                _prev_sample = _p.get("voice_sample", "") or ""
+                _new_sample  = _new_profile["voice_sample"]
+                if _new_sample and _new_sample != _prev_sample and len(_new_sample) >= 60:
+                    try:
+                        from core.voice_fingerprint import analyze_voice_sample
+                        _api_key = st.session_state.get("gemini_api_key", "")
+                        if _api_key:
+                            with st.spinner("Analysing your writing voice…"):
+                                _fp = analyze_voice_sample(_new_sample, _api_key)
+                            if _fp:
+                                _new_profile["voice_fingerprint"] = _fp
+                                _fp_msg = " · Voice fingerprint generated."
+                            else:
+                                _fp_msg = " · (Sample too thin for a useful fingerprint.)"
+                    except Exception as _fp_e:
+                        _fp_msg = f" · Fingerprint skipped ({str(_fp_e)[:60]})"
+                elif not _new_sample:
+                    # Voice sample cleared → drop fingerprint too
+                    _new_profile["voice_fingerprint"] = {}
+
                 st.session_state["user_profile"] = _new_profile
                 st.session_state["_profile_loaded"] = False  # force reload on next boot
                 # Persist to Supabase so profile survives refresh & reboot
@@ -1202,7 +1229,7 @@ def render_sidebar():
                     _save_err = str(_e)
 
                 if _save_ok:
-                    st.success("✅ Profile saved — will persist across reboots.")
+                    st.success(f"✅ Profile saved — will persist across reboots.{_fp_msg}")
                 elif _CORE_AVAILABLE:
                     st.error(f"⚠️ Saved in-session but Supabase failed: {_save_err}\n\nCheck your Supabase secrets and run the SQL migration if you haven't.")
                 else:
@@ -1210,10 +1237,12 @@ def render_sidebar():
         if _profile_complete:
             _role_short = _p.get("role", "")[:32]
             _ind_short  = _p.get("industry", "")[:24]
+            _has_fp = bool(_p.get("voice_fingerprint"))
+            _fp_badge = " · 🎙️ Voice fingerprint" if _has_fp else ""
             st.markdown(
                 f"<div style='font-size:0.7rem;color:rgba(255,255,255,0.72);margin-top:-4px;margin-bottom:4px;'>"
                 f"{'👤 ' + _p['name'] + ' · ' if _p.get('name') else ''}{_role_short}"
-                f"{'<br>🏭 ' + _ind_short if _ind_short else ''}</div>",
+                f"{'<br>🏭 ' + _ind_short if _ind_short else ''}{_fp_badge}</div>",
                 unsafe_allow_html=True,
             )
 

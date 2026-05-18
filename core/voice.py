@@ -178,3 +178,39 @@ def voice_block() -> str:
 def short_voice_block() -> str:
     """Compact version for small generations (DMs, hashtags, comment snippets)."""
     return f"{SHORT_PRIMER}\n\n{BANNED}"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. STORY BEATS — the single biggest specificity lever in the app
+# ─────────────────────────────────────────────────────────────────────────────
+# Used across Post Generator, Repurposing Engine, About Optimizer and Brand
+# Scanner. Without beats, every module invents generic-sounding details.
+
+STORY_BEATS_PLACEHOLDER = (
+    "Drop raw details here: names (anonymised), numbers, dates, exact quotes, "
+    "what went wrong, what you felt, what you learnt. The AI builds the output "
+    "around these exact moments — this is the single biggest lever for making "
+    "output sound like you, not a bot.\n\n"
+    "e.g.:\n"
+    "- Client was a Lagos construction firm, ₦80M contract\n"
+    "- I spotted the error on a Tuesday at 11pm\n"
+    "- My senior partner had reviewed the same doc and missed it too\n"
+    "- We filed an emergency injunction at the Federal High Court Lagos next morning\n"
+    "- Key lesson: check the arbitration clause — not just whether it exists, "
+    "but which seat and governing law"
+)
+
+
+def story_beats_block(beats: str, *, label: str = "STORY BEATS") -> str:
+    """
+    Render raw user-provided beats as a labelled prompt block. Returns "" when
+    no beats are provided so it's safe to drop into any prompt unconditionally.
+    """
+    if not beats or not beats.strip():
+        return ""
+    return (
+        f"\n{label} — the writer has provided these raw details. Use them.\n"
+        f"Do not ignore or paraphrase away the specifics. Build the output "
+        f"around these exact moments:\n"
+        f"{beats.strip()}\n"
+    )

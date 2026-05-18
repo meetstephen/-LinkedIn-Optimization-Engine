@@ -10,13 +10,18 @@ import streamlit as st
 from gemini_client import get_profile_context, stream_text, generate_text
 from industry_profiles import get_industry_voice_block
 from library import save_post_to_library, bump_generated
-from core.voice import HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES, STRUCTURE_RULES
+from core.voice import (
+    HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES, STRUCTURE_RULES,
+    story_beats_block,
+)
+from core import validator as _validator
 
 
-def build_repurpose_prompt(idea: str, niche: str, audience: str, formats: list) -> str:
+def build_repurpose_prompt(idea: str, niche: str, audience: str, formats: list, story_beats: str = "") -> str:
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(niche)
     formats_str    = ", ".join(formats)
+    beats_block    = story_beats_block(story_beats)
 
     NL = chr(10)
 
@@ -72,7 +77,7 @@ CORE IDEA / TOPIC:
 TARGET AUDIENCE: {audience}
 NICHE: {niche}
 FORMATS REQUESTED: {formats_str}
-
+{beats_block}
 {BANNED}
 {HUMAN_SIGNATURES}
 {STRUCTURE_RULES}
@@ -130,6 +135,27 @@ def render_repurposing_engine():
             key="re_audience",
         )
 
+        # ── Story Beats — same beats lock the post + carousel + hooks to one real story
+        with st.expander("✍️ Story Beats — same beats become the post, carousel & hooks (highly recommended)", expanded=False):
+            st.markdown(
+                "Drop raw details: names (anonymised), numbers, dates, exact quotes, "
+                "what went wrong, what you felt. The AI builds **every format** "
+                "around these exact moments — text post, carousel and hooks all "
+                "lock to the same real story."
+            )
+            st.text_area(
+                "Raw story details",
+                placeholder=(
+                    "e.g.:\n"
+                    "- Lagos fintech client, ₦4M monthly ad spend, no CAC tracking\n"
+                    "- Discovered the leak in month 9 during a board prep\n"
+                    "- CFO had been reporting 'CAC unknown' for 7 months\n"
+                    "- Lesson: pin a CAC target on day 1, not month 9"
+                ),
+                height=150,
+                key="re_story_beats",
+            )
+
     with col2:
         st.markdown("**📦 Select Formats to Generate**")
         fmt_text     = st.checkbox("📝 Text Post",       value=True,  key="re_fmt_text")
@@ -177,6 +203,7 @@ def render_repurposing_engine():
                 niche or "Professional",
                 audience or "Professionals on LinkedIn",
                 formats,
+                story_beats=st.session_state.get("re_story_beats", ""),
             )
             with _stream_box.container():
                 result = st.write_stream(
@@ -234,6 +261,31 @@ def render_repurposing_engine():
 
         with st.expander(f"{icon} {fmt_name}", expanded=True):
             st.markdown(content)
+
+            # Voice Validator badge — only on the formats where it's meaningful
+            if fmt_name == "Text Post":
+                _vs_report = _validator.validate_post(content)
+                _validator.render_voice_score(_vs_report, key=f"vs_re_{fmt_name}")
+            elif fmt_name == "Comment Prompts":
+                _vs_report = _validator.validate_comment(content)
+                _validator.render_voice_score(_vs_report, key=f"vs_re_{fmt_name}")
+            elif fmt_name == "Hook Variations":
+                # Validate each detected HOOK line individually for hook-only checks
+                import re as _re_h
+                _hook_lines = _re_h.findall(r"(?im)^\s*HOOK\s*\d+\s*[:.\-]\s*(.+)$", content)
+                if _hook_lines:
+                    _hook_issues = []
+                    for _hl in _hook_lines:
+                        _hr = _validator.validate_hook(_hl.strip())
+                        _hook_issues.extend(_hr.issues)
+                    _agg = _validator.ValidationReport(
+                        score=max(0, 100 - sum(
+                            {"critical":12,"medium":7,"low":3}.get(i.severity, 5)
+                            for i in _hook_issues
+                        )),
+                        issues=_hook_issues,
+                    )
+                    _validator.render_voice_score(_agg, key=f"vs_re_{fmt_name}")
 
             btn_cols = st.columns([1, 1, 2])
             with btn_cols[0]:
