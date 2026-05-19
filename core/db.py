@@ -246,7 +246,7 @@ def _cached_get_stats(user_id: str) -> dict:
         m = r.get("module", ""); counts[m] = counts.get(m, 0) + 1
     top = max(counts, key=counts.get) if counts else "—"
     return {"total": total, "starred": starred, "avg_score": avg_score,
-            "top_module": top.split()[-1] if top != "—" else "—"}
+            "top_module": top}
 
 
 def get_stats() -> dict:

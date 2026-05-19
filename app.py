@@ -283,29 +283,53 @@ st.markdown("""
     .hook-preview-text  { font-size: 0.88rem; color: #191919; line-height: 1.55; }
     .hook-see-more      { color: #0A66C2; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
 
-    /* ── Post Library cards ── */
-    .post-card {
-        background: white;
-        border: 1px solid #E1E9F5;
+    /* ── Post Library cards (v4 — buttons live INSIDE the card) ── */
+    .lib-meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin: 0 0 0.65rem 0;
+        font-size: 0.78rem;
+        color: #777;
+    }
+    .lib-pill {
+        display: inline-block;
+        background: #F0F4F9;
+        color: #555;
+        padding: 3px 10px;
         border-radius: 12px;
-        padding: 1.2rem 1.4rem;
-        margin-bottom: 0.75rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        transition: box-shadow 0.2s;
+        font-size: 0.72rem;
+        font-weight: 600;
+        line-height: 1.4;
+        white-space: nowrap;
     }
-    .post-card:hover { box-shadow: 0 6px 20px rgba(10,102,194,0.12); }
-    .post-card-meta {
-        font-size: 0.72rem; color: #888;
-        margin-bottom: 0.5rem;
-        display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    .lib-pill-module {
+        background: #EAF4FF;
+        color: #0A66C2;
     }
-    .post-card-meta .tag {
-        background: #EAF4FF; color: #0A66C2;
-        padding: 2px 8px; border-radius: 10px; font-weight: 600;
+    .lib-meta-date  { color: #888; font-size: 0.75rem; }
+    .lib-meta-star  { color: #F5A623; font-weight: 700; }
+    .lib-meta-score { color: #00C851; font-weight: 700; }
+    .lib-body {
+        background: #FAFBFC;
+        border-left: 3px solid #0A66C2;
+        padding: 0.85rem 1rem;
+        margin: 0 0 0.85rem 0;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        color: #2c2c2c;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
-    .post-card-body {
-        font-size: 0.88rem; color: #333;
-        line-height: 1.55; white-space: pre-wrap;
+    .lib-page-indicator {
+        text-align: center;
+        padding: 0.5rem 0;
+        color: #555;
+        font-weight: 600;
+        font-size: 0.9rem;
     }
 
     /* ── Resume session banner ── */
@@ -2282,6 +2306,14 @@ contents of that file, then click ▶ **Refresh** at the top right.
         "Starred":       "starred",
     }
 
+    # ── Reset pagination when filters change ─────────────────────────────────
+    # Without this, a user on page 5 of "All Modules" can apply a filter that
+    # only has 12 results and end up staring at a blank page.
+    _filter_sig = (search, filter_module, sort_label)
+    if st.session_state.get("_lib_filter_sig") != _filter_sig:
+        st.session_state["_lib_filter_sig"] = _filter_sig
+        st.session_state["lib_page"] = 1
+
     # ── Fetch posts ───────────────────────────────────────────────────────────
     if _CORE_AVAILABLE:
         try:
@@ -2313,9 +2345,14 @@ contents of that file, then click ▶ **Refresh** at the top right.
             filtered = [p for p in filtered if p.get("starred")]
         total_count = len(library)
         scored = [p for p in library if p.get("score", 0) > 0]
-        top_mod = (max({p["module"] for p in library},
-                       key=lambda m: sum(1 for p in library if p["module"] == m)).split()[-1]
-                   if library else "—")
+        # Show full module name (e.g. "🚀 Post Generator") instead of just
+        # the last word — strip the leading emoji+space for tidy display.
+        if library:
+            _top_full = max({p["module"] for p in library},
+                            key=lambda m: sum(1 for p in library if p["module"] == m))
+            top_mod = _top_full
+        else:
+            top_mod = "—"
         stats = {
             "total":      total_count,
             "starred":    sum(1 for p in library if p.get("starred")),
@@ -2355,7 +2392,15 @@ contents of that file, then click ▶ **Refresh** at the top right.
     with sc4:
         st.metric("🏆 Most Used", stats["top_module"])
 
-    st.markdown(f"**Showing {len(filtered)} of {total_count} posts**")
+    # Showing line — be explicit about what's filtered vs. total.
+    if len(filtered) == total_count:
+        _showing_msg = f"**📚 {total_count} post{'s' if total_count != 1 else ''} in your library**"
+    else:
+        _showing_msg = (
+            f"**Showing {len(filtered)} of {total_count} posts** "
+            f"(filtered)"
+        )
+    st.markdown(_showing_msg)
 
     # ── Export & Backup — always visible, not conditional on posts existing ──
     with st.expander("📤 Export & Backup", expanded=False):
@@ -2411,107 +2456,191 @@ contents of that file, then click ▶ **Refresh** at the top right.
     st.markdown("---")
 
     if not filtered:
-        st.warning("No posts match your filters.")
+        st.warning(
+            "🔎 **No posts match your current filters.** "
+            "Try clearing the search, picking a different module, or changing the sort order."
+        )
+        if st.button("🔄 Reset filters", key="lib_reset_filters"):
+            for _k in ("lib_search", "lib_filter", "lib_sort"):
+                st.session_state.pop(_k, None)
+            st.session_state["lib_page"] = 1
+            st.rerun()
         return
 
-    # ── Pagination (50 per page) ───────────────────────────────────────────────
-    PAGE_SIZE = 50
+    # ── Pagination (25 per page — tighter pages = faster scanning) ───────────
+    PAGE_SIZE = 25
     total_pages = max(1, (len(filtered) + PAGE_SIZE - 1) // PAGE_SIZE)
     page = st.session_state.get("lib_page", 1)
     page = max(1, min(page, total_pages))
+    # Persist the clamped value so Prev/Next behave predictably after filtering
+    if st.session_state.get("lib_page") != page:
+        st.session_state["lib_page"] = page
 
-    if total_pages > 1:
+    def _render_pagination(position: str) -> None:
+        """Render Prev / Page X of N / Next — used at top AND bottom of the list."""
+        if total_pages <= 1:
+            return
         pg_cols = st.columns([1, 2, 1])
         with pg_cols[0]:
-            if st.button("◀ Prev", disabled=(page == 1), key="lib_prev"):
+            if st.button("◀ Prev", disabled=(page == 1),
+                         key=f"lib_prev_{position}",
+                         use_container_width=True):
                 st.session_state["lib_page"] = page - 1
                 st.rerun()
         with pg_cols[1]:
             st.markdown(
-                f"<div style='text-align:center; padding:0.3rem; color:#555;'>Page {page} / {total_pages}</div>",
+                f"<div class='lib-page-indicator'>Page {page} / {total_pages}</div>",
                 unsafe_allow_html=True,
             )
         with pg_cols[2]:
-            if st.button("Next ▶", disabled=(page == total_pages), key="lib_next"):
+            if st.button("Next ▶", disabled=(page == total_pages),
+                         key=f"lib_next_{position}",
+                         use_container_width=True):
                 st.session_state["lib_page"] = page + 1
                 st.rerun()
 
+    _render_pagination("top")
+
     page_posts = filtered[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]
 
-    # ── Post cards ────────────────────────────────────────────────────────────
+    # ── Post cards — each fully self-contained inside a bordered container ──
+    # By using st.container(border=True) we get a single visual box that
+    # encloses BOTH the metadata/preview AND the action buttons. The previous
+    # implementation rendered the card via raw HTML and then placed action
+    # buttons OUTSIDE that HTML — Streamlit's columns ignored the HTML
+    # padding, which made buttons spill past the card edges and the whole
+    # thing look misaligned ("shrinked to one side"). This fix puts every
+    # element inside the same Streamlit container so widths line up.
     for post in page_posts:
-        score    = post.get("score", 0)
-        starred  = post.get("starred", False)
-        tags     = post.get("tags", [])
-        tag_html = " ".join(f'<span class="tag">{_html_mod.escape(str(t))}</span>' for t in tags)
-        score_str = f"🔥 {score}/100" if score > 0 else ""
+        with st.container(border=True):
+            score    = post.get("score", 0)
+            starred  = post.get("starred", False)
+            tags     = post.get("tags", [])
 
-        # Escape content so raw <button>, <script> etc. in saved AI output
-        # can't break the page layout.
-        _safe_preview = _html_mod.escape(post['content'][:380]) + ('…' if len(post['content']) > 380 else '')
-
-        st.markdown(f"""
-        <div class="post-card">
-            <div class="post-card-meta">
-                <span class="tag">{_html_mod.escape(post['module'])}</span>
-                {tag_html}
-                <span>{_html_mod.escape(post['created_at'])}</span>
-                {'<span>⭐ Starred</span>' if starred else ''}
-                {'<span style="color:#00c851;font-weight:700;">' + score_str + '</span>' if score_str else ''}
-            </div>
-            <div class="post-card-body">{_safe_preview}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        act1, act2, act3, act4, act5, act6 = st.columns([1, 1, 1, 1, 1, 0.4])
-        with act1:
-            copy_to_clipboard_button(post["content"], "📋 Copy", key=f"lib_cp_{post['id']}")
-        with act2:
-            star_label = "⭐ Unstar" if starred else "☆ Star"
-            if st.button(star_label, key=f"lib_star_{post['id']}"):
-                if _CORE_AVAILABLE:
-                    _db.toggle_star(post["id"])
-                else:
-                    for item in st.session_state["post_library"]:
-                        if item["id"] == post["id"]:
-                            item["starred"] = not item["starred"]
-                st.rerun()
-        with act3:
-            if st.button("🔥 Hook", key=f"lib_hook_{post['id']}",
-                         help="Send this post to the Viral Hook Analyzer"):
-                st.session_state["hook_analyzer_input"] = post["content"]
-                st.session_state["_pending_nav"] = "🔥 Viral Hook Analyzer"
-                st.rerun()
-        with act4:
-            # NEW: Schedule this post into a weekly slot
-            if st.button("📅 Schedule", key=f"lib_sched_{post['id']}",
-                         help="Pin this post to a weekly day + time slot",
-                         disabled=not (_CORE_AVAILABLE and _hc and _hc.get("ok"))):
-                st.session_state["_lib_schedule_target"] = post["id"]
-                st.rerun()
-        with act5:
-            st.download_button(
-                "⬇️ Save", data=post["content"],
-                file_name=f"post_{post['id']}.txt", mime="text/plain",
-                key=f"lib_dl_{post['id']}",
+            # Meta row: module pill + tag pills + date + starred + score
+            meta_parts = [
+                f"<span class='lib-pill lib-pill-module'>"
+                f"{_html_mod.escape(str(post['module']))}</span>"
+            ]
+            for t in tags:
+                meta_parts.append(
+                    f"<span class='lib-pill'>{_html_mod.escape(str(t))}</span>"
+                )
+            meta_parts.append(
+                f"<span class='lib-meta-date'>"
+                f"{_html_mod.escape(str(post['created_at']))}</span>"
             )
-        with act6:
-            if st.button("🗑️", key=f"lib_del_{post['id']}", help="Delete this post"):
-                if _CORE_AVAILABLE:
-                    _db.delete_post(post["id"])
-                else:
-                    st.session_state["post_library"] = [
-                        p for p in st.session_state["post_library"] if p["id"] != post["id"]
-                    ]
-                st.rerun()
+            if starred:
+                meta_parts.append("<span class='lib-meta-star'>⭐ Starred</span>")
+            if score > 0:
+                meta_parts.append(
+                    f"<span class='lib-meta-score'>🔥 {score}/100</span>"
+                )
 
-        # ── Inline schedule picker (rendered when this post is the target) ──
-        _target = st.session_state.get("_lib_schedule_target")
-        if _target == post["id"] and _CORE_AVAILABLE:
-            with st.container():
+            st.markdown(
+                f"<div class='lib-meta-row'>{''.join(meta_parts)}</div>",
+                unsafe_allow_html=True,
+            )
+
+            # Body preview — first 400 chars, then a "view full" expander
+            full_content = post["content"]
+            preview      = full_content[:400]
+            has_more     = len(full_content) > 400
+            preview_html = _html_mod.escape(preview)
+            if has_more:
+                preview_html += "<span style='color:#888;'>…</span>"
+            st.markdown(
+                f"<div class='lib-body'>{preview_html}</div>",
+                unsafe_allow_html=True,
+            )
+
+            # Full-content viewer (only when there's more to show)
+            if has_more:
+                with st.expander(
+                    f"📖 View full post ({len(full_content):,} characters)",
+                    expanded=False,
+                ):
+                    # st.text preserves whitespace and is selectable for copy
+                    st.text(full_content)
+
+            # ── Action row 1: Copy · Star · Hook · Schedule ──────────────
+            act1, act2, act3, act4 = st.columns(4)
+            with act1:
+                copy_to_clipboard_button(
+                    post["content"], "📋 Copy", key=f"lib_cp_{post['id']}"
+                )
+            with act2:
+                star_label = "⭐ Unstar" if starred else "☆ Star"
+                if st.button(star_label, key=f"lib_star_{post['id']}",
+                             use_container_width=True):
+                    if _CORE_AVAILABLE:
+                        _db.toggle_star(post["id"])
+                    else:
+                        for item in st.session_state["post_library"]:
+                            if item["id"] == post["id"]:
+                                item["starred"] = not item["starred"]
+                    st.rerun()
+            with act3:
+                if st.button("🔥 Hook", key=f"lib_hook_{post['id']}",
+                             use_container_width=True,
+                             help="Send this post to the Viral Hook Analyzer"):
+                    st.session_state["hook_analyzer_input"] = post["content"]
+                    st.session_state["_pending_nav"] = "🔥 Viral Hook Analyzer"
+                    st.rerun()
+            with act4:
+                if st.button("📅 Schedule", key=f"lib_sched_{post['id']}",
+                             use_container_width=True,
+                             help="Pin this post to a weekly day + time slot",
+                             disabled=not (_CORE_AVAILABLE and _hc and _hc.get("ok"))):
+                    st.session_state["_lib_schedule_target"] = post["id"]
+                    st.rerun()
+
+            # ── Action row 2: Download · Delete (with confirmation) ──────
+            act5, act6 = st.columns(2)
+            with act5:
+                st.download_button(
+                    "⬇️ Download .txt", data=post["content"],
+                    file_name=f"post_{post['id']}.txt", mime="text/plain",
+                    key=f"lib_dl_{post['id']}",
+                    use_container_width=True,
+                )
+            with act6:
+                _del_pending = st.session_state.get("_lib_del_target") == post["id"]
+                if not _del_pending:
+                    if st.button("🗑️ Delete", key=f"lib_del_{post['id']}",
+                                 use_container_width=True,
+                                 help="Delete this post (you'll be asked to confirm)"):
+                        st.session_state["_lib_del_target"] = post["id"]
+                        st.rerun()
+                else:
+                    cc1, cc2 = st.columns(2)
+                    with cc1:
+                        if st.button("✅ Confirm",
+                                     key=f"lib_del_yes_{post['id']}",
+                                     type="primary",
+                                     use_container_width=True):
+                            if _CORE_AVAILABLE:
+                                _db.delete_post(post["id"])
+                            else:
+                                st.session_state["post_library"] = [
+                                    p for p in st.session_state["post_library"]
+                                    if p["id"] != post["id"]
+                                ]
+                            st.session_state.pop("_lib_del_target", None)
+                            st.rerun()
+                    with cc2:
+                        if st.button("Cancel",
+                                     key=f"lib_del_no_{post['id']}",
+                                     use_container_width=True):
+                            st.session_state.pop("_lib_del_target", None)
+                            st.rerun()
+
+            # ── Inline schedule picker — only shown for the targeted post ──
+            _target = st.session_state.get("_lib_schedule_target")
+            if _target == post["id"] and _CORE_AVAILABLE:
                 st.markdown(
                     "<div style='background:#F0F7FF;border:1.5px solid #C7D9F5;"
-                    "border-radius:10px;padding:0.9rem;margin:0.5rem 0;'>"
+                    "border-radius:10px;padding:0.9rem;margin:0.6rem 0 0.4rem;'>"
                     "<strong>📅 Pin this post to a weekly slot</strong>"
                     "</div>",
                     unsafe_allow_html=True,
@@ -2555,7 +2684,10 @@ contents of that file, then click ▶ **Refresh** at the top right.
                         st.session_state.pop("_lib_schedule_target", None)
                         st.rerun()
 
-        st.markdown("<hr style='margin:0.4rem 0; border-color:#f0f0f0;'>", unsafe_allow_html=True)
+    # ── Bottom pagination — mirror the top controls so users on long pages
+    #    don't have to scroll back up to navigate.
+    st.markdown("<div style='margin-top:0.8rem;'></div>", unsafe_allow_html=True)
+    _render_pagination("bottom")
 
 
 # ─────────────────────────────────────────────
