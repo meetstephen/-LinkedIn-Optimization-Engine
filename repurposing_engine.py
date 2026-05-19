@@ -15,6 +15,7 @@ from core.voice import (
     story_beats_block,
 )
 from core import validator as _validator
+from core.debug import stash_prompt, render_prompt_debug
 
 
 def build_repurpose_prompt(idea: str, niche: str, audience: str, formats: list, story_beats: str = "") -> str:
@@ -205,6 +206,16 @@ def render_repurposing_engine():
                 formats,
                 story_beats=st.session_state.get("re_story_beats", ""),
             )
+            stash_prompt(
+                "repurposing_engine", prompt,
+                meta={
+                    "model":       st.session_state.get("gemini_model", "gemini-2.5-flash"),
+                    "temperature": 0.85,
+                    "niche":       niche or "Professional",
+                    "audience":    audience or "Professionals on LinkedIn",
+                    "formats":     ", ".join(formats),
+                },
+            )
             with _stream_box.container():
                 result = st.write_stream(
                     stream_text(prompt, temperature=0.85, max_tokens=10000)
@@ -335,3 +346,6 @@ def render_repurposing_engine():
             for k in ("re_last_result", "re_last_formats"):
                 st.session_state.pop(k, None)
             st.rerun()
+
+    # Prompt debug expander — collapsed by default; silently no-ops when empty
+    render_prompt_debug("repurposing_engine")
