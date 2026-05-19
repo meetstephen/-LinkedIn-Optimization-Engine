@@ -16,6 +16,7 @@ from core.voice import (
 )
 from core import validator as _validator
 from core.debug import stash_prompt, render_prompt_debug
+from core.error_logger import log_error
 
 
 def build_repurpose_prompt(idea: str, niche: str, audience: str, formats: list, story_beats: str = "") -> str:
@@ -230,6 +231,12 @@ def render_repurposing_engine():
             bump_generated()
 
         except Exception as e:
+            log_error("repurposing_engine", e, context={
+                "niche": niche or "Professional",
+                "audience": audience or "Professionals on LinkedIn",
+                "formats": ", ".join(formats),
+                "idea_len": len(idea or ""),
+            })
             st.error(f"Generation failed: {str(e)}")
             with st.expander("🔍 Error details"):
                 import traceback as _tb

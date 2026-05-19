@@ -12,6 +12,7 @@ from core.voice import (
 from core import validator as _validator
 from core import polish as _polish
 from core.debug import stash_prompt, render_prompt_debug
+from core.error_logger import log_error
 
 
 OPTIMIZATION_GOALS = {
@@ -186,6 +187,11 @@ def render_post_optimizer():
             bump_optimized()
 
         except Exception as e:
+            log_error("post_optimizer", e, context={
+                "goal": goal,
+                "niche": st.session_state.get("po_niche", ""),
+                "content_len": len(original_post or ""),
+            })
             st.error(f"Optimization failed: {str(e)}")
             with st.expander("🔍 Error details"):
                 import traceback as _tb

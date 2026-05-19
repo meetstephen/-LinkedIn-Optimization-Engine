@@ -236,3 +236,120 @@ CREATE POLICY lb_password_resets_anon_all
 --   lb_posts, lb_profiles, lb_schedule, lb_users, lb_login_events,
 --   lb_usage_events, lb_password_resets
 -- Rows are auto-created the first time the app writes to them.
+
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- v3.1 — TIER-3 ENGINEERING HYGIENE
+-- ════════════════════════════════════════════════════════════════════════════
+-- Three additive migrations, all idempotent. Re-running this whole file is
+-- safe; these blocks are no-ops on installs that already have v3.1.
+--
+--   A. lb_posts.id  : BIGINT → TEXT  (so we can store UUIDs going forward)
+--   B. lb_posts.deleted_at : TIMESTAMPTZ  (soft delete + 30-day retention)
+--   C. lb_error_events     : structured error log for the operator dashboard
+-- ════════════════════════════════════════════════════════════════════════════
+
+
+-- ── A. UUID-friendly post IDs ───────────────────────────────────────────────
+-- Why: the previous scheme `int(time.time() * 1000)` had a tiny collision
+-- window when two saves landed in the same millisecond. uuid4() makes that
+-- impossible. We migrate the column to TEXT in place — existing integer rows
+-- keep working because Postgres converts them to their decimal-string form,
+-- and new UUID rows insert into the same column with no schema gymnastics.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'lb_schedule'
+          AND column_name = 'post_id'
+          AND data_type = 'bigint'
+    ) THEN
+        ALTER TABLE lb_schedule ALTER COLUMN post_id TYPE TEXT USING post_id::TEXT;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'lb_posts'
+          AND column_name = 'id'
+          AND data_type = 'bigint'
+    ) THEN
+        ALTER TABLE lb_posts ALTER COLUMN id TYPE TEXT USING id::TEXT;
+    END IF;
+END$$;
+
+
+-- ── B. Soft delete + 30-day retention ───────────────────────────────────────
+-- delete_post() now sets deleted_at instead of DELETEing. The Library hides
+-- rows where deleted_at IS NOT NULL but shows them in a "Recently deleted"
+-- panel for 30 days with a Restore button. After 30 days the app's
+-- purge_old_deleted() helper hard-deletes them — schedule it via Supabase
+-- pg_cron for full automation, or call it from an admin button.
+ALTER TABLE lb_posts
+    ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+-- Partial index — covers the hot path (`WHERE deleted_at IS NULL`) without
+-- bloating the index for the rare trash-list query.
+CREATE INDEX IF NOT EXISTS lb_posts_active_user_idx
+    ON lb_posts (user_id, inserted_at DESC)
+    WHERE deleted_at IS NULL;
+
+-- Index for the inverse query — listing recently deleted posts.
+CREATE INDEX IF NOT EXISTS lb_posts_deleted_at_idx
+    ON lb_posts (user_id, deleted_at DESC)
+    WHERE deleted_at IS NOT NULL;
+
+
+-- ── C. Structured error log ─────────────────────────────────────────────────
+-- Every catch-block in the app calls core.error_logger.log_error() which
+-- writes a row here. Replaces "errors disappear into the void" with a real
+-- audit trail for spotting regressions, model errors, etc.
+CREATE TABLE IF NOT EXISTS lb_error_events (
+    id            BIGSERIAL    PRIMARY KEY,
+    user_id       TEXT,
+    module        TEXT         DEFAULT '',
+    error_type    TEXT         DEFAULT '',
+    error_message TEXT         DEFAULT '',
+    traceback     TEXT         DEFAULT '',
+    context       JSONB        DEFAULT '{}'::jsonb,
+    occurred_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS lb_error_events_recent_idx
+    ON lb_error_events (occurred_at DESC);
+
+CREATE INDEX IF NOT EXISTS lb_error_events_user_idx
+    ON lb_error_events (user_id, occurred_at DESC);
+
+CREATE INDEX IF NOT EXISTS lb_error_events_module_idx
+    ON lb_error_events (module, occurred_at DESC);
+
+ALTER TABLE lb_error_events ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS lb_error_events_anon_all ON lb_error_events;
+CREATE POLICY lb_error_events_anon_all
+    ON lb_error_events FOR ALL
+    TO anon
+    USING (true)
+    WITH CHECK (true);
+
+
+-- ── D. (Optional) Auto-purge soft-deleted posts older than 30 days ──────────
+-- Uncomment and run separately if you want automatic cleanup. Requires the
+-- pg_cron extension (free on Supabase Pro; on Free tier just call
+-- purge_old_deleted() from an admin button periodically).
+--
+-- SELECT cron.schedule(
+--     'lb_posts_purge_old_deleted',
+--     '0 3 * * *',        -- daily at 03:00 UTC
+--     $$DELETE FROM lb_posts
+--        WHERE deleted_at IS NOT NULL
+--          AND deleted_at < NOW() - INTERVAL '30 days'$$
+-- );
+
+
+-- ── E. SANITY CHECK (v3.1) ──────────────────────────────────────────────────
+-- After running, you should now see EIGHT tables in your Supabase Table Editor:
+--   lb_posts, lb_profiles, lb_schedule, lb_users, lb_login_events,
+--   lb_usage_events, lb_password_resets, lb_error_events
+-- And lb_posts.id should now be type TEXT.
