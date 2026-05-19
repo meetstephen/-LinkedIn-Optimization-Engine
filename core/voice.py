@@ -42,7 +42,22 @@ Three rules govern every line you write:
 
   1. Specificity over polish. A real number beats a clever phrase. A real moment beats a clever framework.
   2. One genuine thought per paragraph. If a sentence isn't carrying weight, cut it.
-  3. Earned honesty over performance. If the writer was wrong, scared, or unsure — say so once. Don't perform vulnerability; admit something."""
+  3. Earned honesty over performance. If the writer was wrong, scared, or unsure — say so once. Don't perform vulnerability; admit something.
+
+REGISTER & RHYTHM — what makes writing actually sound like a person, not a polished bot:
+
+  • Use contractions where a person would. "It's", "won't", "don't", "I'd", "you'll". Refusing to contract is the single fastest way to sound like a press release.
+  • Vary sentence length aggressively. A 16-word sentence followed by a 4-word one. Then maybe a fragment. That's the rhythm of speech.
+  • Sentence fragments are allowed when they earn their place. Used sparingly. Like that.
+  • Drop the phrase "this highlights / this shows / this reveals / this demonstrates / this underscores / this illustrates". A real writer doesn't narrate what their own paragraph is doing.
+  • Drop the "X is not just Y; it's Z" template. It's the most overused corporate sentence on LinkedIn.
+  • Drop the semicolon-heavy "while X, Y" construction. Real people use "but" and "and" and a full stop.
+  • Drop "the true cost isn't X; it's Y" and every variation of it.
+  • Drop "it's a reminder that...", "it goes to show...", and "this just proves...". Mic-drop summaries kill momentum.
+  • Drop "cuts through the noise / sensationalism / hype". Lazy, overused.
+  • Drop opening any sentence with "Indeed,", "Moreover,", "Furthermore,", "However,", "Hence,". This is essay register, not LinkedIn register.
+  • One adjective per noun, max. "A vague indemnity clause", not "a critically vague and dangerously underspecified indemnity clause".
+  • If a sentence has more than one clause linked by "and" or "but", check whether the second clause is doing real work. Often it isn't."""
 
 
 # Shorter version for tight prompts (DMs, hashtags, scoring rubrics, etc.)
@@ -95,6 +110,28 @@ Mic-drop endings and engagement-farming CTAs:
   "share this if you agree", "tag someone who needs this",
   "I'd love to hear your thoughts" (weak and predictable),
   "great post!", "so true!", "love this!", "absolutely!", "100%!"
+
+Robotic narration phrases — the model describing what its own paragraph is doing:
+  "this highlights", "this highlights why", "this shows", "this shows that",
+  "this reveals", "this demonstrates", "this underscores", "this illustrates",
+  "this speaks to", "this points to the fact that", "this just goes to show",
+  "it's a reminder that", "it goes to show", "this serves as a reminder",
+  "this is precisely why", "which is precisely why"
+
+Corporate-essay constructions that scream AI:
+  "X is not just Y; it's Z" (and every variation),
+  "the true cost isn't X; it's Y", "the real question isn't X; it's Y",
+  "while rooted in X, ignores Y", "while X, Y" (essay-style contrast),
+  "beyond X; it's Y", "more than X; it's Y",
+  "cuts through the noise", "cuts through the sensationalism",
+  "cuts through the hype", "demystifies", "sheds light on",
+  "speaks volumes", "stands as a testament", "is a testament to",
+  "in an era where", "in a world where", "now more than ever"
+
+Essay-register transitions banned at the start of any sentence:
+  "Indeed,", "Moreover,", "Furthermore,", "However,", "Nevertheless,",
+  "Hence,", "Thus,", "Therefore,", "Consequently,", "In essence,",
+  "Ultimately,", "That said," (used vaguely)
 
 Hard rule: if any phrase above appears in the output, the response fails. Rewrite it."""
 

@@ -27,13 +27,61 @@ ADDITIONAL BANNED CONTENT ANGLES (on top of the global voice rules):
 - Anything starting with "I'm excited to..."
 - "X things about [topic] that will change your life"
 - Generic inspiration without a specific story or number behind it
+
+BANNED PHRASES IN THE 'WHY IT WILL PERFORM' LINE — these patterns make the
+output read like marketing copy. Cut every one of them:
+- "offers a tangible lesson" / "offers a painful lesson"
+- "challenges a common, entrenched mindset"
+- "speaks directly to" (used as filler)
+- "appeals to both X and Y audiences"
+- "demystifies" anything
+- "cuts through generic talk" / "cuts through the noise"
+- "sparking a thoughtful discussion"
+- "resonates with professionals at all levels"
+- "connects with the universal struggle of X"
+- "addresses a common pain point"
+
+A 'why this works' line should sound like the writer's gut-check, not a pitch
+deck. Two specific reasons in plain language. No marketing register.
 """
+
+
+def _hashtag_block(use_nigerian_context: bool) -> str:
+    """
+    Build the hashtag instruction block. Hashtags on LinkedIn 2024-2026 carry
+    almost no algorithmic weight — most strong creators use 0–3, never 5+.
+    Long PascalCase chains read like dated SEO and signal 'this is AI output'.
+    """
+    base = (
+        "TAGS — keep it light. LinkedIn no longer rewards long hashtag chains; "
+        "0–3 tags is the modern norm. Top creators often skip them entirely.\n"
+        "  - Output 2 tags maximum, lowercase by default (e.g. #legaltech, "
+        "#contractlaw). Skip if nothing genuinely fits the post.\n"
+        "  - No PascalCase stuffing like #LegalTechNigeriaForFounders. That "
+        "reads like SEO from 2018.\n"
+        "  - Never include more than one location/region tag.\n"
+        "  - If a tag is generic (#leadership, #linkedin, #networking), drop "
+        "it — it does nothing for the post."
+    )
+    if use_nigerian_context:
+        base += (
+            "\n  - At most ONE Nigeria-relevant tag where it actually fits "
+            "(e.g. #lagostech, #nigerianlawyers). Don't force it."
+        )
+    return base
 
 
 def build_ideas_prompt(niche, role, pillars, count, timeframe):
     pillar_list    = "\n".join([f"- {p}: {CONTENT_PILLARS[p]}" for p in pillars])
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(niche)
+
+    # Hashtag rules — sane defaults regardless of mode, plus one extra line
+    # of permission for Nigerian tags when the user has Nigerian Mode on.
+    import streamlit as _st
+    _ng_on = bool(_st.session_state.get("nigerian_mode", False))
+    hashtag_rules = _hashtag_block(_ng_on)
+
     return f"""{HUMAN_VOICE_PRIMER}
 
 You are working as a sharp editor generating LinkedIn content ideas — specific, usable, and grounded in how real practitioners in {niche} actually talk about their work.
@@ -54,24 +102,41 @@ CREATOR:
 
 Generate {count} content ideas.
 
-For each idea:
+CRITICAL — ANTI-TEMPLATE RULES (most important instruction in this prompt):
 
-**[NUMBER]. [IDEA TITLE — 5-8 words, punchy and specific]**
-Pillar: [which pillar]
-Hook: [The exact first 1-2 lines to open the post. No questions. Does not start with "I". Scroll-stopping.]
-Angle: [2 sentences — the specific tension to create and the insight to land on. Name any real Nigerian institution, regulation, or data point that would make this credible.]
-Why it will perform: [1 specific reason tied to LinkedIn psychology — not generic]
-Hashtags: [3-5 specific ones including at least 1 Nigeria-specific if Nigerian mode active]
+The {count} ideas must NOT all use the same micro-structure. If every entry
+opens with a "[time], a [role] called me…" hook, or every "angle" line ends
+with a generalised lesson, the output reads like a robot. Vary aggressively.
+
+Distribute these opening types across the {count} ideas (use each at least
+once if {count} >= 5):
+  • Mid-scene story opener ("9pm Monday. The founder hadn't slept.")
+  • Bold statement opener ("Most M&A due diligence in Lagos is theatre.")
+  • Specific number opener ("18 hidden liens. One AI tool. Six minutes.")
+  • Confession opener ("Almost declined the talk. Wasn't sure I was qualified.")
+  • Contrarian claim opener ("The senior at NBA got it wrong.")
+  • Direct address opener ("If you're a founder reviewing your own SaaS terms, stop.")
+
+For each idea, output EXACTLY this format:
+
+**[NUMBER]. [IDEA TITLE — 5-8 words, punchy, no colons unless needed]**
+Pillar: [which pillar from the list]
+Hook: [The exact 1-2 lines that open the post. No questions. Doesn't start with "I". Sounds like a person talking, not a press release.]
+Angle: [2-3 sentences in plain conversational English. Name the specific tension. Use a real number, place, or institution. Use contractions naturally. NO "this highlights / this underscores / this is a testament to" framing.]
+Why it works: [One short sentence — sounds like the writer's gut-check, not marketing copy. Plain language, max 18 words.]
+Tags: [Apply the rules below. If no good tag fits, write "Tags: skip".]
+
+{hashtag_rules}
 
 ---
 
 After all {count} ideas, add:
 
 **EVERGREEN PICKS (3 ideas that work any week):**
-[Title + one-line reason why it stays relevant]
+[Title + one short reason in plain English — no marketing voice]
 
 **POST THIS WEEK:**
-[The single idea most likely to get traction RIGHT NOW in {niche}, and the specific reason why this week.]
+[The single idea most likely to land RIGHT NOW in {niche}, and the specific reason why this week. Two sentences max. Sound like a friend texting a recommendation, not a content strategist filing a report.]
 """
 
 
@@ -134,7 +199,7 @@ def render_content_ideas():
             with _stream_box.container():
                 result = st.write_stream(stream_text(
                     build_ideas_prompt(niche, role, pillars, count, timeframe),
-                    temperature=0.88, max_tokens=8000,
+                    temperature=0.95, max_tokens=8000,
                 ))
             _stream_box.empty()
             st.session_state["ci_last_result"] = result
