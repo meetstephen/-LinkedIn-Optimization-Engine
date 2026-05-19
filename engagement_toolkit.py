@@ -151,8 +151,13 @@ Specific to this post — not generic hashtag advice.
 
 
 def render_engagement_toolkit():
-    st.header("⚡ Engagement Toolkit")
-    st.markdown("Hooks, CTAs, hashtags, and timing — everything you need to maximise reach on every post.")
+    st.markdown("""
+    <div class="main-header">
+        <div class="v-badge">Hooks · CTAs · Hashtags · Timing</div>
+        <h1>⚡ Engagement Toolkit</h1>
+        <p>Everything you need to maximise reach on every post — in one place.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
     tab1, tab2, tab3, tab4 = st.tabs(["🪝 Hook Generator", "📢 CTA Generator", "#️⃣ Hashtag Optimizer", "⏰ Posting Times"])
 
