@@ -768,6 +768,38 @@ st.markdown("""
         .viral-panel { padding: 0.9rem; }
     }
 
+    /* ══════════════════════════════════════════════
+       TABLET BREAKPOINT — 769-1100 px
+       At this width Streamlit columns stay side-by-side, but a 5-column
+       action row (Post Generator) compresses each button to ~80 px and
+       labels like "📋 Copy Post" / "🔧 Send to Optimizer" get clipped.
+       The fix: shrink the button font and padding inside narrow columns
+       and force ``white-space: nowrap`` so labels never truncate
+       awkwardly in the middle of a word. The labels in post_generator.py
+       are already shortened (Copy / Optimize / Hook / Visual / Save) so
+       this is the belt-and-braces guarantee.
+    ══════════════════════════════════════════════ */
+    @media (min-width: 769px) and (max-width: 1100px) {
+        /* Only target buttons that live inside multi-column rows */
+        [data-testid="stHorizontalBlock"] [data-testid="stButton"] > button,
+        [data-testid="stHorizontalBlock"] [data-testid="stDownloadButton"] > button {
+            font-size: 0.78rem !important;
+            padding: 0.45rem 0.55rem !important;
+            white-space: nowrap !important;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0 !important;
+        }
+        /* Tighten the per-button text size too — keeps Streamlit's
+           inner span from forcing the button to overflow its column. */
+        [data-testid="stHorizontalBlock"] [data-testid="stButton"] > button p,
+        [data-testid="stHorizontalBlock"] [data-testid="stDownloadButton"] > button p {
+            font-size: 0.78rem !important;
+            margin: 0 !important;
+            line-height: 1.2 !important;
+        }
+    }
+
     /* ── WAT Clock / Posting Time Badge ── */
     .wat-badge {
         background: linear-gradient(135deg, #004182, #0A66C2);
@@ -1122,8 +1154,65 @@ def render_sidebar():
         st.markdown("**👤 Your Profile**")
         _p = st.session_state.get("user_profile", {})
         _profile_complete = bool(_p.get("role") and _p.get("industry"))
-        _badge = "✅ Profile Set" if _profile_complete else "⚙️ Set Up Profile"
-        with st.expander(_badge, expanded=not _profile_complete):
+
+        # ── Detect unsaved edits ────────────────────────────────────────────
+        # Streamlit re-runs after every keystroke that loses focus, so we can
+        # reliably read the current widget values from session_state. We
+        # compare each one against the persisted profile to decide whether
+        # the form is "dirty". This avoids a hidden trap from the previous
+        # implementation: every text_input had ``value=_p.get(...)`` AND a
+        # ``key=...``, which means once the user starts typing, the saved
+        # profile silently overwrites their unsaved edits on the next rerun
+        # if Streamlit ever re-resolves the value param. Comparing against
+        # the saved profile here makes that risk visible to the user.
+        _pillars_saved = ", ".join(_p.get("content_pillars", []))
+        _dirty_fields = []
+        for _k, _saved in [
+            ("sp_name",     _p.get("name", "")),
+            ("sp_headline", _p.get("headline", "")),
+            ("sp_role",     _p.get("role", "")),
+            ("sp_industry", _p.get("industry", "")),
+            ("sp_audience", _p.get("audience", "")),
+            ("sp_pillars",  _pillars_saved),
+            ("sp_tone",     _p.get("tone", "Professional & Authoritative")),
+            ("sp_voice",    _p.get("voice_sample", "")),
+        ]:
+            _curr = st.session_state.get(_k)
+            # Only count as dirty when the widget has actually been touched.
+            # On first render st.session_state has no entry for the key.
+            if _curr is None:
+                continue
+            if str(_curr).strip() != str(_saved).strip():
+                _dirty_fields.append(_k)
+        _is_dirty = bool(_dirty_fields)
+
+        # Expander label reflects state at a glance:
+        #   ✅ Profile Set                 → saved + complete
+        #   ⚙️ Set Up Profile              → not yet configured
+        #   ● Profile Set · Unsaved        → dirty + complete
+        #   ● Set Up Profile · Unsaved     → dirty + incomplete
+        if _is_dirty:
+            _badge = "● Unsaved changes" + (
+                " · Profile Set" if _profile_complete else " · Set Up Profile"
+            )
+        else:
+            _badge = "✅ Profile Set" if _profile_complete else "⚙️ Set Up Profile"
+
+        with st.expander(_badge, expanded=not _profile_complete or _is_dirty):
+            # In-form unsaved-changes pill — visible no matter where the user
+            # scrolled in the expander.
+            if _is_dirty:
+                st.markdown(
+                    "<div style='background:rgba(255,107,53,0.12);"
+                    "border:1px solid rgba(255,107,53,0.45);"
+                    "color:#FFB347 !important;font-weight:700;font-size:0.78rem;"
+                    "padding:0.4rem 0.7rem;border-radius:8px;margin-bottom:0.6rem;'>"
+                    "● Unsaved changes — click <strong>💾 Save Profile</strong> below "
+                    "to persist them. Otherwise they vanish on the next refresh."
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
+
             _name = st.text_input(
                 "Your Name", value=_p.get("name", ""),
                 placeholder="e.g. Stephen Chukwu", key="sp_name",
@@ -1182,7 +1271,52 @@ def render_sidebar():
                 key="sp_voice",
             )
             st.caption("* Required for personalised AI output")
-            if st.button("💾 Save Profile", key="sp_save", use_container_width=True):
+
+            # Save row — when there are unsaved edits we surface a 2-button
+            # row so the user can either commit them or wipe them in one
+            # click. When clean, the single Save button stands alone.
+            if _is_dirty:
+                _save_col, _discard_col = st.columns([2, 1])
+                with _save_col:
+                    _save_clicked = st.button(
+                        "💾 Save Changes",
+                        key="sp_save",
+                        type="primary",
+                        use_container_width=True,
+                        help=(
+                            f"{len(_dirty_fields)} field"
+                            f"{'s' if len(_dirty_fields) != 1 else ''} edited "
+                            "since last save."
+                        ),
+                    )
+                with _discard_col:
+                    _discard_clicked = st.button(
+                        "↺ Discard",
+                        key="sp_discard",
+                        use_container_width=True,
+                        help="Throw away unsaved edits and reload the saved profile.",
+                    )
+            else:
+                _save_clicked = st.button(
+                    "💾 Save Profile",
+                    key="sp_save",
+                    use_container_width=True,
+                )
+                _discard_clicked = False
+
+            # Discard happens BEFORE Save handling — clearing the widget keys
+            # forces Streamlit to fall back to ``value=`` on the next rerun,
+            # which reads from the saved profile.
+            if _discard_clicked:
+                for _k in (
+                    "sp_name", "sp_headline", "sp_role", "sp_industry",
+                    "sp_audience", "sp_pillars", "sp_tone", "sp_voice",
+                ):
+                    st.session_state.pop(_k, None)
+                st.toast("Unsaved changes discarded.", icon="↺")
+                st.rerun()
+
+            if _save_clicked:
                 _new_profile = {
                     "name":            _name.strip(),
                     "headline":        _headline.strip(),
@@ -2564,6 +2698,9 @@ contents of that file, then click ▶ **Refresh** at the top right.
                     st.text(full_content)
 
             # ── Action row 1: Copy · Star · Hook · Schedule ──────────────
+            # Labels deliberately short — full intent lives in the help tooltip
+            # so this row stays readable on tablet widths (769–1100 px) where
+            # 4 columns × ~120 px each can clip longer labels.
             act1, act2, act3, act4 = st.columns(4)
             with act1:
                 copy_to_clipboard_button(
@@ -2572,7 +2709,8 @@ contents of that file, then click ▶ **Refresh** at the top right.
             with act2:
                 star_label = "⭐ Unstar" if starred else "☆ Star"
                 if st.button(star_label, key=f"lib_star_{post['id']}",
-                             use_container_width=True):
+                             use_container_width=True,
+                             help="Toggle the starred flag — starred posts surface to the top of the Library."):
                     if _CORE_AVAILABLE:
                         _db.toggle_star(post["id"])
                     else:
@@ -2583,12 +2721,12 @@ contents of that file, then click ▶ **Refresh** at the top right.
             with act3:
                 if st.button("🔥 Hook", key=f"lib_hook_{post['id']}",
                              use_container_width=True,
-                             help="Send this post to the Viral Hook Analyzer"):
+                             help="Send this post to the Viral Hook Analyzer to score & rewrite the opening"):
                     st.session_state["hook_analyzer_input"] = post["content"]
                     st.session_state["_pending_nav"] = "🔥 Viral Hook Analyzer"
                     st.rerun()
             with act4:
-                if st.button("📅 Schedule", key=f"lib_sched_{post['id']}",
+                if st.button("📅 Pin", key=f"lib_sched_{post['id']}",
                              use_container_width=True,
                              help="Pin this post to a weekly day + time slot",
                              disabled=not (_CORE_AVAILABLE and _hc and _hc.get("ok"))):
@@ -2599,10 +2737,11 @@ contents of that file, then click ▶ **Refresh** at the top right.
             act5, act6 = st.columns(2)
             with act5:
                 st.download_button(
-                    "⬇️ Download .txt", data=post["content"],
+                    "⬇️ Download", data=post["content"],
                     file_name=f"post_{post['id']}.txt", mime="text/plain",
                     key=f"lib_dl_{post['id']}",
                     use_container_width=True,
+                    help="Download the raw post content as a .txt file",
                 )
             with act6:
                 _del_pending = st.session_state.get("_lib_del_target") == post["id"]

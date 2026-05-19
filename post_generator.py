@@ -14,6 +14,17 @@ from core.voice import (
 )
 from core import validator as _validator
 from core import polish as _polish
+from core.debug import stash_prompt, render_prompt_debug
+
+
+# ── Re-roll knobs ────────────────────────────────────────────────────────────
+# Hitting "Generate" twice in a row used to produce nearly-identical output
+# because the temperature was pinned at 0.88. We track how many times the
+# user has re-rolled the SAME (topic, niche, tone, framework) signature and
+# escalate temperature each time. The signature resets the moment any of
+# those four fields change so a fresh topic always starts from a calm 0.88.
+_REGEN_TEMPS = [0.88, 0.95, 1.05, 1.15, 1.20]   # caps at 1.20 — beyond is gibberish
+_DIFFERENT_ANGLE_TEMP = 1.00                    # warmer than first run, cooler than 3rd
 
 
 # ── Unicode formatting helpers ─────────────────────────────────────────────
@@ -253,13 +264,49 @@ def build_post_prompt(
     framework: str,
     audience: str,
     story_beats: str = "",
+    *,
+    different_angle: bool = False,
+    avoid_framework: str = "",
 ) -> str:
+    """
+    Compose the full Post Generator prompt.
+
+    Parameters
+    ----------
+    different_angle : bool, default False
+        When True, instruct the model to take a deliberately different angle
+        from the previous generation — different opener, different structure,
+        different emotional register. Used by the "🎲 Different Angle" button.
+    avoid_framework : str
+        Name of a framework the model should NOT default to (typically the
+        framework used on the previous click). Lets the user keep generating
+        until something genuinely distinct lands.
+    """
     tone_desc        = TONE_DESCRIPTIONS.get(tone, tone)
     framework_desc   = FRAMEWORK_DESCRIPTIONS.get(framework, framework)
     profile_ctx      = get_profile_context()
     industry_voice   = get_industry_voice_block(niche)
 
     beats_block = story_beats_block(story_beats)
+
+    # ── Anti-repetition cue — only injected when the caller asks for it
+    # so a fresh topic gets a clean prompt without the "different from last
+    # time" instruction polluting the model's planning.
+    repetition_cue = ""
+    if different_angle:
+        repetition_cue = (
+            "\n\n🎲 DIFFERENT ANGLE MODE — the user already saw one version of "
+            "this post and wants something genuinely different. Do NOT reuse "
+            "the same opening line type, the same structure, or the same "
+            "emotional register as a typical first attempt. Pick the angle a "
+            "different writer would have picked."
+        )
+    if avoid_framework and avoid_framework != framework:
+        repetition_cue += (
+            f"\n\nAvoid leaning on the **{avoid_framework}** framework — that "
+            f"was the previous attempt's default. Use **{framework}** as the "
+            f"primary structure here."
+        )
 
     return f"""{HUMAN_VOICE_PRIMER}
 
@@ -273,7 +320,7 @@ You are writing for this specific person:
 {industry_voice}
 {BANNED}
 {HUMAN_SIGNATURES}
-{STRUCTURE_RULES}
+{STRUCTURE_RULES}{repetition_cue}
 
 Write 2 COMPLETELY DIFFERENT post variations. Same message. Different angle. Different structure. Different hook.
 
@@ -303,6 +350,37 @@ LinkedIn supports up to 3,000 characters (~500 words). Use as much space as the 
 Never pad. Never cut a story short because you're running out of room.
 Every line must move the reader forward — but don't truncate the narrative to hit an arbitrary limit.
 """
+
+
+def _next_framework(current: str) -> str:
+    """
+    Pick a framework that is *visibly* different from ``current`` so the
+    "Different Angle" button actually changes the structure of the output.
+
+    Strategy: walk the FRAMEWORK_DESCRIPTIONS dict and pick the next entry
+    after the current one (wrapping around). Ordered list rather than random
+    so successive clicks rotate through every framework deterministically —
+    the user can keep clicking until something lands without re-seeing the
+    same framework twice in a row.
+    """
+    keys = list(FRAMEWORK_DESCRIPTIONS.keys())
+    if not keys:
+        return current
+    if current not in keys:
+        return keys[0]
+    idx = (keys.index(current) + 1) % len(keys)
+    return keys[idx]
+
+
+def _generation_signature(topic: str, niche: str, tone: str, framework: str) -> str:
+    """
+    Stable signature for "this is the same generation request as last time."
+    When the signature changes (e.g. user edits the topic) we reset the regen
+    counter so the next click starts at temperature 0.88 again.
+    """
+    import hashlib
+    raw = "|".join([topic.strip(), niche.strip(), tone.strip(), framework.strip()])
+    return hashlib.md5(raw.encode("utf-8")).hexdigest()
 
 
 def render_post_generator():
@@ -367,7 +445,36 @@ def render_post_generator():
 
     st.markdown("---")
 
-    if st.button("✨ Generate Post Variations", type="primary", use_container_width=True):
+    # ── Action row: main Generate button + Different-Angle re-roll ───────────
+    # The two buttons are siblings, not nested, so a re-roll never re-runs the
+    # primary click handler. ``st.button(...)`` returns True only on the click
+    # that triggered this rerun — using each return value to gate behaviour.
+    _gen_col, _angle_col = st.columns([2, 1])
+    with _gen_col:
+        _generate_clicked = st.button(
+            "✨ Generate Post Variations",
+            type="primary",
+            use_container_width=True,
+            key="pg_generate_btn",
+        )
+    with _angle_col:
+        _has_prior = bool(st.session_state.get("pg_var1") or st.session_state.get("pg_var2"))
+        _different_angle_clicked = st.button(
+            "🎲 Different Angle",
+            use_container_width=True,
+            disabled=not _has_prior,
+            help=(
+                "Pick a different framework than the one you just used and "
+                "force the model to take a structurally different angle. "
+                "Generate at least once first."
+                if not _has_prior else
+                "Re-rolls with a different framework and a fresh angle so you "
+                "don't get the same post twice."
+            ),
+            key="pg_different_angle_btn",
+        )
+
+    if _generate_clicked or _different_angle_clicked:
         _topic_val = st.session_state.get("pg_topic", "").strip()
         if not _topic_val:
             st.error("Please enter a topic before generating.")
@@ -376,7 +483,43 @@ def render_post_generator():
             st.error("Please enter your niche/industry.")
             return
 
-        st.info("⚡ Streaming output — your post appears as it's written…")
+        # ── Decide WHICH framework + temperature to use this run ─────────────
+        # On a normal "Generate" click we use the user's selected framework.
+        # On "Different Angle" we deliberately rotate to the next framework and
+        # also flip the prompt's "different_angle" flag so the model knows the
+        # previous attempt is on the user's screen.
+        if _different_angle_clicked:
+            _last_framework = st.session_state.get("pg_last_framework", framework)
+            _active_framework = _next_framework(_last_framework)
+            _temperature      = _DIFFERENT_ANGLE_TEMP
+            _different_angle  = True
+            _avoid_framework  = _last_framework
+        else:
+            # Re-roll escalation: same signature → step up; new signature → reset.
+            _signature  = _generation_signature(
+                _topic_val,
+                st.session_state.get("pg_niche", ""),
+                tone, framework,
+            )
+            _prev_sig   = st.session_state.get("pg_last_signature", "")
+            _regen_idx  = st.session_state.get("pg_regen_count", 0) if _signature == _prev_sig else 0
+            _temperature = _REGEN_TEMPS[min(_regen_idx, len(_REGEN_TEMPS) - 1)]
+
+            _active_framework = framework
+            # On a fresh signature (first click for this topic) we don't want
+            # the model thinking about a "previous angle" that didn't exist.
+            _different_angle  = (_regen_idx > 0)
+            _avoid_framework  = ""
+
+            # Bump for next time
+            st.session_state["pg_regen_count"]   = _regen_idx + 1
+            st.session_state["pg_last_signature"] = _signature
+
+        st.info(
+            f"⚡ Streaming output — your post appears as it's written… "
+            f"(framework: **{_active_framework}**, "
+            f"temperature: **{_temperature:.2f}**)"
+        )
         _stream_box = st.empty()
         try:
             import re as _re
@@ -385,15 +528,31 @@ def render_post_generator():
                 _topic_val,
                 st.session_state.get("pg_niche", ""),
                 tone,
-                framework,
+                _active_framework,
                 st.session_state.get("pg_audience", "Professionals on LinkedIn"),
                 story_beats=st.session_state.get("pg_story_beats", ""),
+                different_angle=_different_angle,
+                avoid_framework=_avoid_framework,
+            )
+
+            # Stash for the debug expander before streaming so the user can
+            # inspect even when generation errors mid-stream.
+            stash_prompt(
+                "post_generator", prompt,
+                meta={
+                    "model":           st.session_state.get("gemini_model", "gemini-2.5-flash"),
+                    "temperature":     _temperature,
+                    "framework":       _active_framework,
+                    "tone":            tone,
+                    "different_angle": _different_angle,
+                    "avoid":           _avoid_framework or "—",
+                },
             )
 
             # Stream into a placeholder — st.write_stream returns full text
             with _stream_box.container():
                 result = st.write_stream(
-                    stream_text(prompt, temperature=0.88, max_tokens=8000)
+                    stream_text(prompt, temperature=_temperature, max_tokens=8000)
                 )
 
             # Parse the streamed result
@@ -419,6 +578,10 @@ def render_post_generator():
             st.session_state["pg_var2"]     = var2
             st.session_state["pg_analysis"] = analysis
             st.session_state["last_generated_post"] = result
+            # Remember which framework was actually used so the next "Different
+            # Angle" click rotates AWAY from it, not the user's currently
+            # selected option.
+            st.session_state["pg_last_framework"] = _active_framework
             # Bump generation counter exactly once per successful generation
             bump_generated()
 
@@ -586,16 +749,19 @@ def render_post_generator():
                             st.rerun()
 
                 # ── Pipeline buttons ───────────────────────────────────────
+                # Labels kept short so all 5 buttons stay readable on tablets.
+                # Each button's full intent lives in its `help` tooltip.
                 st.markdown("**Send this post to:**")
                 btn_col1, btn_col2, btn_col3, btn_col4, btn_col5 = st.columns(5)
 
                 with btn_col1:
-                    if st.button("📋 Copy Post", key=f"copy_v{idx}",
-                                 use_container_width=True, help="Expand to copy text"):
+                    if st.button("📋 Copy", key=f"copy_v{idx}",
+                                 use_container_width=True,
+                                 help="Reveal the post text in a code box for one-click copy"):
                         st.code(content, language=None)
 
                 with btn_col2:
-                    if st.button("🔧 Send to Optimizer", key=f"opt_v{idx}",
+                    if st.button("🔧 Optimize", key=f"opt_v{idx}",
                                  use_container_width=True,
                                  help="Open Post Optimizer with this post pre-filled"):
                         st.session_state["po_content_pipe"] = content  # pipe key, not widget key
@@ -607,22 +773,25 @@ def render_post_generator():
                         st.rerun()
 
                 with btn_col3:
-                    if st.button("🔥 Check Hook", key=f"hook_v{idx}",
-                                 use_container_width=True, help="Send to Viral Hook Analyzer"):
+                    if st.button("🔥 Hook", key=f"hook_v{idx}",
+                                 use_container_width=True,
+                                 help="Send to the Viral Hook Analyzer to score & rewrite the opening"):
                         st.session_state["hook_analyzer_input"] = content
                         st.session_state["_pending_nav"] = "🔥 Viral Hook Analyzer"
                         st.rerun()
 
                 with btn_col4:
-                    if st.button("🎨 Make Visual", key=f"img_v{idx}",
-                                 use_container_width=True, help="Generate a LinkedIn image"):
+                    if st.button("🎨 Visual", key=f"img_v{idx}",
+                                 use_container_width=True,
+                                 help="Generate a LinkedIn image for this post"):
                         st.session_state["ig_post_content"] = content[:500]
                         st.session_state["_pending_nav"] = "🎨 Image Generator"
                         st.rerun()
 
                 with btn_col5:
                     if st.button("📚 Save", key=f"save_v{idx}",
-                                 use_container_width=True, help="Save to Post Library"):
+                                 use_container_width=True,
+                                 help="Save this post to your Library"):
                         ok, msg = save_post_to_library(
                             content, "🚀 Post Generator",
                             tags=["generated", f"variation-{idx}"]
@@ -632,3 +801,10 @@ def render_post_generator():
         if analysis:
             with st.expander("📊 AI Analysis", expanded=True):
                 st.markdown(analysis)
+
+        # ── Prompt debug expander — collapsed by default. Lets the user see
+        # exactly what context Gemini got, so "why is the output ignoring my
+        # industry?" becomes a self-serve diagnosis instead of a support
+        # ticket. The expander silently no-ops when no prompt has been
+        # stashed (e.g. on first page load).
+        render_prompt_debug("post_generator")
