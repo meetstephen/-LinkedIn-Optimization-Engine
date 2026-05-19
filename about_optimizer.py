@@ -7,6 +7,7 @@ from gemini_client import generate_text, get_profile_context, stream_text
 from library import save_post_to_library
 from industry_profiles import get_industry_voice_block
 from core.voice import HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES, story_beats_block
+from core.debug import stash_prompt, render_prompt_debug
 
 
 INDUSTRY_KEYWORDS = {
@@ -188,11 +189,23 @@ def render_about_optimizer():
         st.info("⚡ Writing your About section — streams in real time…")
         _stream_box = st.empty()
         try:
+            _ao_prompt = build_about_prompt(
+                current_about, name, role, industry,
+                superpowers, achievements, goal,
+                defining_moment=st.session_state.get("ao_defining_moment", ""),
+            )
+            stash_prompt(
+                "about_optimizer", _ao_prompt,
+                meta={
+                    "model":       st.session_state.get("gemini_model", "gemini-2.5-flash"),
+                    "temperature": 0.78,
+                    "industry":    industry,
+                    "role":        role or "—",
+                },
+            )
             with _stream_box.container():
                 result = st.write_stream(stream_text(
-                    build_about_prompt(current_about, name, role, industry,
-                                       superpowers, achievements, goal,
-                                       defining_moment=st.session_state.get("ao_defining_moment", "")),
+                    _ao_prompt,
                     temperature=0.78, max_tokens=8000,
                 ))
             # Clear the raw stream — the formatted result panel below renders it cleanly
@@ -270,3 +283,6 @@ def render_about_optimizer():
             for k in ("ao_last_result", "ao_last_industry", "ao_last_before"):
                 st.session_state.pop(k, None)
             st.rerun()
+
+    # Prompt debug expander — collapsed by default; silently no-ops when empty
+    render_prompt_debug("about_optimizer")

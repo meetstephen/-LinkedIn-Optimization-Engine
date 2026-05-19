@@ -11,6 +11,7 @@ from core.voice import (
 )
 from core import validator as _validator
 from core import polish as _polish
+from core.debug import stash_prompt, render_prompt_debug
 
 
 OPTIMIZATION_GOALS = {
@@ -159,6 +160,15 @@ def render_post_optimizer():
             prompt = build_optimizer_prompt(
                 original_post, goal,
                 niche=st.session_state.get("po_niche", ""),
+            )
+            stash_prompt(
+                "post_optimizer", prompt,
+                meta={
+                    "model":       st.session_state.get("gemini_model", "gemini-2.5-flash"),
+                    "temperature": 0.72,
+                    "goal":        goal,
+                    "niche":       st.session_state.get("po_niche", "") or "—",
+                },
             )
             with _stream_box.container():
                 result = st.write_stream(
@@ -312,3 +322,6 @@ def render_post_optimizer():
                   "po_last_niche", "po_polished"):
             st.session_state.pop(k, None)
         st.rerun()
+
+    # Prompt debug expander — collapsed by default; silently no-ops when empty
+    render_prompt_debug("post_optimizer")

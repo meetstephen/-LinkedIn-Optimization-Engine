@@ -47,10 +47,14 @@ try:
     from core import ai as _ai          # Central AI client
     from core import state as _state    # State helpers
     from core import auth as _auth      # NEW — multi-user auth
+    from core.debug import stash_prompt, render_prompt_debug  # 🔍 prompt debug expander
     _CORE_AVAILABLE = True
 except ImportError:
     _CORE_AVAILABLE = False
     _auth = None  # type: ignore
+    # Fallback no-op shims so generation pages can import unconditionally.
+    def stash_prompt(*_a, **_kw): pass            # type: ignore
+    def render_prompt_debug(*_a, **_kw): pass     # type: ignore
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2166,6 +2170,16 @@ Rules:
 - No rewrite starts with "I"
 - No rewrite is a question"""
 
+            stash_prompt(
+                "hook_analyzer", prompt,
+                meta={
+                    "model":       st.session_state.get("gemini_model", "gemini-2.5-flash"),
+                    "temperature": 0.5,
+                    "tone":        tone,
+                    "hook_chars":  len(user_text[:210].strip()),
+                },
+            )
+
             try:
                 if _CORE_AVAILABLE:
                     data = _ai.generate_json(
@@ -2327,6 +2341,9 @@ Rules:
             <div style="font-size:0.8rem; margin-top:0.3rem;">Paste a post and click Analyze</div>
         </div>
         """, unsafe_allow_html=True)
+
+    # Prompt debug expander — collapsed by default; silently no-ops when empty
+    render_prompt_debug("hook_analyzer")
 
     # Footer
     st.markdown("---")
