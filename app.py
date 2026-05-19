@@ -28,6 +28,7 @@ import sys
 import os
 import importlib.util
 import json
+import html as _html_mod
 import re
 import time
 import traceback
@@ -903,31 +904,15 @@ st.markdown("""
 # UTILITY — One-click clipboard copy
 # ─────────────────────────────────────────────
 def copy_to_clipboard_button(text: str, label: str = "📋 Copy to Clipboard", key: str = "copy"):
-    """Renders a button that copies `text` to the user's clipboard via JS."""
-    escaped = text.replace("`", "\\`").replace("$", "\\$")
-    copy_js = f"""
-    <script>
-    function copyText_{key}() {{
-        navigator.clipboard.writeText(`{escaped}`).then(() => {{
-            const btn = document.getElementById('copybtn_{key}');
-            const orig = btn.innerText;
-            btn.innerText = '✅ Copied!';
-            btn.style.background = '#00c851';
-            setTimeout(() => {{ btn.innerText = orig; btn.style.background = ''; }}, 2000);
-        }});
-    }}
-    </script>
-    <button id="copybtn_{key}"
-        onclick="copyText_{key}()"
-        style="
-            background: linear-gradient(135deg,#0A66C2,#004182);
-            color:white; border:none; border-radius:8px;
-            padding:8px 18px; font-size:0.85rem; font-weight:600;
-            cursor:pointer; transition:all 0.2s ease;
-            box-shadow:0 2px 8px rgba(10,102,194,0.25);
-        ">{label}</button>
+    """Renders a native Streamlit copy-text button using st.code fallback.
+
+    Streamlit ≥1.57 strips <script> from st.markdown(). The old approach of
+    injecting navigator.clipboard.writeText via JS no longer works on Cloud.
+    Instead we use a simple st.button + st.code reveal pattern — the user
+    clicks "Copy", the full text renders in a <pre> block they can select-all.
     """
-    st.markdown(copy_js, unsafe_allow_html=True)
+    if st.button(label, key=key, use_container_width=True):
+        st.code(text, language=None)
 
 
 def save_to_history(post_type: str, content: str):
@@ -2458,19 +2443,23 @@ contents of that file, then click ▶ **Refresh** at the top right.
         score    = post.get("score", 0)
         starred  = post.get("starred", False)
         tags     = post.get("tags", [])
-        tag_html = " ".join(f'<span class="tag">{t}</span>' for t in tags)
+        tag_html = " ".join(f'<span class="tag">{_html_mod.escape(str(t))}</span>' for t in tags)
         score_str = f"🔥 {score}/100" if score > 0 else ""
+
+        # Escape content so raw <button>, <script> etc. in saved AI output
+        # can't break the page layout.
+        _safe_preview = _html_mod.escape(post['content'][:380]) + ('…' if len(post['content']) > 380 else '')
 
         st.markdown(f"""
         <div class="post-card">
             <div class="post-card-meta">
-                <span class="tag">{post['module']}</span>
+                <span class="tag">{_html_mod.escape(post['module'])}</span>
                 {tag_html}
-                <span>{post['created_at']}</span>
+                <span>{_html_mod.escape(post['created_at'])}</span>
                 {'<span>⭐ Starred</span>' if starred else ''}
                 {'<span style="color:#00c851;font-weight:700;">' + score_str + '</span>' if score_str else ''}
             </div>
-            <div class="post-card-body">{post['content'][:380]}{'…' if len(post['content']) > 380 else ''}</div>
+            <div class="post-card-body">{_safe_preview}</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -2715,10 +2704,10 @@ def render_content_scheduler():
                 # Healthy slot — render the post card
                 _content    = _post["content"]
                 _module     = _post["module"]
-                _preview    = _content[:280] + ("…" if len(_content) > 280 else "")
+                _preview    = _html_mod.escape(_content[:280]) + ("…" if len(_content) > 280 else "")
                 _note_html  = (
                     f"<div style='font-size:0.78rem;color:#666;font-style:italic;"
-                    f"margin-top:4px;'>📝 {_note}</div>" if _note else ""
+                    f"margin-top:4px;'>📝 {_html_mod.escape(_note)}</div>" if _note else ""
                 )
                 st.markdown(
                     f"<div style='background:white;border:1px solid #E1E9F5;"

@@ -107,6 +107,29 @@ AVOID: Silicon Valley jargon, dollar-centric examples as primary reference,
 MODEL_DEFAULT = "gemini-2.5-flash"
 MODEL_LITE    = "gemini-2.0-flash-lite"
 
+# ── Retry / backoff settings for streaming ───────────────────────────────────
+_STREAM_MAX_RETRIES = 3
+_STREAM_RETRY_DELAY = 1.5  # multiplied by attempt number
+
+
+def _log_usage(model: str, module: str, input_tokens: int, output_tokens: int) -> None:
+    """
+    Fire-and-forget token usage log to lb_usage_events.
+    Never raises — silently no-ops if DB isn't available.
+    """
+    try:
+        from core.db import _get_client, _user_id
+        client = _get_client()
+        client.table("lb_usage_events").insert({
+            "user_id":       _user_id(),
+            "module":        module or "",
+            "model":         model or "",
+            "input_tokens":  input_tokens,
+            "output_tokens": output_tokens,
+        }).execute()
+    except Exception:
+        pass
+
 
 def get_gemini_client() -> genai.Client:
     """Initialize and return Gemini client using API key from session state."""
@@ -124,7 +147,7 @@ def generate_text(
     max_tokens: int = 8000,
     model: str = MODEL_DEFAULT,
 ) -> str:
-    """Generate text and return the full response string."""
+    """Generate text and return the full response string. Logs token usage."""
     try:
         client = get_gemini_client()
         response = client.models.generate_content(
@@ -135,6 +158,15 @@ def generate_text(
                 max_output_tokens=max_tokens,
             ),
         )
+        # Log usage metadata if available
+        _um = getattr(response, "usage_metadata", None)
+        if _um:
+            _log_usage(
+                model,
+                "",
+                getattr(_um, "prompt_token_count", 0) or 0,
+                getattr(_um, "candidates_token_count", 0) or 0,
+            )
         return response.text
 
     except ValueError as e:
@@ -152,27 +184,48 @@ def stream_text(
     """
     Stream text generation from Gemini — yields text chunks as they arrive.
 
+    Retry logic: up to 3 attempts with 1.5s × attempt backoff.
+    Falls back to generate_text() on final failure.
+
     Usage in Streamlit:
         result = st.write_stream(stream_text(prompt))
-        # result contains the full text after streaming completes
-
-    Falls back to generate_text() if streaming fails.
     """
-    try:
-        client = get_gemini_client()
-        for chunk in client.models.generate_content_stream(
-            model=model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=temperature,
-                max_output_tokens=max_tokens,
-            ),
-        ):
-            if chunk.text:
-                yield chunk.text
-    except Exception as e:
-        # Streaming failed — yield the full response in one chunk
+    import time as _time
+
+    last_exc: Exception = RuntimeError("stream_text: no attempts made")
+
+    for attempt in range(_STREAM_MAX_RETRIES):
         try:
-            yield generate_text(prompt, temperature, max_tokens, model)
-        except Exception as e2:
-            raise RuntimeError(f"Gemini streaming error: {str(e)} | Fallback error: {str(e2)}")
+            client = get_gemini_client()
+            total_output_tokens = 0
+            for chunk in client.models.generate_content_stream(
+                model=model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=temperature,
+                    max_output_tokens=max_tokens,
+                ),
+            ):
+                if chunk.text:
+                    yield chunk.text
+                # Track usage from last chunk (Gemini sends cumulative in final chunk)
+                _um = getattr(chunk, "usage_metadata", None)
+                if _um:
+                    total_output_tokens = getattr(_um, "candidates_token_count", 0) or 0
+            # Streaming completed successfully — log usage
+            _log_usage(model, "", 0, total_output_tokens)
+            return  # success — exit the generator
+        except Exception as e:
+            last_exc = e
+            if attempt < _STREAM_MAX_RETRIES - 1:
+                _time.sleep(_STREAM_RETRY_DELAY * (attempt + 1))
+            else:
+                # Final attempt failed — yield full response as one chunk
+                try:
+                    yield generate_text(prompt, temperature, max_tokens, model)
+                    return
+                except Exception as e2:
+                    raise RuntimeError(
+                        f"Gemini streaming error: {str(last_exc)} | "
+                        f"Fallback error: {str(e2)}"
+                    )

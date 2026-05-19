@@ -117,12 +117,30 @@ CREATE INDEX IF NOT EXISTS lb_login_events_recent_idx
     ON lb_login_events (occurred_at DESC);
 
 
--- ── 6. ROW LEVEL SECURITY ───────────────────────────────────────────────────
+-- ── 7. USAGE EVENTS (NEW — token tracking) ─────────────────────────────────
+-- Every Gemini call logs input/output tokens so the admin can track cost and
+-- implement per-user daily caps when needed.
+CREATE TABLE IF NOT EXISTS lb_usage_events (
+    id            BIGSERIAL    PRIMARY KEY,
+    user_id       TEXT         NOT NULL,
+    module        TEXT         DEFAULT '',
+    model         TEXT         DEFAULT '',
+    input_tokens  INTEGER      DEFAULT 0,
+    output_tokens INTEGER      DEFAULT 0,
+    occurred_at   TIMESTAMPTZ  DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS lb_usage_events_user_idx
+    ON lb_usage_events (user_id, occurred_at DESC);
+
+
+-- ── 8. ROW LEVEL SECURITY ───────────────────────────────────────────────────
 ALTER TABLE lb_posts        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lb_profiles     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lb_schedule     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lb_users        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lb_login_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lb_usage_events ENABLE ROW LEVEL SECURITY;
 
 -- Drop any pre-existing permissive policies (idempotent re-runs)
 DROP POLICY IF EXISTS lb_posts_anon_all         ON lb_posts;
@@ -130,6 +148,7 @@ DROP POLICY IF EXISTS lb_profiles_anon_all      ON lb_profiles;
 DROP POLICY IF EXISTS lb_schedule_anon_all      ON lb_schedule;
 DROP POLICY IF EXISTS lb_users_anon_all         ON lb_users;
 DROP POLICY IF EXISTS lb_login_events_anon_all  ON lb_login_events;
+DROP POLICY IF EXISTS lb_usage_events_anon_all  ON lb_usage_events;
 
 -- Permissive policies — the app layer enforces ownership via user_id filters.
 -- The anon key is the only key shipped to clients, so this matches the rest
@@ -161,6 +180,12 @@ CREATE POLICY lb_users_anon_all
 
 CREATE POLICY lb_login_events_anon_all
     ON lb_login_events FOR ALL
+    TO anon
+    USING (true)
+    WITH CHECK (true);
+
+CREATE POLICY lb_usage_events_anon_all
+    ON lb_usage_events FOR ALL
     TO anon
     USING (true)
     WITH CHECK (true);

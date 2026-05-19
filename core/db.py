@@ -148,6 +148,18 @@ def health_check() -> dict:
 # POSTS
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _invalidate_post_caches() -> None:
+    """Clear all cached post/stat queries so fresh data appears immediately."""
+    try:
+        _cached_get_posts.clear()
+    except Exception:
+        pass
+    try:
+        _cached_get_stats.clear()
+    except Exception:
+        pass
+
+
 def save_post(content: str, module: str, score: int = 0, tags: Optional[list] = None) -> dict:
     client  = _get_client()
     post_id = int(time.time() * 1000)
@@ -157,22 +169,43 @@ def save_post(content: str, module: str, score: int = 0, tags: Optional[list] = 
         "tags": json.dumps(tags or []), "created_at": _now(), "starred": False,
     }
     client.table("lb_posts").insert(row).execute()
+    _invalidate_post_caches()
     return _row_to_dict(row)
 
 
-def get_posts(search: str = "", module: str = "", sort: str = "newest") -> list[dict]:
+@st.cache_data(ttl=30, show_spinner=False)
+def _cached_get_posts(user_id: str, search: str, module: str, sort: str) -> list[dict]:
+    """
+    Fetch posts with filters pushed to Postgres where possible.
+    Cached for 30s keyed on (user_id, search, module, sort).
+    """
     client = _get_client()
-    resp   = client.table("lb_posts").select("*").eq("user_id", _user_id()).order("id", desc=True).execute()
-    posts  = [_row_to_dict(r) for r in (resp.data or [])]
+    q = client.table("lb_posts").select("*").eq("user_id", user_id)
+
+    # Push search to Postgres (case-insensitive substring match)
     if search:
-        needle = search.lower()
-        posts  = [p for p in posts if needle in p["content"].lower()]
+        q = q.ilike("content", f"%{search}%")
+
+    # Push module filter
     if module and module not in ("", "All Modules"):
-        posts = [p for p in posts if p["module"] == module]
-    if sort == "oldest":       posts = list(reversed(posts))
-    elif sort == "score":      posts = sorted(posts, key=lambda x: x.get("score", 0), reverse=True)
-    elif sort == "starred":    posts = [p for p in posts if p.get("starred")]
-    return posts
+        q = q.eq("module", module)
+
+    # Push sort to Postgres
+    if sort == "oldest":
+        q = q.order("id", desc=False)
+    elif sort == "score":
+        q = q.order("score", desc=True)
+    elif sort == "starred":
+        q = q.eq("starred", True).order("id", desc=True)
+    else:  # "newest" — default
+        q = q.order("id", desc=True)
+
+    resp = q.execute()
+    return [_row_to_dict(r) for r in (resp.data or [])]
+
+
+def get_posts(search: str = "", module: str = "", sort: str = "newest") -> list[dict]:
+    return _cached_get_posts(_user_id(), search, module, sort)
 
 
 def delete_post(post_id: int) -> None:
@@ -183,6 +216,7 @@ def delete_post(post_id: int) -> None:
     except Exception:
         pass
     client.table("lb_posts").delete().eq("id", post_id).eq("user_id", _user_id()).execute()
+    _invalidate_post_caches()
 
 
 def toggle_star(post_id: int) -> bool:
@@ -193,12 +227,15 @@ def toggle_star(post_id: int) -> bool:
         return False
     new_val = not bool(resp.data[0].get("starred", False))
     client.table("lb_posts").update({"starred": new_val}).eq("id", post_id).eq("user_id", uid).execute()
+    _invalidate_post_caches()
     return new_val
 
 
-def get_stats() -> dict:
+@st.cache_data(ttl=30, show_spinner=False)
+def _cached_get_stats(user_id: str) -> dict:
+    """Aggregate stats for a user. Cached 30s."""
     client = _get_client()
-    resp   = client.table("lb_posts").select("score, starred, module").eq("user_id", _user_id()).execute()
+    resp   = client.table("lb_posts").select("score, starred, module").eq("user_id", user_id).execute()
     rows   = resp.data or []
     total  = len(rows)
     starred= sum(1 for r in rows if r.get("starred"))
@@ -210,6 +247,10 @@ def get_stats() -> dict:
     top = max(counts, key=counts.get) if counts else "—"
     return {"total": total, "starred": starred, "avg_score": avg_score,
             "top_module": top.split()[-1] if top != "—" else "—"}
+
+
+def get_stats() -> dict:
+    return _cached_get_stats(_user_id())
 
 
 # ─────────────────────────────────────────────────────────────────────────────
