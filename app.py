@@ -32,6 +32,7 @@ import html as _html_mod
 import re
 import time
 import traceback
+import uuid
 from datetime import datetime
 
 # ── Resolve app directory (works locally & on Streamlit Cloud) ─────────────
@@ -1001,7 +1002,8 @@ def save_to_library(content: str, module: str, score: int = 0, tags: list = None
     except Exception:
         # Last-ditch session fallback so the UI never crashes
         entry = {
-            "id":         int(time.time() * 1000),
+            # uuid4 — collision-safe across all users and Streamlit instances
+            "id":         str(uuid.uuid4()),
             "content":    content.strip(),
             "module":     module,
             "score":      score,
@@ -2207,7 +2209,16 @@ Rules:
                     data = json.loads(raw.strip())
                 st.session_state["hook_analysis_result"] = data
                 st.session_state["hooks_analyzed"] = st.session_state.get("hooks_analyzed", 0) + 1
-            except Exception:
+            except Exception as _hook_err:
+                # Structured log for the operator + user-facing message
+                try:
+                    from core.error_logger import log_error as _log_error
+                    _log_error("hook_analyzer", _hook_err, context={
+                        "tone": tone,
+                        "hook_chars": len(user_text[:210].strip()) if user_text else 0,
+                    })
+                except Exception:
+                    pass
                 st.error("⚠️ Something went wrong. Please try again.")
                 with st.expander("🔍 Details (for debugging)"):
                     st.code(traceback.format_exc())
@@ -2844,6 +2855,66 @@ contents of that file, then click ▶ **Refresh** at the top right.
     #    don't have to scroll back up to navigate.
     st.markdown("<div style='margin-top:0.8rem;'></div>", unsafe_allow_html=True)
     _render_pagination("bottom")
+
+    # ── Recently deleted (soft-delete trash, last 30 days) ──────────────────
+    # Hard delete used to be irrecoverable — one misclick and the post was
+    # gone forever. Now `delete_post()` only sets deleted_at, so anything
+    # the user removed in the past 30 days lives here with a Restore button.
+    # The 30-day retention is enforced by core.db.purge_old_deleted() (run
+    # manually or via Supabase pg_cron).
+    if _CORE_AVAILABLE and _hc and _hc.get("ok"):
+        try:
+            _trashed = _db.list_deleted_posts()
+        except Exception:
+            _trashed = []
+        if _trashed:
+            with st.expander(
+                f"🗑️ Recently deleted ({len(_trashed)}) — restore within 30 days",
+                expanded=False,
+            ):
+                st.caption(
+                    "Posts you delete are kept here for 30 days so you can "
+                    "undo a misclick. After 30 days they're permanently purged."
+                )
+                for _tp in _trashed[:25]:
+                    with st.container(border=True):
+                        st.markdown(
+                            f"<div class='lib-meta-row'>"
+                            f"<span class='lib-pill lib-pill-module'>"
+                            f"{_html_mod.escape(str(_tp.get('module','')))}</span>"
+                            f"<span class='lib-meta-date'>"
+                            f"deleted {_html_mod.escape(str(_tp.get('deleted_at','') or '')[:19])}</span>"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+                        _preview_t = (_tp.get("content", "")[:240]
+                                      + ("…" if len(_tp.get("content", "")) > 240 else ""))
+                        st.markdown(
+                            f"<div class='lib-body'>"
+                            f"{_html_mod.escape(_preview_t)}</div>",
+                            unsafe_allow_html=True,
+                        )
+                        _r1, _r2 = st.columns(2)
+                        with _r1:
+                            if st.button("↶ Restore", key=f"lib_restore_{_tp['id']}",
+                                         type="primary", use_container_width=True):
+                                try:
+                                    _db.restore_post(_tp["id"])
+                                    st.toast("Post restored.", icon="↶")
+                                    st.rerun()
+                                except Exception as _e:
+                                    st.error(f"Restore failed: {_e}")
+                        with _r2:
+                            if st.button("✕ Permanently delete",
+                                         key=f"lib_purge_{_tp['id']}",
+                                         use_container_width=True,
+                                         help="Bypass the 30-day window and delete this post forever."):
+                                try:
+                                    _db.purge_post(_tp["id"])
+                                    st.toast("Permanently deleted.", icon="🗑️")
+                                    st.rerun()
+                                except Exception as _e:
+                                    st.error(f"Purge failed: {_e}")
 
 
 # ─────────────────────────────────────────────

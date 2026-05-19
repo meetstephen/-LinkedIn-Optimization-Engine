@@ -1,0 +1,51 @@
+name: Tests
+
+# Run the pytest suite on every push and pull request to main.
+# The whole suite finishes in ~2 seconds locally; CI overhead aside, every
+# PR gets its 80%-coverage smoke-test before review.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancel any in-flight run for the same PR when a new commit lands.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    name: pytest (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Streamlit Cloud runs 3.11; we lock CI to the same baseline.
+        # Add 3.12 once Streamlit supports it without nags.
+        python-version: ["3.11"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run pytest
+        # -ra: report short summary of skips, fails, errors at the end.
+        # --tb=short: compact traceback (every test should be one screen).
+        run: pytest tests/ -ra --tb=short

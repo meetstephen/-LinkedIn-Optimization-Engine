@@ -8,6 +8,7 @@ from library import save_post_to_library
 from industry_profiles import get_industry_voice_block
 from core.voice import HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES, story_beats_block
 from core.debug import stash_prompt, render_prompt_debug
+from core.error_logger import log_error
 
 
 INDUSTRY_KEYWORDS = {
@@ -215,6 +216,11 @@ def render_about_optimizer():
             st.session_state["ao_last_industry"] = industry
             st.session_state["ao_last_before"]   = current_about
         except Exception as e:
+            log_error("about_optimizer", e, context={
+                "industry": industry,
+                "role": role or "—",
+                "current_about_len": len(current_about or ""),
+            })
             st.error(f"Optimization failed: {str(e)}")
             with st.expander("Error details"):
                 import traceback as _tb

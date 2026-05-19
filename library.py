@@ -16,7 +16,7 @@ Save returns (ok: bool, msg: str). Modules pattern:
 """
 from __future__ import annotations
 import sys
-import time
+import uuid
 from datetime import datetime
 import streamlit as st
 
@@ -49,7 +49,15 @@ def save_post_to_library(
             _bump_saved_counter()
             return True, "✅ Saved to Post Library."
         except Exception as e:
-            # DB write failed — fall back to session state but flag it
+            # DB write failed — fall back to session state but flag it. Also
+            # log structured error so operators can see save failures spike.
+            try:
+                from core.error_logger import log_error
+                log_error("library.save_post_to_library", e,
+                          context={"module": module, "score": score,
+                                   "content_len": len(content)})
+            except Exception:
+                pass
             _session_save(content, module, score, tags)
             _bump_saved_counter()
             return True, f"⚠️ Saved in-session only (DB error: {str(e)[:120]})"
@@ -70,7 +78,8 @@ def _bump_saved_counter() -> None:
 def _session_save(content: str, module: str, score: int, tags: list) -> None:
     """Append to the in-memory library used as fallback when DB is unavailable."""
     entry = {
-        "id":         int(time.time() * 1000),
+        # uuid4 — collision-safe even if two saves land in the same millisecond
+        "id":         str(uuid.uuid4()),
         "content":    content.strip(),
         "module":     module,
         "score":      score,

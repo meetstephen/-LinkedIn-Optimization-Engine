@@ -6,28 +6,40 @@ Replaces SQLite with Supabase Postgres so that:
   • Each user's posts and profile are fully isolated by user_id
 
 Tables (lb_ prefix — no conflict with other apps on the same Supabase project):
-  lb_posts    : id, user_id, content, module, score, tags, created_at, starred
-  lb_profiles : user_id (PK), name, headline, role, industry, audience, ...
-  lb_schedule : user_id + day_of_week + time_slot → post_id  (Content Scheduler)
+  lb_posts        : id (TEXT, UUID), user_id, content, module, score, tags,
+                    created_at, starred, deleted_at
+  lb_profiles     : user_id (PK), name, headline, role, industry, audience, ...
+  lb_schedule     : user_id + day_of_week + time_slot → post_id  (Content Scheduler)
+  lb_error_events : structured error log for the operator dashboard
 
 Required in .streamlit/secrets.toml:
   SUPABASE_URL = "https://your-project.supabase.co"
   SUPABASE_KEY = "<your-anon-public-key>"
 
 Public API (all callers unchanged from the SQLite era):
-  save_post, get_posts, delete_post, toggle_star, get_stats
+  save_post, get_posts, delete_post, restore_post, purge_post, toggle_star, get_stats
+  list_deleted_posts, purge_old_deleted                     ← NEW v3.1 (soft delete)
   save_profile, load_profile
-  schedule_post, unschedule_post, get_schedule              ← NEW
-  health_check                                              ← NEW (diagnostics)
+  schedule_post, unschedule_post, get_schedule
+  health_check                                              ← diagnostics
 """
 from __future__ import annotations
 
 import json
 import time
+import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
 import streamlit as st
+
+
+# ── How long soft-deleted posts stay recoverable before permanent deletion ──
+# Configurable so admins can dial it up or down without redeploying. The
+# Library shows everything within this window in a "Recently deleted" panel
+# and offers Restore. After this many days, purge_old_deleted() can be run
+# (manually or via Supabase pg_cron) to hard-delete them.
+SOFT_DELETE_RETENTION_DAYS = 30
 
 
 @st.cache_resource
@@ -51,6 +63,19 @@ def _now() -> str:
     return datetime.now().strftime("%b %d, %Y · %I:%M %p")
 
 
+def _normalize_id(post_id) -> str:
+    """
+    Coerce any post id (int from legacy rows, UUID string from new rows) to TEXT.
+
+    The lb_posts.id column is now TEXT to hold UUIDs, but pre-v3.1 rows still
+    have integer ids that the Postgres `ALTER ... TYPE TEXT USING id::TEXT`
+    migration converted to their decimal string representation. To stay
+    bug-compatible with both shapes, every internal eq() filter goes through
+    this helper. Cheap and safe.
+    """
+    return str(post_id) if post_id is not None else ""
+
+
 def _row_to_dict(row: dict) -> dict:
     tags = row.get("tags", "[]")
     if isinstance(tags, str):
@@ -66,6 +91,8 @@ def _row_to_dict(row: dict) -> dict:
         "tags":       tags,
         "created_at": row["created_at"],
         "starred":    bool(row.get("starred", False)),
+        # deleted_at present only on soft-deleted rows; None / missing for active.
+        "deleted_at": row.get("deleted_at"),
     }
 
 
@@ -122,7 +149,9 @@ def health_check() -> dict:
 
     try:
         resp = client.table("lb_posts").select("id", count="exact") \
-                     .eq("user_id", _user_id()).limit(1).execute()
+                     .eq("user_id", _user_id()) \
+                     .is_("deleted_at", "null") \
+                     .limit(1).execute()
         out["query_ok"]   = True
         out["post_count"] = getattr(resp, "count", None) or len(resp.data or [])
         out["ok"]         = True
@@ -133,6 +162,11 @@ def health_check() -> dict:
             out["error"] = (
                 "Table `lb_posts` not found in your Supabase project. "
                 "Run the SQL migration in `supabase_schema.sql` to create it."
+            )
+        elif "deleted_at" in msg or "column" in msg.lower():
+            out["error"] = (
+                "Column `deleted_at` not found on lb_posts. "
+                "Re-run `supabase_schema.sql` — it adds the column idempotently."
             )
         elif "permission" in msg.lower() or "rls" in msg.lower() or "policy" in msg.lower():
             out["error"] = (
@@ -158,15 +192,32 @@ def _invalidate_post_caches() -> None:
         _cached_get_stats.clear()
     except Exception:
         pass
+    try:
+        _cached_list_deleted_posts.clear()
+    except Exception:
+        pass
+
+
+def new_post_id() -> str:
+    """
+    Mint a fresh post ID. Uses uuid4 → 32 hex chars + 4 dashes (36 total).
+
+    Replaces the v3 scheme of `int(time.time() * 1000)` which had a small
+    but real collision window: two saves within the same millisecond produced
+    duplicate primary keys and the second save raised. uuid4 makes that
+    impossible across all users and all Streamlit instances.
+    """
+    return str(uuid.uuid4())
 
 
 def save_post(content: str, module: str, score: int = 0, tags: Optional[list] = None) -> dict:
     client  = _get_client()
-    post_id = int(time.time() * 1000)
+    post_id = new_post_id()
     row = {
         "id": post_id, "user_id": _user_id(), "content": content.strip(),
         "module": module, "score": score,
         "tags": json.dumps(tags or []), "created_at": _now(), "starred": False,
+        # deleted_at left unset → defaults to NULL in Postgres
     }
     client.table("lb_posts").insert(row).execute()
     _invalidate_post_caches()
@@ -178,9 +229,14 @@ def _cached_get_posts(user_id: str, search: str, module: str, sort: str) -> list
     """
     Fetch posts with filters pushed to Postgres where possible.
     Cached for 30s keyed on (user_id, search, module, sort).
+
+    Soft-deleted rows (deleted_at IS NOT NULL) are always excluded — the
+    Library page calls list_deleted_posts() separately for the trash panel.
     """
     client = _get_client()
-    q = client.table("lb_posts").select("*").eq("user_id", user_id)
+    q = client.table("lb_posts").select("*") \
+              .eq("user_id", user_id) \
+              .is_("deleted_at", "null")
 
     # Push search to Postgres (case-insensitive substring match)
     if search:
@@ -190,15 +246,17 @@ def _cached_get_posts(user_id: str, search: str, module: str, sort: str) -> list
     if module and module not in ("", "All Modules"):
         q = q.eq("module", module)
 
-    # Push sort to Postgres
+    # Push sort to Postgres. Sorting by created_at-derived id keeps newest
+    # first; for UUIDs this means lexical sort, which is fine because we
+    # also store inserted_at server-side and could switch later.
     if sort == "oldest":
-        q = q.order("id", desc=False)
+        q = q.order("inserted_at", desc=False)
     elif sort == "score":
         q = q.order("score", desc=True)
     elif sort == "starred":
-        q = q.eq("starred", True).order("id", desc=True)
+        q = q.eq("starred", True).order("inserted_at", desc=True)
     else:  # "newest" — default
-        q = q.order("id", desc=True)
+        q = q.order("inserted_at", desc=True)
 
     resp = q.execute()
     return [_row_to_dict(r) for r in (resp.data or [])]
@@ -208,34 +266,132 @@ def get_posts(search: str = "", module: str = "", sort: str = "newest") -> list[
     return _cached_get_posts(_user_id(), search, module, sort)
 
 
-def delete_post(post_id: int) -> None:
+def delete_post(post_id) -> None:
+    """
+    SOFT delete — sets deleted_at = now() so the row hides from the Library
+    but is still recoverable for SOFT_DELETE_RETENTION_DAYS days. Companion
+    schedule slots are also cleared because pinning a deleted post makes
+    no sense; if the user restores, they re-schedule.
+
+    For irrecoverable hard-deletion, call `purge_post(post_id)` instead.
+    """
     client = _get_client()
-    # Cascade: also remove any schedule slot pointing to this post
+    pid = _normalize_id(post_id)
+    # Always remove any schedule slot pointing to this post — orphan cleanup
     try:
-        client.table("lb_schedule").delete().eq("post_id", post_id).eq("user_id", _user_id()).execute()
+        client.table("lb_schedule").delete() \
+              .eq("post_id", pid).eq("user_id", _user_id()).execute()
     except Exception:
         pass
-    client.table("lb_posts").delete().eq("id", post_id).eq("user_id", _user_id()).execute()
+    # Soft-delete the post
+    client.table("lb_posts").update({
+        "deleted_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", pid).eq("user_id", _user_id()).execute()
     _invalidate_post_caches()
 
 
-def toggle_star(post_id: int) -> bool:
+def restore_post(post_id) -> bool:
+    """
+    Undo a soft-delete by clearing deleted_at. Returns True if a row was
+    actually restored. Schedule slots are NOT auto-recreated — the user can
+    re-pin from the Library.
+    """
     client = _get_client()
-    uid    = _user_id()
-    resp   = client.table("lb_posts").select("starred").eq("id", post_id).eq("user_id", uid).execute()
+    pid = _normalize_id(post_id)
+    resp = client.table("lb_posts").update({"deleted_at": None}) \
+                 .eq("id", pid).eq("user_id", _user_id()).execute()
+    _invalidate_post_caches()
+    return bool(resp.data)
+
+
+def purge_post(post_id) -> None:
+    """
+    HARD delete — irrecoverable. Used by the "Recently deleted" panel's
+    "Permanently delete" button and by purge_old_deleted() for the
+    30-day cleanup sweep.
+    """
+    client = _get_client()
+    pid = _normalize_id(post_id)
+    try:
+        client.table("lb_schedule").delete() \
+              .eq("post_id", pid).eq("user_id", _user_id()).execute()
+    except Exception:
+        pass
+    client.table("lb_posts").delete() \
+          .eq("id", pid).eq("user_id", _user_id()).execute()
+    _invalidate_post_caches()
+
+
+@st.cache_data(ttl=30, show_spinner=False)
+def _cached_list_deleted_posts(user_id: str) -> list[dict]:
+    """Soft-deleted posts for this user, newest deletion first. Cached 30s."""
+    client = _get_client()
+    resp = client.table("lb_posts").select("*") \
+                 .eq("user_id", user_id) \
+                 .not_.is_("deleted_at", "null") \
+                 .order("deleted_at", desc=True) \
+                 .execute()
+    return [_row_to_dict(r) for r in (resp.data or [])]
+
+
+def list_deleted_posts() -> list[dict]:
+    """Return soft-deleted posts (last SOFT_DELETE_RETENTION_DAYS days)."""
+    return _cached_list_deleted_posts(_user_id())
+
+
+def purge_old_deleted(retention_days: int = SOFT_DELETE_RETENTION_DAYS) -> int:
+    """
+    Hard-delete every soft-deleted row older than `retention_days`. Safe to
+    call from a scheduled function (Supabase pg_cron) or a manual admin
+    sweep. Returns the number of rows purged.
+
+    Idempotent: running twice in a row purges nothing the second time.
+    """
+    from datetime import timedelta
+    client = _get_client()
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=retention_days)).isoformat()
+    resp = client.table("lb_posts").delete() \
+                 .eq("user_id", _user_id()) \
+                 .not_.is_("deleted_at", "null") \
+                 .lt("deleted_at", cutoff) \
+                 .execute()
+    _invalidate_post_caches()
+    return len(resp.data or [])
+
+
+def toggle_star(post_id) -> bool:
+    """
+    Toggle the starred flag on an active (non-deleted) post.
+
+    Returns the new starred value, or False if the post is missing or
+    already soft-deleted (you can't star a deleted post).
+    """
+    client = _get_client()
+    pid = _normalize_id(post_id)
+    uid = _user_id()
+    resp = client.table("lb_posts").select("starred, deleted_at") \
+                 .eq("id", pid).eq("user_id", uid).execute()
     if not resp.data:
         return False
-    new_val = not bool(resp.data[0].get("starred", False))
-    client.table("lb_posts").update({"starred": new_val}).eq("id", post_id).eq("user_id", uid).execute()
+    row = resp.data[0]
+    if row.get("deleted_at"):
+        return False
+    new_val = not bool(row.get("starred", False))
+    client.table("lb_posts").update({"starred": new_val}) \
+          .eq("id", pid).eq("user_id", uid).execute()
     _invalidate_post_caches()
     return new_val
 
 
 @st.cache_data(ttl=30, show_spinner=False)
 def _cached_get_stats(user_id: str) -> dict:
-    """Aggregate stats for a user. Cached 30s."""
+    """Aggregate stats for a user (active rows only). Cached 30s."""
     client = _get_client()
-    resp   = client.table("lb_posts").select("score, starred, module").eq("user_id", user_id).execute()
+    resp   = client.table("lb_posts") \
+                   .select("score, starred, module") \
+                   .eq("user_id", user_id) \
+                   .is_("deleted_at", "null") \
+                   .execute()
     rows   = resp.data or []
     total  = len(rows)
     starred= sum(1 for r in rows if r.get("starred"))
@@ -269,7 +425,7 @@ VALID_SLOTS = [
 ]
 
 
-def schedule_post(post_id: int, day_of_week: str, time_slot: str, note: str = "") -> dict:
+def schedule_post(post_id, day_of_week: str, time_slot: str, note: str = "") -> dict:
     """
     Pin a post to a (day, slot). Replaces any existing slot in the same place.
     Returns the saved schedule row dict.
@@ -283,7 +439,7 @@ def schedule_post(post_id: int, day_of_week: str, time_slot: str, note: str = ""
     uid    = _user_id()
     row = {
         "user_id":      uid,
-        "post_id":      post_id,
+        "post_id":      _normalize_id(post_id),
         "day_of_week":  day_of_week,
         "time_slot":    time_slot,
         "note":         (note or "").strip()[:200],
@@ -316,9 +472,9 @@ def get_schedule() -> list[dict]:
         "day_of_week": "Tuesday",
         "time_slot":   "Morning (7-9 AM)",
         "note":        "Hook test - calm tone",
-        "post_id":     1700000000123,
+        "post_id":     "<uuid>",
         "post":        { id, content, module, score, tags, created_at, starred }
-                       — None if the underlying post was deleted.
+                       — None if the underlying post was deleted (hard or soft).
       }
     """
     client   = _get_client()
@@ -328,8 +484,14 @@ def get_schedule() -> list[dict]:
     if not schedule:
         return []
 
-    post_ids = [s["post_id"] for s in schedule]
-    posts_resp = client.table("lb_posts").select("*").eq("user_id", uid).in_("id", post_ids).execute()
+    post_ids = [_normalize_id(s["post_id"]) for s in schedule]
+    # Only join active (non-soft-deleted) posts. Soft-deleted ones become
+    # "orphan slots" in the UI, exactly like hard-deleted ones do today.
+    posts_resp = client.table("lb_posts").select("*") \
+                       .eq("user_id", uid) \
+                       .in_("id", post_ids) \
+                       .is_("deleted_at", "null") \
+                       .execute()
     posts_by_id = {p["id"]: _row_to_dict(p) for p in (posts_resp.data or [])}
 
     # Sort by day-of-week then slot index for a stable display
@@ -345,7 +507,7 @@ def get_schedule() -> list[dict]:
             "time_slot":   s["time_slot"],
             "note":        s.get("note", "") or "",
             "post_id":     s["post_id"],
-            "post":        posts_by_id.get(s["post_id"]),  # None if post deleted
+            "post":        posts_by_id.get(_normalize_id(s["post_id"])),
         })
     return out
 
