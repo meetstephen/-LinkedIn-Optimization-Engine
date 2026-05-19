@@ -384,8 +384,13 @@ def _generation_signature(topic: str, niche: str, tone: str, framework: str) -> 
 
 
 def render_post_generator():
-    st.header("🚀 LinkedIn Post Generator")
-    st.markdown("Generate scroll-stopping posts using proven viral frameworks powered by Gemini AI.")
+    st.markdown("""
+    <div class="main-header">
+        <div class="v-badge">Scroll-Stopping Posts on Demand</div>
+        <h1>🚀 LinkedIn Post Generator</h1>
+        <p>Generate scroll-stopping posts using proven viral frameworks powered by Gemini AI.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
     _p = st.session_state.get("user_profile", {})
 

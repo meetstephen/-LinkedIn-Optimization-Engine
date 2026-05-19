@@ -124,8 +124,13 @@ Make it feel real — specific numbers, specific moments.
 
 
 def render_strategy_insights():
-    st.header("🧠 Creator Strategy Insights")
-    st.markdown("A real playbook based on what actually works — not what sounds good in theory.")
+    st.markdown("""
+    <div class="main-header">
+        <div class="v-badge">What Actually Works</div>
+        <h1>🧠 Creator Strategy Insights</h1>
+        <p>A real playbook based on what actually works — not what sounds good in theory.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
     with st.expander("🎭 Learn About Creator Archetypes", expanded=False):
         for archetype, desc in CREATOR_ARCHETYPES.items():

@@ -114,8 +114,13 @@ None should contain: "Helping", "Passionate", "Empowering", "Driving".
 
 
 def render_about_optimizer():
-    st.header("💼 LinkedIn 'About' Section Optimizer")
-    st.markdown("Transform your About section into a personal brand story that attracts the right opportunities.")
+    st.markdown("""
+    <div class="main-header">
+        <div class="v-badge">Your Personal Brand Story</div>
+        <h1>💼 LinkedIn 'About' Section Optimizer</h1>
+        <p>Transform your About section into a personal brand story that attracts the right opportunities.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
     _p = st.session_state.get("user_profile", {})
 

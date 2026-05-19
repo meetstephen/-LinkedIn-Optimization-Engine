@@ -57,11 +57,13 @@ def render_image_generator():
         )
         return
 
-    st.header("🎨 AI Image Generator")
-    st.markdown(
-        "Generate professional LinkedIn visuals powered by Stability AI (SDXL) "
-        "with Hugging Face as fallback."
-    )
+    st.markdown("""
+    <div class="main-header">
+        <div class="v-badge">Stability AI · SDXL · Hugging Face Fallback</div>
+        <h1>🎨 AI Image Generator</h1>
+        <p>Generate professional LinkedIn visuals on demand — no design tools required.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
     # ── API key status ─────────────────────────────────────────────────────
     stability_key = st.session_state.get("stability_api_key", "")

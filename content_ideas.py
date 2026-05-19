@@ -76,8 +76,13 @@ After all {count} ideas, add:
 
 
 def render_content_ideas():
-    st.header("💡 Content Idea Generator")
-    st.markdown("Generate a full content calendar with real, usable post ideas tailored to your niche.")
+    st.markdown("""
+    <div class="main-header">
+        <div class="v-badge">Never Run Out of Ideas Again</div>
+        <h1>💡 Content Idea Generator</h1>
+        <p>Generate a full content calendar with real, usable post ideas tailored to your niche.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
     _p = st.session_state.get("user_profile", {})
 

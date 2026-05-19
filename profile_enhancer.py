@@ -122,8 +122,13 @@ Each under 20 minutes, each with an immediate measurable impact.
 
 
 def render_profile_enhancer():
-    st.header("🌟 Profile Enhancer: Beginner → PRO")
-    st.markdown("Get your LinkedIn profile scored honestly — and a specific plan to fix what's holding you back.")
+    st.markdown("""
+    <div class="main-header">
+        <div class="v-badge">Beginner → PRO</div>
+        <h1>🌟 Profile Enhancer</h1>
+        <p>Get your LinkedIn profile scored honestly — and a specific plan to fix what's holding you back.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
     _p = st.session_state.get("user_profile", {})
 

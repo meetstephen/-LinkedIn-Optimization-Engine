@@ -107,8 +107,13 @@ def _extract_score(result: str) -> str:
 
 
 def render_post_optimizer():
-    st.header("🔧 LinkedIn Post Optimizer")
-    st.markdown("Paste your existing post and get a full diagnosis + professional rewrite with engagement score.")
+    st.markdown("""
+    <div class="main-header">
+        <div class="v-badge">Diagnose · Rewrite · Score</div>
+        <h1>🔧 LinkedIn Post Optimizer</h1>
+        <p>Paste your existing post and get a full diagnosis + professional rewrite with engagement score.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
     # ── Pipeline-fed content from Post Generator ─────────────────────────────
     _piped_content = st.session_state.pop("po_content_pipe", None)
