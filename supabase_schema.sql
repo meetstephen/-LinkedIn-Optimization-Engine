@@ -285,6 +285,13 @@ END$$;
 -- panel for 30 days with a Restore button. After 30 days the app's
 -- purge_old_deleted() helper hard-deletes them — schedule it via Supabase
 -- pg_cron for full automation, or call it from an admin button.
+
+-- Migration: ensure inserted_at exists on older installs where CREATE TABLE
+-- IF NOT EXISTS was a no-op (the column was added in v3 but older installs
+-- may not have it).
+ALTER TABLE lb_posts
+    ADD COLUMN IF NOT EXISTS inserted_at TIMESTAMPTZ DEFAULT NOW();
+
 ALTER TABLE lb_posts
     ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
