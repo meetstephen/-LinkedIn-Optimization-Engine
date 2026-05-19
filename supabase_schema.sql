@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS lb_login_events (
     id           BIGSERIAL    PRIMARY KEY,
     user_id      UUID         NOT NULL,
     email        TEXT         NOT NULL,           -- denormalised for cheap admin queries
-    event_type   TEXT         NOT NULL DEFAULT 'login',  -- 'login' | 'signup' | 'logout' | 'failed_login'
+    event_type   TEXT         NOT NULL DEFAULT 'login',  -- 'login' | 'signup' | 'logout' | 'failed_login' | 'rate_limited' | 'password_reset_requested' | 'password_reset_completed'
     user_agent   TEXT         DEFAULT '',
     occurred_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
@@ -115,6 +115,38 @@ CREATE INDEX IF NOT EXISTS lb_login_events_user_idx
 
 CREATE INDEX IF NOT EXISTS lb_login_events_recent_idx
     ON lb_login_events (occurred_at DESC);
+
+-- Composite index for the rate-limiter — every log_in() call runs:
+--   SELECT count(*) FROM lb_login_events
+--    WHERE email = ? AND event_type = 'failed_login' AND occurred_at >= ?
+-- This index makes that query O(log N) on a large events table.
+CREATE INDEX IF NOT EXISTS lb_login_events_email_event_time_idx
+    ON lb_login_events (email, event_type, occurred_at DESC);
+
+
+-- ── 6. PASSWORD RESETS (NEW — token-based reset flow) ──────────────────────
+-- One row per reset request. We store only a SHA-256 hash of the random
+-- token; the raw token lives only in the email we send to the user. After
+-- a successful reset we mark used_at — and the app burns every other
+-- outstanding token for the same user, so a leaked second link can't be
+-- replayed.
+CREATE TABLE IF NOT EXISTS lb_password_resets (
+    id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID         NOT NULL,
+    email       TEXT         NOT NULL,
+    token_hash  TEXT         NOT NULL,           -- SHA-256 of the raw token
+    expires_at  TIMESTAMPTZ  NOT NULL,           -- now() + 24h by default
+    used_at     TIMESTAMPTZ,                     -- NULL until consumed
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+-- The validator looks up by token_hash on every reset attempt; this index
+-- keeps that hot path O(log N).
+CREATE UNIQUE INDEX IF NOT EXISTS lb_password_resets_token_hash_idx
+    ON lb_password_resets (token_hash);
+
+CREATE INDEX IF NOT EXISTS lb_password_resets_user_idx
+    ON lb_password_resets (user_id, created_at DESC);
 
 
 -- ── 7. USAGE EVENTS (NEW — token tracking) ─────────────────────────────────
@@ -135,20 +167,22 @@ CREATE INDEX IF NOT EXISTS lb_usage_events_user_idx
 
 
 -- ── 8. ROW LEVEL SECURITY ───────────────────────────────────────────────────
-ALTER TABLE lb_posts        ENABLE ROW LEVEL SECURITY;
-ALTER TABLE lb_profiles     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE lb_schedule     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE lb_users        ENABLE ROW LEVEL SECURITY;
-ALTER TABLE lb_login_events ENABLE ROW LEVEL SECURITY;
-ALTER TABLE lb_usage_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lb_posts           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lb_profiles        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lb_schedule        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lb_users           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lb_login_events    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lb_usage_events    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lb_password_resets ENABLE ROW LEVEL SECURITY;
 
 -- Drop any pre-existing permissive policies (idempotent re-runs)
-DROP POLICY IF EXISTS lb_posts_anon_all         ON lb_posts;
-DROP POLICY IF EXISTS lb_profiles_anon_all      ON lb_profiles;
-DROP POLICY IF EXISTS lb_schedule_anon_all      ON lb_schedule;
-DROP POLICY IF EXISTS lb_users_anon_all         ON lb_users;
-DROP POLICY IF EXISTS lb_login_events_anon_all  ON lb_login_events;
-DROP POLICY IF EXISTS lb_usage_events_anon_all  ON lb_usage_events;
+DROP POLICY IF EXISTS lb_posts_anon_all            ON lb_posts;
+DROP POLICY IF EXISTS lb_profiles_anon_all         ON lb_profiles;
+DROP POLICY IF EXISTS lb_schedule_anon_all         ON lb_schedule;
+DROP POLICY IF EXISTS lb_users_anon_all            ON lb_users;
+DROP POLICY IF EXISTS lb_login_events_anon_all     ON lb_login_events;
+DROP POLICY IF EXISTS lb_usage_events_anon_all     ON lb_usage_events;
+DROP POLICY IF EXISTS lb_password_resets_anon_all  ON lb_password_resets;
 
 -- Permissive policies — the app layer enforces ownership via user_id filters.
 -- The anon key is the only key shipped to clients, so this matches the rest
@@ -190,8 +224,15 @@ CREATE POLICY lb_usage_events_anon_all
     USING (true)
     WITH CHECK (true);
 
+CREATE POLICY lb_password_resets_anon_all
+    ON lb_password_resets FOR ALL
+    TO anon
+    USING (true)
+    WITH CHECK (true);
+
 
 -- ── 7. SANITY CHECK ─────────────────────────────────────────────────────────
--- After running, you should see FIVE tables in your Supabase Table Editor:
---   lb_posts, lb_profiles, lb_schedule, lb_users, lb_login_events
+-- After running, you should see SEVEN tables in your Supabase Table Editor:
+--   lb_posts, lb_profiles, lb_schedule, lb_users, lb_login_events,
+--   lb_usage_events, lb_password_resets
 -- Rows are auto-created the first time the app writes to them.
