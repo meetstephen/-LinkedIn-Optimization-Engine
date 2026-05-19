@@ -3321,6 +3321,25 @@ def main():
     _prewarm_utils()
     init_session_state()
 
+    # ── PASSWORD RESET HIJACK ─────────────────────────────────────────────────
+    # If the URL carries ?reset_token=…, force the auth gateway to render
+    # regardless of session state. Someone might click their own reset link
+    # from a different browser or while still logged in elsewhere — the link
+    # in the email must always work.
+    _has_reset_token = False
+    try:
+        _qp = st.query_params
+        _t = _qp.get("reset_token", "")
+        if isinstance(_t, list):
+            _t = _t[0] if _t else ""
+        _has_reset_token = bool((_t or "").strip())
+    except Exception:
+        _has_reset_token = False
+
+    if _has_reset_token and _CORE_AVAILABLE and _auth is not None and _auth.is_logged_in():
+        # Drop the active session so the gateway can show the reset form.
+        _auth.log_out()
+
     # ── AUTH GATE ─────────────────────────────────────────────────────────────
     # If multi-user auth is available and no one is logged in, show the
     # login/signup gateway and bail out — no feature pages, no sidebar.
