@@ -1,0 +1,31 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Create core/examples.py with few-shot LinkedIn post examples and rebuild core/voice.py with a shorter, punchier voice system that produces human-sounding output",
+  "status": "pending",
+  "steps": [
+    "Create core/examples.py as a new module with 5-6 high-quality few-shot LinkedIn post examples demonstrating different writing styles: (1) Nigerian professional storytelling - warm, communal, specific numbers, (2) Mid-scene opener - drops you into a moment before context, (3) Withhold-the-lesson - tells what happened, lets reader figure out the takeaway, (4) Communal/warm style - uses 'we' framing, direct about results, (5) Data-driven but human - numbers forward with personality, (6) Ambiguous ending with no CTA. Each example should be 150-400 words, feel genuinely human-written, and demonstrate the exact quality the app should produce. Include a get_examples(n=3) function that returns a random subset.",
+    "Rewrite HUMAN_VOICE_PRIMER in core/voice.py - reduce from ~600 words to ~250 words. Make it a creative brief, not a rulebook. Bake Nigerian warmth (communal framing, 'we' not just 'I', directness about money/results, comfort with longer flowing sentences) into the core voice natively rather than as an addon. Keep the core principles: specificity over polish, earned honesty, real rhythm.",
+    "Consolidate BANNED in core/voice.py - keep the same banned phrases but remove the verbose category headers and explanations. Group tighter. The list itself is fine, just make the formatting leaner so it takes fewer tokens.",
+    "Rewrite HUMAN_SIGNATURES in core/voice.py - make it less prescriptive. Instead of numbered rules with explanations, show brief examples. Keep the same 8 categories (specific numbers, time anchors, places, dialogue, self-interruption, contrast, vulnerability, industry proof) but present them as demonstrations rather than instructions.",
+    "Rebuild STRUCTURE_RULES in core/voice.py with these key changes: (a) KILL the rigid 'one idea per line' rule - replace with 'vary paragraph length: mix single lines with 2-3 sentence paragraphs like a real writer', (b) LOOSEN hook length from 'under 12 words ideally, 15 max' to 'under 25 words, specificity matters more than brevity', (c) ALLOW hooks that open mid-scene (not just claims), (d) REMOVE 'no questions as hooks' rule - allow specific questions, (e) Add a 'no CTA' option acknowledging best posts sometimes just end, (f) Add structural variety instruction: pick different paragraph structures each time.",
+    "Update voice_block() and short_voice_block() functions if their signatures change. Keep backward compatibility - they should still return strings usable in prompts.",
+    "Ensure the BANNED constant still contains all the same quoted phrases (core/validator.py at import time extracts them via regex on quoted strings). Do NOT remove any phrase from inside quotes - only restructure the surrounding text."
+  ],
+  "acceptance_criteria": [
+    "core/examples.py exists with get_examples() returning list of example post strings",
+    "HUMAN_VOICE_PRIMER is under 300 words (count via len(HUMAN_VOICE_PRIMER.split()))",
+    "All previously banned phrases still appear quoted in BANNED (validator.py regex extraction still works)",
+    "STRUCTURE_RULES no longer contains 'one idea per line' or 'Under 12 words'",
+    "STRUCTURE_RULES allows questions as hooks and no-CTA endings",
+    "voice_block() still returns a string containing all four sections",
+    "Nigerian warmth/communal framing is in the core HUMAN_VOICE_PRIMER, not a separate section"
+  ],
+  "verification": [
+    "Run pytest tests/ -ra --tb=short - all tests must pass (test_voice.py will need updating since structure rules changed)",
+    "Run python -c \"from core.voice import HUMAN_VOICE_PRIMER; print(len(HUMAN_VOICE_PRIMER.split()))\" and confirm under 300",
+    "Run python -c \"from core.examples import get_examples; print(len(get_examples(3)))\" and confirm it returns 3 examples"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
