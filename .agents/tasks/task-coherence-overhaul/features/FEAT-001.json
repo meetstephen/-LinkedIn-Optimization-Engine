@@ -1,0 +1,31 @@
+{
+  "id": "FEAT-001",
+  "type": "fix",
+  "description": "Align all module prompts with the new voice system from core/voice.py. Every module currently has stale rules that contradict the updated STRUCTURE_RULES (hooks up to 25 words, questions allowed when specific, vary paragraph length, no-CTA valid). Also add few-shot examples to modules that generate post-like content.",
+  "status": "completed",
+  "steps": [
+    "Step 1: Update post_optimizer.py build_optimizer_prompt() (around line 66-69 in the Rewrite rules section): Replace 'No questions as hooks' with guidance that specific questions work. Replace 'One idea per line, blank line between paragraphs' with 'Vary paragraph length. Blank line between paragraphs.' Replace 'CTA is a genuine question -- max one, at the very end' with 'End naturally -- a genuine question or no CTA at all. Both work.' Add import of get_examples from core.examples and inject 1-2 few-shot examples into the prompt for quality calibration of the rewritten version. Update 'Under 260 words' to allow more space ('Under 500 words' since the new system allows 300-700 word posts). Also update the hook word limit to align with the 25-word max.",
+    "Step 2: Update repurposing_engine.py build_repurpose_prompt() TEXT POST section (around line 37): Replace 'One idea per line. Blank lines between paragraphs. Ends with one genuine question CTA.' with 'Vary paragraph length like a real writer. Blank lines between paragraphs. End naturally -- a question, a statement, or no CTA at all.' Update HOOK VARIATIONS section (around line 50): Change 'Each hook max 15 words' to 'Each hook under 25 words -- specificity matters more than brevity'. Remove 'No questions.' and replace with 'Specific questions work when they create tension.' Add import of get_examples from core.examples and inject 2 few-shot examples into the prompt.",
+    "Step 3: Update engagement_toolkit.py build_hooks_prompt() (around line 62-63): Remove the line 'No questions -- statements outperform questions every time on LinkedIn'. Replace 'Max 12 words per hook ideally, 15 absolute maximum' with 'Under 25 words. Specificity matters more than brevity.' Add a new rule: 'Specific questions work as hooks when they create tension. Vague questions don't.' Add import of get_examples from core.examples and inject 2 hook examples from the few-shot bank (extract just the first lines/hooks from examples).",
+    "Step 4: Update content_ideas.py build_ideas_prompt() (around line 124 in the Hook: format spec): Change 'No questions. Doesn't start with \"I\".' to 'Doesn't start with \"I\". Specific questions work as hooks when they create genuine tension.' In the opening type distribution list, add 'Specific question opener' as a valid type (e.g. \"Is your SaaS contract actually enforceable in Lagos?\").",
+    "Step 5: Update engagement_intelligence.py build_comment_prompt(): Add import of get_examples from core.examples. After the HUMAN_VOICE_PRIMER line, inject 1-2 examples specifically for comment quality calibration. Add a brief note: 'EXAMPLES OF THE VOICE CALIBRE TO MATCH (these are full posts -- your comments should match this level of specificity and humanity in a shorter format):' followed by the examples.",
+    "Step 6: Update app.py Viral Hook Analyzer prompt (around line 2157): Change the rule 'No rewrite is a question' to 'No rewrite is a vague question (specific tension-creating questions are fine)'. The 210 char limit is fine since it's about LinkedIn's see-more cutoff, not word count.",
+    "Step 7: Update app.py Carousel Planner prompt (around line 3218): Change 'never starts with \"I\", no questions, no emojis in the title text itself' to 'never starts with \"I\", no emojis in the title text itself -- specific tension-creating questions work for slide 1'."
+  ],
+  "acceptance_criteria": [
+    "post_optimizer.py no longer contains 'No questions as hooks' or 'One idea per line'",
+    "repurposing_engine.py TEXT POST section says 'Vary paragraph length' not 'One idea per line' and HOOK VARIATIONS allows 25 words and questions",
+    "engagement_toolkit.py hook rules say 'Under 25 words' not '12 words' or '15 maximum', and does not say 'No questions'",
+    "content_ideas.py hook format includes 'Specific questions work' and includes question opener in the distribution list",
+    "engagement_intelligence.py imports and uses get_examples from core.examples",
+    "app.py Hook Analyzer prompt no longer says 'No rewrite is a question' (allows specific questions)",
+    "app.py Carousel Planner prompt no longer bans questions outright",
+    "All existing tests pass (export PYENV_VERSION=3.11.15 && python -m pytest tests/ --tb=short -q)"
+  ],
+  "verification": [
+    "export PYENV_VERSION=3.11.15 && python -m pytest tests/ --tb=short -q",
+    "export PYENV_VERSION=3.11.15 && python -c \"import post_optimizer; import repurposing_engine; import engagement_toolkit; import content_ideas; import engagement_intelligence\""
+  ],
+  "blocked_reason": null,
+  "findings": "All 66 tests pass. All module imports succeed. No pre-existing test issues encountered."
+}

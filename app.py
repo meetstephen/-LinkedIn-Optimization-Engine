@@ -2170,7 +2170,7 @@ Rules:
 - Every rewrite must sound like a real person typed it on their phone — not a brand voice
 - No rewrite may contain any banned phrase listed above
 - No rewrite starts with "I"
-- No rewrite is a question"""
+- No rewrite is a vague question (specific tension-creating questions are fine)"""
 
             stash_prompt(
                 "hook_analyzer", prompt,
@@ -2934,6 +2934,12 @@ def render_content_scheduler():
     </div>
     """, unsafe_allow_html=True)
 
+    # ── Pipeline-fed content from Post Generator ─────────────────────────────
+    _piped_scheduler = st.session_state.pop("scheduler_pipe_content", None)
+    if _piped_scheduler:
+        st.session_state["scheduler_prefill"] = _piped_scheduler
+        st.success("✅ Post received from Post Generator — ready to schedule below.")
+
     if not _CORE_AVAILABLE:
         st.error(
             "❌ The Content Scheduler requires Supabase to be connected. "
@@ -2979,6 +2985,40 @@ def render_content_scheduler():
         )
 
     st.markdown("---")
+
+    # ── Quick-schedule piped content from Post Generator ──────────────────────
+    _prefill = st.session_state.get("scheduler_prefill")
+    if _prefill:
+        with st.expander("\U0001f4dd Post from Post Generator \u2014 schedule it now", expanded=True):
+            st.markdown(
+                f"<div style='background:#f8f9fa;padding:1rem;border-radius:8px;"
+                f"border-left:4px solid #0A66C2;font-size:0.9rem;line-height:1.6;"
+                f"white-space:pre-wrap;max-height:200px;overflow-y:auto;'>"
+                f"{_html_mod.escape(_prefill[:500]).replace(chr(10), '<br>')}"
+                f"{'...' if len(_prefill) > 500 else ''}</div>",
+                unsafe_allow_html=True,
+            )
+            _qs_col1, _qs_col2, _qs_col3 = st.columns([2, 2, 1])
+            with _qs_col1:
+                from core.db import VALID_DAYS
+                _qs_day = st.selectbox("Day", VALID_DAYS, key="qs_day")
+            with _qs_col2:
+                from core.db import VALID_SLOTS
+                _qs_slot = st.selectbox("Time slot", VALID_SLOTS, key="qs_slot")
+            with _qs_col3:
+                st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                if st.button("\U0001f4c5 Schedule", key="qs_schedule_btn", type="primary", use_container_width=True):
+                    try:
+                        saved = _db.save_post(
+                            _prefill, "\U0001f680 Post Generator",
+                            score=0, tags=["generated", "scheduled"],
+                        )
+                        _db.schedule_post(saved["id"], _qs_day, _qs_slot)
+                        st.session_state.pop("scheduler_prefill", None)
+                        st.success(f"\u2705 Saved to Library and scheduled for {_qs_day} {_qs_slot}!")
+                        st.rerun()
+                    except Exception as _qs_err:
+                        st.error(f"Scheduling failed: {_qs_err}")
 
     # ── Load schedule ─────────────────────────────────────────────────────────
     try:
@@ -3215,7 +3255,7 @@ Return ONLY a JSON array — no markdown, no backticks, no preamble:
 ]
 
 Rules:
-- Slide 1: Bold hook claim or curiosity-gap statement that makes people swipe — never starts with "I", no questions, no emojis in the title text itself
+- Slide 1: Bold hook claim, curiosity-gap statement, or specific tension-creating question that makes people swipe — never starts with "I", no emojis in the title text itself
 - Middle slides: ONE clear insight per slide — no padding
 - Each title ≤8 words, each body ≤40 words
 - Body text must contain at least one specific number, name, or concrete detail per slide
