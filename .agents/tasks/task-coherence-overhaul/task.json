@@ -1,0 +1,7 @@
+{
+  "task_id": "task-coherence-overhaul",
+  "task_description": "Major coherence overhaul to align all LinkedEdge modules with the updated voice system from core/voice.py, add few-shot examples across modules, and polish cross-module pipelines for launch readiness.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}

@@ -116,12 +116,13 @@ once if {count} >= 5):
   • Confession opener ("Almost declined the talk. Wasn't sure I was qualified.")
   • Contrarian claim opener ("The senior at NBA got it wrong.")
   • Direct address opener ("If you're a founder reviewing your own SaaS terms, stop.")
+  • Specific question opener ("Is your SaaS contract actually enforceable in Lagos?")
 
 For each idea, output EXACTLY this format:
 
 **[NUMBER]. [IDEA TITLE — 5-8 words, punchy, no colons unless needed]**
 Pillar: [which pillar from the list]
-Hook: [The exact 1-2 lines that open the post. No questions. Doesn't start with "I". Sounds like a person talking, not a press release.]
+Hook: [The exact 1-2 lines that open the post. Doesn't start with "I". Specific questions work when they create genuine tension. Sounds like a person talking, not a press release.]
 Angle: [2-3 sentences in plain conversational English. Name the specific tension. Use a real number, place, or institution. Use contractions naturally. NO "this highlights / this underscores / this is a testament to" framing.]
 Why it works: [One short sentence — sounds like the writer's gut-check, not marketing copy. Plain language, max 18 words.]
 Tags: [Apply the rules below. If no good tag fits, write "Tags: skip".]

@@ -14,6 +14,7 @@ from core.voice import (
     HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES, STRUCTURE_RULES,
     story_beats_block,
 )
+from core.examples import get_examples
 from core import validator as _validator
 from core.debug import stash_prompt, render_prompt_debug
 from core.error_logger import log_error
@@ -25,6 +26,15 @@ def build_repurpose_prompt(idea: str, niche: str, audience: str, formats: list, 
     formats_str    = ", ".join(formats)
     beats_block    = story_beats_block(story_beats)
 
+    # ── Few-shot examples from core.examples ─────────────────────────────
+    import hashlib as _hashlib
+    _seed_raw = idea[:50]
+    _example_seed = int(_hashlib.md5(_seed_raw.encode("utf-8")).hexdigest(), 16) % (2**31)
+    examples = get_examples(2, seed=_example_seed)
+    examples_block = "\nEXAMPLES OF THE QUALITY AND TONE TO AIM FOR:\n"
+    for i, ex in enumerate(examples, 1):
+        examples_block += f"\n---EXAMPLE {i}---\n{ex.strip()}\n"
+
     NL = chr(10)
 
     # Build the requested-format sections separately so f-string expressions
@@ -34,8 +44,8 @@ def build_repurpose_prompt(idea: str, niche: str, audience: str, formats: list, 
         section_text += (
             f"{NL}---TEXT POST---{NL}"
             "Write one complete LinkedIn post (300-500 words). Opens with a hook "
-            "that does NOT start with \"I\". One idea per line. Blank lines between "
-            "paragraphs. Ends with one genuine question CTA."
+            "that does NOT start with \"I\". Vary paragraph length like a real writer. Blank lines between "
+            "paragraphs. End naturally -- a question, a statement, or no CTA at all."
         )
     if "Carousel Slides" in formats:
         section_text += (
@@ -47,8 +57,8 @@ def build_repurpose_prompt(idea: str, niche: str, audience: str, formats: list, 
     if "Hook Variations" in formats:
         section_text += (
             f"{NL}---HOOK VARIATIONS---{NL}"
-            "Write 5 completely different hooks for this idea. Each hook max 15 words. "
-            "Never starts with \"I\". No questions. Each uses a different psychological "
+            "Write 5 completely different hooks for this idea. Each hook under 25 words -- specificity matters more than brevity. "
+            "Never starts with \"I\". Specific questions work when they create tension. Each uses a different psychological "
             "trigger: curiosity gap, bold claim, confession, shock stat, direct address. "
             "Label: HOOK 1, HOOK 2, etc. After each: Trigger used + one sentence why it works."
         )
@@ -83,7 +93,7 @@ FORMATS REQUESTED: {formats_str}
 {BANNED}
 {HUMAN_SIGNATURES}
 {STRUCTURE_RULES}
-
+{examples_block}
 Produce ONLY the requested formats below. Label each section clearly. Each format must sound like the same person wrote it — same voice, same specificity, same point of view.
 {section_text}
 """

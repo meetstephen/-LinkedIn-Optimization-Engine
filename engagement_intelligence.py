@@ -9,6 +9,7 @@ from gemini_client import get_profile_context, stream_text
 from industry_profiles import get_industry_voice_block
 from library import save_post_to_library
 from core.voice import HUMAN_VOICE_PRIMER, SHORT_PRIMER, BANNED
+from core.examples import get_examples
 from core import validator as _validator
 
 
@@ -16,11 +17,17 @@ def build_comment_prompt(post_text: str, goal: str, niche: str) -> str:
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(niche)
 
+    # ── Few-shot example for comment quality calibration ──────────────────
+    examples = get_examples(1)
+    examples_block = "\nEXAMPLE OF THE VOICE CALIBRE TO MATCH (this is a full post -- your comments should match this level of specificity and humanity in shorter form):\n"
+    for i, ex in enumerate(examples, 1):
+        examples_block += f"\n---EXAMPLE {i}---\n{ex.strip()}\n"
+
     return f"""{HUMAN_VOICE_PRIMER}
 
 You are writing LinkedIn comments that stop people mid-scroll — not "great post!" filler but comments that add a genuine insight, establish the commenter's authority, and make the post author want to visit their profile.{profile_ctx}
 {industry_voice}
-
+{examples_block}
 THE POST BEING COMMENTED ON:
 \"\"\"
 {post_text}
