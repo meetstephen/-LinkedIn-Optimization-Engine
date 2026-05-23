@@ -1,5 +1,5 @@
 """
-core/state.py — Session-state helpers and initialisation for LinkedBoost AI.
+core/state.py — Session-state helpers and initialisation for LinkedEdge.
 
 Multi-user mode (post-v3):
   • If a user is signed in (auth_user["id"] set), user_id == that UUID.
@@ -87,7 +87,7 @@ def _ensure_user_id() -> str:
         stable_seed = (
             get_secret("SUPABASE_URL")
             or shared_key
-            or "linkedboost_owner"
+            or "linkededge_owner"
         )
         uid = _derive_user_id(stable_seed)
 

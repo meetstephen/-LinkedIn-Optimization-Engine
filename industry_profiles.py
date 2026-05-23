@@ -1,5 +1,5 @@
 """
-utils/industry_profiles.py — Industry Voice DNA for LinkedBoost AI.
+industry_profiles.py — Industry Voice DNA for LinkedEdge.
 
 Injected into every post generation and optimization prompt to make
 AI output sound like it was written by an actual practitioner in that

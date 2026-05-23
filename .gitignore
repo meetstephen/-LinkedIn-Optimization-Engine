@@ -42,7 +42,7 @@ htmlcov/
 *.db
 *.sqlite
 *.sqlite3
-linkedboost.db
+linkededge.db
 
 # ── Agent build metadata ──────────────────────────────────────────────────
 .agents/

@@ -1,4 +1,4 @@
-name: Keep LinkedBoost Awake
+name: Keep LinkedEdge Awake
 
 on:
   schedule:
@@ -96,7 +96,7 @@ jobs:
             --max-time 45 \
             --retry 2 \
             --retry-delay 5 \
-            -A "Mozilla/5.0 LinkedBoostKeepAlive/1.0" \
+            -A "Mozilla/5.0 LinkedEdgeKeepAlive/1.0" \
             -H "Accept: text/html" \
             "${{ secrets.APP_URL }}" \
             -o /dev/null \
