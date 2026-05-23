@@ -110,10 +110,19 @@ My business partner thinks I'm stubborn. Maybe. Our pipeline is thinner this mon
 ]
 
 
-def get_examples(n: int = 3) -> List[str]:
+def get_examples(n: int = 3, seed: int | None = None) -> List[str]:
     """Return *n* randomly selected few-shot examples (without replacement).
 
     If n >= total available examples, returns all of them (shuffled).
+
+    Parameters
+    ----------
+    seed : int or None
+        When provided, creates a local Random instance seeded with this value
+        so selection is deterministic without polluting the global random state.
     """
     count = min(n, len(_EXAMPLES))
+    if seed is not None:
+        rng = random.Random(seed)
+        return rng.sample(_EXAMPLES, count)
     return random.sample(_EXAMPLES, count)

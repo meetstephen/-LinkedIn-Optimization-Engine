@@ -300,7 +300,10 @@ def build_post_prompt(
     beats_block = story_beats_block(story_beats)
 
     # ── Few-shot examples from core.examples ─────────────────────────────
-    examples = get_examples(2)
+    import hashlib as _hashlib
+    _seed_raw = "|".join([topic.strip(), niche.strip(), tone.strip(), framework.strip()])
+    _example_seed = int(_hashlib.md5(_seed_raw.encode("utf-8")).hexdigest(), 16) % (2**31)
+    examples = get_examples(2, seed=_example_seed)
     examples_block = "\nEXAMPLES OF THE QUALITY AND TONE TO AIM FOR:\nEach example below is the calibre of writing you must match. Study the rhythm, specificity, and humanity.\n"
     for i, ex in enumerate(examples, 1):
         examples_block += f"\n---EXAMPLE {i}---\n{ex.strip()}\n"
@@ -353,7 +356,7 @@ Write ONE post. Not two. One excellent post that this specific person would be p
 OUTPUT FORMAT - use exactly this:
 [The post. No label, no intro, no "Here is the post:". Just the post itself.]
 
----NOTE---
+---GENERATION_NOTE---
 [One line: what hook type and angle you used, e.g. "Mid-scene opener with data reveal"]
 
 LinkedIn post length guide:
@@ -577,7 +580,7 @@ def render_post_generator():
 
             # Parse the streamed result
             import re as _re
-            _note_match = _re.search(r"-+\s*NOTE\s*-+(.*?)$", result, _re.DOTALL | _re.IGNORECASE)
+            _note_match = _re.search(r"-+\s*GENERATION_NOTE\s*-+(.*?)$", result, _re.DOTALL | _re.IGNORECASE)
             if _note_match:
                 post_content = result[:_note_match.start()].strip()
                 note = _note_match.group(1).strip()
