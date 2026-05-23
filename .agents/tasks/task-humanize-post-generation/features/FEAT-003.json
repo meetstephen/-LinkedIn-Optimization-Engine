@@ -2,7 +2,7 @@
   "id": "FEAT-003",
   "type": "feat",
   "description": "Rebuild post_generator.py to generate ONE variation at a time (not two), inject few-shot examples, add new frameworks/tones, and simplify the UI accordingly",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [
     "Update TONE_DESCRIPTIONS dict in post_generator.py - add two new tones: 'Warm & Direct' ('Nigerian professional default - communal, specific, not performative. Says what happened and what it meant without hedging.') and 'Thinking Out Loud' ('Incomplete thoughts, admitting uncertainty, working through something publicly. The post that says I dont know yet but here is where I am.'). Keep all existing tones.",
     "Update FRAMEWORK_DESCRIPTIONS dict in post_generator.py - add three new frameworks: 'Mid-Scene -> Context -> Reveal' ('Open in a specific moment (dialogue, decision, sensation). Fill in context. Land the insight without announcing it.'), 'Withhold the Lesson' ('Tell exactly what happened. Do not state what you learned. The reader figures it out - and remembers it longer.'), 'Ambient Authority' ('Share a working process or decision without framing it as advice. No you should. Just here is what I did and why.'). Keep all existing frameworks.",
