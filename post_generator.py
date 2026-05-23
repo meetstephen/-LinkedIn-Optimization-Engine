@@ -67,6 +67,125 @@ def _strip_fmt(text: str) -> str:
     return ''.join(out)
 
 
+def _predict_engagement(post: str) -> dict:
+    """
+    Deterministic engagement prediction based on post characteristics.
+    Returns a dict with 'score' (0-100), 'factors' (list of dicts with
+    'name', 'score', 'note'), and 'summary' string.
+    No AI call -- fast local calculation.
+    """
+    import re
+
+    factors = []
+
+    # 1. Hook quality (0-20)
+    lines = [l for l in post.split('\n') if l.strip()]
+    hook = lines[0] if lines else ""
+    hook_score = 10  # baseline
+    hook_words = len(hook.split())
+    if hook_words <= 25 and hook_words >= 5:
+        hook_score += 3
+    if not hook.startswith("I ") and not hook.startswith("I'"):
+        hook_score += 3
+    if re.search(r'\d', hook):  # has numbers
+        hook_score += 2
+    if any(c in hook for c in ['"', '\u201c', '\u201d']):  # has dialogue
+        hook_score += 2
+    hook_score = min(20, hook_score)
+    _hook_has_nums = bool(re.search(r'\d', hook))
+    factors.append({"name": "Hook Strength", "score": hook_score, "max": 20,
+                    "note": f"{hook_words} words, {'has specifics' if _hook_has_nums else 'could use numbers/names'}"})
+
+    # 2. Post length (0-20)
+    word_count = len(post.split())
+    if 150 <= word_count <= 500:
+        length_score = 18
+    elif 100 <= word_count < 150:
+        length_score = 14
+    elif 500 < word_count <= 700:
+        length_score = 15
+    elif word_count < 100:
+        length_score = 8
+    else:
+        length_score = 10
+    factors.append({"name": "Length", "score": length_score, "max": 20,
+                    "note": f"{word_count} words ({'sweet spot' if 150 <= word_count <= 500 else 'consider adjusting'})"})
+
+    # 3. Specificity (0-20) - numbers, places, names, dialogue
+    specificity_score = 5
+    numbers = re.findall(r'[₦$€N]?\d[\d,.]*[%MKBmkb]?', post)
+    if len(numbers) >= 3:
+        specificity_score += 6
+    elif len(numbers) >= 1:
+        specificity_score += 3
+    if re.search(r'["\u201c\u201d]', post):  # dialogue
+        specificity_score += 4
+    # Places or time references
+    time_words = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday',
+                  'Saturday', 'Sunday', 'morning', 'evening', 'pm', 'am',
+                  'January', 'February', 'March', 'April', 'May', 'June',
+                  'July', 'August', 'September', 'October', 'November', 'December']
+    if any(tw in post for tw in time_words):
+        specificity_score += 3
+    if any(place in post for place in ['Lagos', 'Ikeja', 'Lekki', 'Abuja', 'Port Harcourt', 'Yaba']):
+        specificity_score += 2
+    specificity_score = min(20, specificity_score)
+    _has_dialogue = bool(re.search(r'["\u201c\u201d]', post))
+    factors.append({"name": "Specificity", "score": specificity_score, "max": 20,
+                    "note": f"{len(numbers)} numbers found, {'has dialogue' if _has_dialogue else 'no dialogue'}"})
+
+    # 4. Structure variety (0-20)
+    paragraphs = [p.strip() for p in post.split('\n\n') if p.strip()]
+    structure_score = 10
+    if len(paragraphs) >= 3:
+        structure_score += 3
+    # Check paragraph length variety
+    para_lengths = [len(p.split()) for p in paragraphs]
+    if para_lengths:
+        length_range = max(para_lengths) - min(para_lengths)
+        if length_range >= 10:
+            structure_score += 4
+        elif length_range >= 5:
+            structure_score += 2
+    # Blank lines between paragraphs (good formatting)
+    if '\n\n' in post:
+        structure_score += 3
+    structure_score = min(20, structure_score)
+    factors.append({"name": "Structure", "score": structure_score, "max": 20,
+                    "note": f"{len(paragraphs)} paragraphs, {'varied lengths' if len(set(para_lengths)) > 2 else 'could vary more'}"})
+
+    # 5. Emotional pull (0-20)
+    emotional_score = 8
+    # Vulnerability markers
+    vuln_words = ["wrong", "mistake", "failed", "lost", "quit", "fired", "scared",
+                  "nervous", "honest", "admit", "didn't know", "wasn't sure"]
+    if any(vw in post.lower() for vw in vuln_words):
+        emotional_score += 5
+    # Contrast/tension
+    contrast_words = ["but", "however", "instead", "yet", "though"]
+    if sum(1 for cw in contrast_words if cw in post.lower()) >= 2:
+        emotional_score += 4
+    # Self-interruption
+    if any(si in post for si in ["And honestly?", "Here's the thing.", "I mean that literally."]):
+        emotional_score += 3
+    emotional_score = min(20, emotional_score)
+    factors.append({"name": "Emotional Pull", "score": emotional_score, "max": 20,
+                    "note": "vulnerability + tension signals detected" if emotional_score >= 13 else "could use more emotional anchors"})
+
+    total = sum(f["score"] for f in factors)
+
+    if total >= 80:
+        summary = "High viral potential -- specific, well-structured, emotionally grounded."
+    elif total >= 60:
+        summary = "Good engagement likely -- solid fundamentals, could add more specificity."
+    elif total >= 40:
+        summary = "Average performance expected -- needs more specific details and emotional anchors."
+    else:
+        summary = "Below average -- add numbers, dialogue, and vary the structure."
+
+    return {"score": total, "factors": factors, "summary": summary}
+
+
 # ── LinkedIn preview renderer ──────────────────────────────────────────────
 _SEE_MORE_CHARS = 210   # LinkedIn's approximate desktop feed cutoff
 
@@ -621,6 +740,23 @@ def render_post_generator():
         _vs_report = _validator.validate_post(post_content)
         _validator.render_voice_score(_vs_report, key="vs_post")
 
+        # ── Engagement prediction ─────────────────────────────────
+        _engagement = _predict_engagement(post_content)
+        with st.expander(f"\U0001f4ca Predicted Engagement: {_engagement['score']}/100 \u2014 {_engagement['summary'][:50]}"):
+            _eg_cols = st.columns(len(_engagement['factors']))
+            for _col, _f in zip(_eg_cols, _engagement['factors']):
+                with _col:
+                    _f_pct = _f['score'] / _f['max'] * 100
+                    _f_color = "#00c851" if _f_pct >= 70 else ("#FF6B35" if _f_pct >= 50 else "#e63946")
+                    st.markdown(
+                        f"<div style='text-align:center;'>"
+                        f"<div style='font-size:1.4rem;font-weight:700;color:{_f_color};'>{_f['score']}/{_f['max']}</div>"
+                        f"<div style='font-size:0.75rem;font-weight:600;'>{_f['name']}</div>"
+                        f"<div style='font-size:0.65rem;color:#666;'>{_f['note']}</div>"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+
         # ── Tabs: Raw text / Preview / Formatter ──────────────────
         _tab_raw, _tab_prev, _tab_fmt = st.tabs([
             "📝 Post Text",
@@ -759,13 +895,13 @@ def render_post_generator():
 
         # ── Pipeline buttons ───────────────────────────────────────
         st.markdown("**Send this post to:**")
-        btn_col1, btn_col2, btn_col3, btn_col4, btn_col5 = st.columns(5)
+        btn_col1, btn_col2, btn_col3, btn_col4, btn_col5, btn_col6 = st.columns(6)
 
         with btn_col1:
             if st.button("📋 Copy", key="copy_post",
                          use_container_width=True,
-                         help="Reveal the post text in a code box for one-click copy"):
-                st.code(post_content, language=None)
+                         help="Copy as plain text (LinkedIn-ready, no Unicode formatting)"):
+                st.code(_strip_fmt(post_content), language=None)
 
         with btn_col2:
             if st.button("🔧 Optimize", key="opt_post",
@@ -802,6 +938,15 @@ def render_post_generator():
                     tags=["generated"]
                 )
                 st.success(msg) if ok else st.warning(msg)
+
+        with btn_col6:
+            if st.button("📅 Schedule", key="schedule_post",
+                         use_container_width=True,
+                         help="Send to Content Scheduler to pick a time slot"):
+                st.session_state["scheduler_pipe_content"] = post_content
+                st.session_state["_pending_nav"] = "📅 Content Scheduler"
+                st.toast("Post sent to Content Scheduler", icon="📅")
+                st.rerun()
 
         # ── Prompt debug expander -- collapsed by default. Lets the user see
         # exactly what context Gemini got, so "why is the output ignoring my

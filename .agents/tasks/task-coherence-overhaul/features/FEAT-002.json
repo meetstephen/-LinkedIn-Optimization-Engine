@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "feat",
   "description": "Add cross-module pipeline polish and engagement prediction features for launch readiness. This includes: (1) Add a Schedule pipeline button to post_generator.py alongside existing Copy/Optimize/Hook/Visual/Save buttons, (2) Add a lightweight deterministic engagement prediction score after post generation, (3) Add a 'Copy Plain Text' button that strips Unicode formatting, (4) Expand core/examples.py with hook-specific examples that other modules can use for quality calibration.",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [
     "Step 1: Expand core/examples.py -- Add a new list _HOOK_EXAMPLES with 6-8 standalone hook lines extracted/inspired from the existing full post examples (first lines). Add a get_hook_examples(n=3, seed=None) function that works identically to get_examples() but returns hook-only strings. Also add a _COMMENT_EXAMPLES list with 3-4 short (2-4 sentence) example comments that demonstrate the quality expected, and a get_comment_examples(n=2, seed=None) function.",
     "Step 2: In post_generator.py, add a 6th pipeline button '📅 Schedule' after the existing 5 buttons (Copy, Optimize, Hook, Visual, Save). Change the columns from 5 to 6. On click, set st.session_state['scheduler_pipe_content'] = post_content and st.session_state['_pending_nav'] = '📅 Content Scheduler', then st.rerun(). This connects the Post Generator output directly to the Content Scheduler module.",
