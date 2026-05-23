@@ -1,7 +1,8 @@
 {
   "task_id": "task-coherence-overhaul",
   "task_description": "Major coherence overhaul to align all LinkedEdge modules with the updated voice system from core/voice.py, add few-shot examples across modules, and polish cross-module pipelines for launch readiness.",
-  "status": "in_progress",
+  "status": "completed",
   "feature_order": ["FEAT-001", "FEAT-002"],
-  "blocked_reason": null
+  "blocked_reason": null,
+  "review_fixes": "All 5 review issues addressed: (1) scheduler pipe wired in app.py, (2) get_hook_examples/get_comment_examples wired into production modules, (3) 13 tests added for _predict_engagement, (4) deterministic seeding added to engagement_toolkit and engagement_intelligence, (5) geo markers generalized with expanded list + proper noun detection."
 }
