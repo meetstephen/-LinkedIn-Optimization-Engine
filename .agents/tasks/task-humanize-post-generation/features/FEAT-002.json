@@ -2,7 +2,7 @@
   "id": "FEAT-002",
   "type": "feat",
   "description": "Create core/examples.py with few-shot LinkedIn post examples and rebuild core/voice.py with a shorter, punchier voice system that produces human-sounding output",
-  "status": "pending",
+  "status": "in_progress",
   "steps": [
     "Create core/examples.py as a new module with 5-6 high-quality few-shot LinkedIn post examples demonstrating different writing styles: (1) Nigerian professional storytelling - warm, communal, specific numbers, (2) Mid-scene opener - drops you into a moment before context, (3) Withhold-the-lesson - tells what happened, lets reader figure out the takeaway, (4) Communal/warm style - uses 'we' framing, direct about results, (5) Data-driven but human - numbers forward with personality, (6) Ambiguous ending with no CTA. Each example should be 150-400 words, feel genuinely human-written, and demonstrate the exact quality the app should produce. Include a get_examples(n=3) function that returns a random subset.",
     "Rewrite HUMAN_VOICE_PRIMER in core/voice.py - reduce from ~600 words to ~250 words. Make it a creative brief, not a rulebook. Bake Nigerian warmth (communal framing, 'we' not just 'I', directness about money/results, comfort with longer flowing sentences) into the core voice natively rather than as an addon. Keep the core principles: specificity over polish, earned honesty, real rhythm.",
