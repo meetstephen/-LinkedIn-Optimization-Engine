@@ -126,3 +126,67 @@ def get_examples(n: int = 3, seed: int | None = None) -> List[str]:
         rng = random.Random(seed)
         return rng.sample(_EXAMPLES, count)
     return random.sample(_EXAMPLES, count)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HOOK EXAMPLES (standalone first lines for hook-quality calibration)
+# ─────────────────────────────────────────────────────────────────────────────
+
+_HOOK_EXAMPLES: List[str] = [
+    "Three years ago we charged a client in Ikeja N450,000 for a compliance audit.",
+    "\"Delete the entire campaign,\" my CD said. Wednesday. 6:47pm.",
+    "My first employee quit after four months.",
+    "We ran our first cohort of 8 founders through a 90-day revenue sprint in Port Harcourt last quarter.",
+    "Tracked every single proposal we sent in 2023. All 94 of them.",
+    "Turned down a N7.5 million retainer last Tuesday.",
+    "Is your SaaS contract actually enforceable under Nigerian law?",
+    "94 proposals. 34% win rate. One variable changed everything.",
+]
+
+
+def get_hook_examples(n: int = 3, seed: int | None = None) -> List[str]:
+    """Return *n* randomly selected hook examples (without replacement).
+
+    If n >= total available hook examples, returns all of them (shuffled).
+
+    Parameters
+    ----------
+    seed : int or None
+        When provided, creates a local Random instance seeded with this value
+        so selection is deterministic without polluting the global random state.
+    """
+    count = min(n, len(_HOOK_EXAMPLES))
+    if seed is not None:
+        rng = random.Random(seed)
+        return rng.sample(_HOOK_EXAMPLES, count)
+    return random.sample(_HOOK_EXAMPLES, count)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# COMMENT EXAMPLES (strategic LinkedIn comments demonstrating quality)
+# ─────────────────────────────────────────────────────────────────────────────
+
+_COMMENT_EXAMPLES: List[str] = [
+    "Your point about the 48-hour proposal window mirrors what we found tracking 62 pitches last year in Abuja. The number that shocked us: proposals sent within 24 hours had a 58% close rate vs 9% after day 5. Speed signals seriousness more than polish ever will.",
+    "The arbitration clause point hits different when you've seen it go wrong. Had a client lose N12M because the seat was London but governing law was Nigerian -- nobody caught the conflict until enforcement stage. One line in the contract. Twelve million naira.",
+    "That 47% month-over-month growth figure from the cohort -- was that measured from first revenue or from the sprint start date? Asking because we found a 3-week lag between intervention and measurable revenue shift in our accelerator. The real gains showed up in month 4, not month 3.",
+    "This is the part most founders skip: the WhatsApp group becoming more valuable than the curriculum. We saw the same pattern running a 12-person cohort in Lekki. The peer referrals generated 3x more revenue than anything we taught directly.",
+]
+
+
+def get_comment_examples(n: int = 2, seed: int | None = None) -> List[str]:
+    """Return *n* randomly selected comment examples (without replacement).
+
+    If n >= total available comment examples, returns all of them (shuffled).
+
+    Parameters
+    ----------
+    seed : int or None
+        When provided, creates a local Random instance seeded with this value
+        so selection is deterministic without polluting the global random state.
+    """
+    count = min(n, len(_COMMENT_EXAMPLES))
+    if seed is not None:
+        rng = random.Random(seed)
+        return rng.sample(_COMMENT_EXAMPLES, count)
+    return random.sample(_COMMENT_EXAMPLES, count)
