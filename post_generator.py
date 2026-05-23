@@ -67,6 +67,18 @@ def _strip_fmt(text: str) -> str:
     return ''.join(out)
 
 
+# Common non-place proper nouns that should not trigger the specificity bonus.
+# Day/month names are already covered by the time_words check (+3) above.
+_NON_PLACE_PROPER_NOUNS = {
+    'LinkedIn', 'Google', 'Facebook', 'Twitter', 'Instagram', 'YouTube',
+    'Apple', 'Microsoft', 'Amazon', 'Netflix', 'Python', 'JavaScript',
+    'CEO', 'CTO', 'CFO', 'COO', 'VP', 'MD', 'HR',
+    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+}
+
+
 def _predict_engagement(post: str) -> dict:
     """
     Deterministic engagement prediction based on post characteristics.
@@ -146,8 +158,9 @@ def _predict_engagement(post: str) -> dict:
             words = sentence.split()
             for w in words[1:]:
                 if w and w[0].isupper() and len(w) > 1 and w.isalpha():
-                    _has_proper_noun = True
-                    break
+                    if w not in _NON_PLACE_PROPER_NOUNS:
+                        _has_proper_noun = True
+                        break
             if _has_proper_noun:
                 break
         if _has_proper_noun:

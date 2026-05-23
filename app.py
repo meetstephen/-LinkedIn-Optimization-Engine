@@ -2986,6 +2986,40 @@ def render_content_scheduler():
 
     st.markdown("---")
 
+    # ── Quick-schedule piped content from Post Generator ──────────────────────
+    _prefill = st.session_state.get("scheduler_prefill")
+    if _prefill:
+        with st.expander("\U0001f4dd Post from Post Generator \u2014 schedule it now", expanded=True):
+            st.markdown(
+                f"<div style='background:#f8f9fa;padding:1rem;border-radius:8px;"
+                f"border-left:4px solid #0A66C2;font-size:0.9rem;line-height:1.6;"
+                f"white-space:pre-wrap;max-height:200px;overflow-y:auto;'>"
+                f"{_prefill[:500].replace(chr(10), '<br>')}"
+                f"{'...' if len(_prefill) > 500 else ''}</div>",
+                unsafe_allow_html=True,
+            )
+            _qs_col1, _qs_col2, _qs_col3 = st.columns([2, 2, 1])
+            with _qs_col1:
+                from core.db import VALID_DAYS
+                _qs_day = st.selectbox("Day", VALID_DAYS, key="qs_day")
+            with _qs_col2:
+                from core.db import VALID_SLOTS
+                _qs_slot = st.selectbox("Time slot", VALID_SLOTS, key="qs_slot")
+            with _qs_col3:
+                st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                if st.button("\U0001f4c5 Schedule", key="qs_schedule_btn", type="primary", use_container_width=True):
+                    try:
+                        saved = _db.save_post(
+                            _prefill, "\U0001f680 Post Generator",
+                            score=0, tags=["generated", "scheduled"],
+                        )
+                        _db.schedule_post(saved["id"], _qs_day, _qs_slot)
+                        st.session_state.pop("scheduler_prefill", None)
+                        st.success(f"\u2705 Saved to Library and scheduled for {_qs_day} {_qs_slot}!")
+                        st.rerun()
+                    except Exception as _qs_err:
+                        st.error(f"Scheduling failed: {_qs_err}")
+
     # ── Load schedule ─────────────────────────────────────────────────────────
     try:
         schedule = _db.get_schedule()
