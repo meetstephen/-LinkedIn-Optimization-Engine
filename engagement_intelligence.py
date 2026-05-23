@@ -9,7 +9,7 @@ from gemini_client import get_profile_context, stream_text
 from industry_profiles import get_industry_voice_block
 from library import save_post_to_library
 from core.voice import HUMAN_VOICE_PRIMER, SHORT_PRIMER, BANNED
-from core.examples import get_examples
+from core.examples import get_examples, get_comment_examples
 from core import validator as _validator
 
 
@@ -17,17 +17,27 @@ def build_comment_prompt(post_text: str, goal: str, niche: str) -> str:
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(niche)
 
-    # ── Few-shot example for comment quality calibration ──────────────────
-    examples = get_examples(1)
+    # ── Few-shot example for comment quality calibration (deterministic) ──
+    import hashlib as _hashlib
+    _seed_raw = post_text[:50]
+    _example_seed = int(_hashlib.md5(_seed_raw.encode("utf-8")).hexdigest(), 16) % (2**31)
+    examples = get_examples(1, seed=_example_seed)
     examples_block = "\nEXAMPLE OF THE VOICE CALIBRE TO MATCH (this is a full post -- your comments should match this level of specificity and humanity in shorter form):\n"
     for i, ex in enumerate(examples, 1):
         examples_block += f"\n---EXAMPLE {i}---\n{ex.strip()}\n"
+
+    # ── Comment-specific examples for quality calibration ─────────────────
+    comment_examples = get_comment_examples(2, seed=_example_seed)
+    comments_block = "\nCOMMENT EXAMPLES (the calibre and length your comments must match):\n"
+    for i, cx in enumerate(comment_examples, 1):
+        comments_block += f"\n---COMMENT EXAMPLE {i}---\n{cx.strip()}\n"
 
     return f"""{HUMAN_VOICE_PRIMER}
 
 You are writing LinkedIn comments that stop people mid-scroll — not "great post!" filler but comments that add a genuine insight, establish the commenter's authority, and make the post author want to visit their profile.{profile_ctx}
 {industry_voice}
 {examples_block}
+{comments_block}
 THE POST BEING COMMENTED ON:
 \"\"\"
 {post_text}
