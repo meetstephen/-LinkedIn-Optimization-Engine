@@ -2994,7 +2994,7 @@ def render_content_scheduler():
                 f"<div style='background:#f8f9fa;padding:1rem;border-radius:8px;"
                 f"border-left:4px solid #0A66C2;font-size:0.9rem;line-height:1.6;"
                 f"white-space:pre-wrap;max-height:200px;overflow-y:auto;'>"
-                f"{_prefill[:500].replace(chr(10), '<br>')}"
+                f"{_html_mod.escape(_prefill[:500]).replace(chr(10), '<br>')}"
                 f"{'...' if len(_prefill) > 500 else ''}</div>",
                 unsafe_allow_html=True,
             )
