@@ -127,8 +127,31 @@ def _predict_engagement(post: str) -> dict:
                   'July', 'August', 'September', 'October', 'November', 'December']
     if any(tw in post for tw in time_words):
         specificity_score += 3
-    if any(place in post for place in ['Lagos', 'Ikeja', 'Lekki', 'Abuja', 'Port Harcourt', 'Yaba']):
+    # Known places (Nigerian + general proper noun detection)
+    known_places = ['Lagos', 'Ikeja', 'Lekki', 'Abuja', 'Port Harcourt', 'Yaba',
+                    'London', 'New York', 'San Francisco', 'Nairobi', 'Dubai',
+                    'Singapore', 'Toronto', 'Berlin', 'Mumbai', 'Sydney']
+    if any(place in post for place in known_places):
         specificity_score += 2
+    else:
+        # General proper noun/place detection: capitalized multi-word sequences
+        # that are not at the start of a sentence (likely place or proper nouns)
+        sentences = re.split(r'[.!?\n]', post)
+        _has_proper_noun = False
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+            # Look for capitalized words that are NOT the first word
+            words = sentence.split()
+            for w in words[1:]:
+                if w and w[0].isupper() and len(w) > 1 and w.isalpha():
+                    _has_proper_noun = True
+                    break
+            if _has_proper_noun:
+                break
+        if _has_proper_noun:
+            specificity_score += 2
     specificity_score = min(20, specificity_score)
     _has_dialogue = bool(re.search(r'["\u201c\u201d]', post))
     factors.append({"name": "Specificity", "score": specificity_score, "max": 20,

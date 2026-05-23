@@ -7,7 +7,7 @@ from gemini_client import generate_text, get_profile_context, stream_text
 from industry_profiles import get_industry_voice_block
 from library import save_post_to_library
 from core.voice import HUMAN_VOICE_PRIMER, SHORT_PRIMER, BANNED
-from core.examples import get_examples
+from core.examples import get_examples, get_hook_examples
 
 
 POSTING_TIMES = {
@@ -50,11 +50,20 @@ def build_hooks_prompt(topic, tone, count, niche=""):
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(niche) if niche.strip() else ""
 
-    # ── Few-shot examples from core.examples ─────────────────────────────
-    examples = get_examples(2)
+    # ── Few-shot examples from core.examples (deterministic seed) ────────
+    import hashlib as _hashlib
+    _seed_raw = topic[:50]
+    _example_seed = int(_hashlib.md5(_seed_raw.encode("utf-8")).hexdigest(), 16) % (2**31)
+    examples = get_examples(2, seed=_example_seed)
     examples_block = "\nEXAMPLES OF THE QUALITY AND TONE TO AIM FOR:\n"
     for i, ex in enumerate(examples, 1):
         examples_block += f"\n---EXAMPLE {i}---\n{ex.strip()}\n"
+
+    # ── Hook-specific examples for quality calibration ───────────────────
+    hook_examples = get_hook_examples(3, seed=_example_seed)
+    hooks_block = "\nHOOK EXAMPLES (the calibre your hooks must match):\n"
+    for i, hx in enumerate(hook_examples, 1):
+        hooks_block += f"  {i}. {hx}\n"
 
     return f"""{HUMAN_VOICE_PRIMER}
 
@@ -65,6 +74,7 @@ Tone: {tone}
 
 {BANNED}
 {examples_block}
+{hooks_block}
 Hook rules — non-negotiable:
 - Never open with "I" as the first word
 - Under 25 words. Specificity matters more than brevity.

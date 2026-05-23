@@ -2934,6 +2934,12 @@ def render_content_scheduler():
     </div>
     """, unsafe_allow_html=True)
 
+    # ── Pipeline-fed content from Post Generator ─────────────────────────────
+    _piped_scheduler = st.session_state.pop("scheduler_pipe_content", None)
+    if _piped_scheduler:
+        st.session_state["scheduler_prefill"] = _piped_scheduler
+        st.success("✅ Post received from Post Generator — ready to schedule below.")
+
     if not _CORE_AVAILABLE:
         st.error(
             "❌ The Content Scheduler requires Supabase to be connected. "
