@@ -1,0 +1,7 @@
+{
+  "task_id": "task-humanize-post-generation",
+  "task_description": "Major overhaul of the LinkedIn post generation system to make posts sound like real humans writing, not AI/bots. Rebuild voice system with shorter primer, add few-shot examples, switch to single-variation output, add new frameworks reflecting how top creators write, and bake Nigerian professional warmth into the core voice.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004"],
+  "blocked_reason": null
+}

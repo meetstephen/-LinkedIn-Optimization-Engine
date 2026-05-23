@@ -60,10 +60,11 @@ def test_human_signatures_lists_minimum_eight_techniques():
 
 
 def test_structure_rules_specify_hook_constraints():
-    """Hook rules — first line must not start with 'I', no questions, no emojis."""
+    """Hook rules — first line must not start with 'I', under 25 words, specificity."""
     rules = voice.STRUCTURE_RULES
     assert "Never start with \"I\"" in rules
-    assert "questions as hooks" in rules.lower() or "no questions" in rules.lower()
+    assert "25 words" in rules
+    assert "specificity" in rules.lower()
 
 
 def test_story_beats_block_returns_empty_for_empty_input():

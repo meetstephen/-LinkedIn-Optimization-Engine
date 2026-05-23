@@ -140,11 +140,8 @@ def render_image_generator():
     _style_default = _best_style_for_industry(_industry, _style_keys) if _industry else 0
 
     # ── Pipeline: pick the best available post content ─────────────────────
-    # Priority: explicitly piped variation > last clean variation > raw last post
-    _piped_content = (
-        st.session_state.get("pg_var1")        # clean variation from Post Generator
-        or st.session_state.get("last_generated_post", "")
-    )
+    # Priority: clean post from Post Generator > empty
+    _piped_content = st.session_state.get("pg_post", "")
     # Trim to 500 chars — image_client only needs the theme, not the full post
     _piped_content = _piped_content[:500] if _piped_content else ""
 

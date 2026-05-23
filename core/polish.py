@@ -57,14 +57,16 @@ DRAFT TO POLISH:
 {HUMAN_SIGNATURES}
 {STRUCTURE_RULES}
 
+Focus on tightening, not restructuring. Cut filler words. Sharpen specifics. Keep the writer's natural cadence.
+
 DELIVER ONLY THE POLISHED POST. No preamble, no commentary, no markdown headers,
 no labels, no "Here is the polished version:".
 
 The polished post must:
-  • Start with a hook that does NOT begin with "I" or end with "?"
+  • Keep the hook. If it starts with 'I', rewrite it. Everything else about the hook shape is the writer's choice.
   • Contain at least 3 of the HUMAN WRITER SIGNATURES (specific number, time anchor, place, dialogue, contrast, vulnerability, native proof)
-  • End with one genuine question CTA — never weak engagement bait
-  • Read like the same writer wrote it, only sharper
+  • End naturally. A genuine question is fine. Ending without any CTA is also fine - some posts are stronger without one.
+  • Preserve the writer's paragraph rhythm. Do not force one-idea-per-line formatting if the writer uses flowing paragraphs.
 """
 
 

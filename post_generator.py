@@ -12,6 +12,7 @@ from core.voice import (
     HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES, STRUCTURE_RULES,
     story_beats_block, STORY_BEATS_PLACEHOLDER,
 )
+from core.examples import get_examples
 from core import validator as _validator
 from core import polish as _polish
 from core.debug import stash_prompt, render_prompt_debug
@@ -246,6 +247,8 @@ TONE_DESCRIPTIONS = {
     "Data-Driven":     "precise, crisp, lets the numbers do the talking — no fluff around the stats",
     "Conversational":  "like texting a smart friend — lowercase where natural, short sentences, real thoughts",
     "Motivational":    "honest energy, not toxic positivity — acknowledges the hard part before the push",
+    "Warm & Direct":   "Nigerian professional default - communal, specific, not performative. Says what happened and what it meant without hedging.",
+    "Thinking Out Loud": "Incomplete thoughts, admitting uncertainty, working through something publicly. The post that says I don't know yet but here's where I am.",
 }
 
 FRAMEWORK_DESCRIPTIONS = {
@@ -255,6 +258,9 @@ FRAMEWORK_DESCRIPTIONS = {
     "Before → After → Bridge":        "Where you were, where you got to, the exact step that bridged the gap",
     "Contrarian Statement":            "One uncomfortable truth, defend it calmly, invite the pushback",
     "Personal Story Arc":              "Specific moment → what you felt → what you did → what you now know",
+    "Mid-Scene -> Context -> Reveal":  "Open in a specific moment (dialogue, decision, sensation). Fill in context. Land the insight without announcing it.",
+    "Withhold the Lesson":             "Tell exactly what happened. Do not state what you learned. The reader figures it out - and remembers it longer.",
+    "Ambient Authority":               "Share a working process or decision without framing it as advice. No 'you should'. Just 'here is what I did and why'.",
 }
 
 def build_post_prompt(
@@ -267,6 +273,7 @@ def build_post_prompt(
     *,
     different_angle: bool = False,
     avoid_framework: str = "",
+    no_cta: bool = False,
 ) -> str:
     """
     Compose the full Post Generator prompt.
@@ -275,12 +282,15 @@ def build_post_prompt(
     ----------
     different_angle : bool, default False
         When True, instruct the model to take a deliberately different angle
-        from the previous generation — different opener, different structure,
-        different emotional register. Used by the "🎲 Different Angle" button.
+        from the previous generation -- different opener, different structure,
+        different emotional register. Used by the "Different Angle" button.
     avoid_framework : str
         Name of a framework the model should NOT default to (typically the
         framework used on the previous click). Lets the user keep generating
         until something genuinely distinct lands.
+    no_cta : bool, default False
+        When True, instruct the model to end the post without a question or
+        call-to-action.
     """
     tone_desc        = TONE_DESCRIPTIONS.get(tone, tone)
     framework_desc   = FRAMEWORK_DESCRIPTIONS.get(framework, framework)
@@ -289,13 +299,22 @@ def build_post_prompt(
 
     beats_block = story_beats_block(story_beats)
 
-    # ── Anti-repetition cue — only injected when the caller asks for it
+    # ── Few-shot examples from core.examples ─────────────────────────────
+    import hashlib as _hashlib
+    _seed_raw = "|".join([topic.strip(), niche.strip(), tone.strip(), framework.strip()])
+    _example_seed = int(_hashlib.md5(_seed_raw.encode("utf-8")).hexdigest(), 16) % (2**31)
+    examples = get_examples(2, seed=_example_seed)
+    examples_block = "\nEXAMPLES OF THE QUALITY AND TONE TO AIM FOR:\nEach example below is the calibre of writing you must match. Study the rhythm, specificity, and humanity.\n"
+    for i, ex in enumerate(examples, 1):
+        examples_block += f"\n---EXAMPLE {i}---\n{ex.strip()}\n"
+
+    # ── Anti-repetition cue -- only injected when the caller asks for it
     # so a fresh topic gets a clean prompt without the "different from last
     # time" instruction polluting the model's planning.
     repetition_cue = ""
     if different_angle:
         repetition_cue = (
-            "\n\n🎲 DIFFERENT ANGLE MODE — the user already saw one version of "
+            "\n\n🎲 DIFFERENT ANGLE MODE -- the user already saw one version of "
             "this post and wants something genuinely different. Do NOT reuse "
             "the same opening line type, the same structure, or the same "
             "emotional register as a typical first attempt. Pick the angle a "
@@ -303,52 +322,50 @@ def build_post_prompt(
         )
     if avoid_framework and avoid_framework != framework:
         repetition_cue += (
-            f"\n\nAvoid leaning on the **{avoid_framework}** framework — that "
+            f"\n\nAvoid leaning on the **{avoid_framework}** framework -- that "
             f"was the previous attempt's default. Use **{framework}** as the "
             f"primary structure here."
         )
 
+    # ── No CTA instruction ───────────────────────────────────────────────
+    no_cta_block = ""
+    if no_cta:
+        no_cta_block = (
+            "\nNO CTA - do not end with a question or call-to-action. "
+            "Let the final line land and stop. The best version of this post "
+            "ends without asking anything."
+        )
+
     return f"""{HUMAN_VOICE_PRIMER}
+{examples_block}
 
 You are writing for this specific person:
 - Topic: {topic}
 - Niche / Industry: {niche}
 - Target Audience: {audience}
-- Tone: {tone} — {tone_desc}
-- Framework: {framework} — {framework_desc}{profile_ctx}
+- Tone: {tone} -- {tone_desc}
+- Framework: {framework} -- {framework_desc}{profile_ctx}
 {beats_block}
 {industry_voice}
 {BANNED}
 {HUMAN_SIGNATURES}
 {STRUCTURE_RULES}{repetition_cue}
 
-Write 2 COMPLETELY DIFFERENT post variations. Same message. Different angle. Different structure. Different hook.
+Write ONE post. Not two. One excellent post that this specific person would be proud to publish.
+{no_cta_block}
+OUTPUT FORMAT - use exactly this:
+[The post. No label, no intro, no "Here is the post:". Just the post itself.]
 
-CRITICAL — the two posts must differ in:
-  • Hook type (bold claim vs. story opening vs. counterintuitive fact)
-  • Structure (numbered list vs. narrative paragraphs vs. contrast format)
-  • Emotional register (analytical vs. vulnerable vs. provocative)
-
-OUTPUT FORMAT — use exactly this. Nothing before, nothing after:
-
----VARIATION 1---
-[The post. No label, no intro, no "Here is variation 1:". Just the post.]
-
----VARIATION 2---
-[The post. Structurally different from V1 — not just the same post reworded.]
-
----ANALYSIS---
-Hook strength: [Strong/Medium/Weak] — [one specific reason, name the technique used]
-Which to post: [1 or 2] — [one specific reason tied to the audience]
-What to A/B test next time: [one specific, testable variable]
+---GENERATION_NOTE---
+[One line: what hook type and angle you used, e.g. "Mid-scene opener with data reveal"]
 
 LinkedIn post length guide:
-- Short post (high impact): 150-300 words — use for bold claims, confessions, contrast posts
-- Medium post (storytelling): 300-500 words — use for narrative, before/after, lesson posts
-- Long post (authority): 500-700 words — use for how-to, frameworks, detailed case studies
+- Short post (high impact): 150-300 words -- use for bold claims, confessions, contrast posts
+- Medium post (storytelling): 300-500 words -- use for narrative, before/after, lesson posts
+- Long post (authority): 500-700 words -- use for how-to, frameworks, detailed case studies
 LinkedIn supports up to 3,000 characters (~500 words). Use as much space as the story needs.
 Never pad. Never cut a story short because you're running out of room.
-Every line must move the reader forward — but don't truncate the narrative to hit an arbitrary limit.
+Every line must move the reader forward -- but don't truncate the narrative to hit an arbitrary limit.
 """
 
 
@@ -424,6 +441,7 @@ def render_post_generator():
         tone = st.selectbox("🎭 Tone", list(TONE_DESCRIPTIONS.keys()))
         framework = st.selectbox("📐 Content Framework", list(FRAMEWORK_DESCRIPTIONS.keys()))
         st.info(f"**Framework:** {FRAMEWORK_DESCRIPTIONS[framework]}")
+        no_cta = st.checkbox("No CTA ending", value=False, help="End the post without a question or call-to-action. Some of the best posts just land and stop.", key="pg_no_cta")
 
     # ── Story Beats — the specificity engine ─────────────────────────────────
     with st.expander("✍️ Story Beats — Optional, but this is what separates great posts from generic ones", expanded=False):
@@ -463,7 +481,7 @@ def render_post_generator():
             key="pg_generate_btn",
         )
     with _angle_col:
-        _has_prior = bool(st.session_state.get("pg_var1") or st.session_state.get("pg_var2"))
+        _has_prior = bool(st.session_state.get("pg_post"))
         _different_angle_clicked = st.button(
             "🎲 Different Angle",
             use_container_width=True,
@@ -527,7 +545,6 @@ def render_post_generator():
         )
         _stream_box = st.empty()
         try:
-            import re as _re
 
             prompt = build_post_prompt(
                 _topic_val,
@@ -538,6 +555,7 @@ def render_post_generator():
                 story_beats=st.session_state.get("pg_story_beats", ""),
                 different_angle=_different_angle,
                 avoid_framework=_avoid_framework,
+                no_cta=st.session_state.get("pg_no_cta", False),
             )
 
             # Stash for the debug expander before streaming so the user can
@@ -561,27 +579,20 @@ def render_post_generator():
                 )
 
             # Parse the streamed result
-            def _extract(pattern: str) -> str:
-                m = _re.search(pattern, result, _re.DOTALL | _re.IGNORECASE)
-                return m.group(1).strip() if m else ""
+            import re as _re
+            _note_match = _re.search(r"-+\s*GENERATION_NOTE\s*-+(.*?)$", result, _re.DOTALL | _re.IGNORECASE)
+            if _note_match:
+                post_content = result[:_note_match.start()].strip()
+                note = _note_match.group(1).strip()
+            else:
+                post_content = result.strip()
+                note = ""
 
-            var1     = _extract(r"-+\s*VARIATION\s*1\s*-+(.*?)(?=-+\s*VARIATION\s*2|-+\s*ANALYSIS|$)")
-            var2     = _extract(r"-+\s*VARIATION\s*2\s*-+(.*?)(?=-+\s*ANALYSIS|$)")
-            analysis = _extract(r"-+\s*ANALYSIS\s*-+(.*?)$")
-
-            if not var1 and not var2:
-                var1 = _extract(r"(?:variation\s*1[:\s]*)(.*?)(?=variation\s*2|analysis|$)")
-                var2 = _extract(r"(?:variation\s*2[:\s]*)(.*?)(?=analysis|$)")
-
-            if not var1 and result.strip():
-                var1 = result.strip()
-
-            # Clear the raw stream box — formatted cards render below
+            # Clear the raw stream box -- formatted cards render below
             _stream_box.empty()
 
-            st.session_state["pg_var1"]     = var1
-            st.session_state["pg_var2"]     = var2
-            st.session_state["pg_analysis"] = analysis
+            st.session_state["pg_post"] = post_content
+            st.session_state["pg_note"] = note
             st.session_state["last_generated_post"] = result
             # Remember which framework was actually used so the next "Different
             # Angle" click rotates AWAY from it, not the user's currently
@@ -596,218 +607,203 @@ def render_post_generator():
                 import traceback as _tb
                 st.code(_tb.format_exc())
 
-    # ── Persistent output — renders after generation and survives button reruns ──
-    var1     = st.session_state.get("pg_var1", "")
-    var2     = st.session_state.get("pg_var2", "")
-    analysis = st.session_state.get("pg_analysis", "")
+    # ── Persistent output -- renders after generation and survives button reruns ──
+    post_content = st.session_state.get("pg_post", "")
 
-    if var1 or var2:
-        st.success("✅ Posts generated!")
+    if post_content:
+        st.success("Post generated!")
         st.markdown("---")
-        st.subheader("📝 Your Post Variations")
 
-        for idx, (label, content) in enumerate(
-            [("Variation 1", var1), ("Variation 2", var2)], start=1
-        ):
-            if not content:
-                continue
-            with st.expander(f"📄 {label}", expanded=True):
+        if st.session_state.get("pg_note"):
+            st.caption(f"Angle: {st.session_state['pg_note']}")
 
-                # ── Voice Validator badge — runs on every render ──────────
-                _vs_report = _validator.validate_post(content)
-                _validator.render_voice_score(_vs_report, key=f"vs_v{idx}")
+        # ── Voice Validator badge -- runs on every render ──────────
+        _vs_report = _validator.validate_post(post_content)
+        _validator.render_voice_score(_vs_report, key="vs_post")
 
-                # ── Tabs: Raw text / Preview / Formatter ──────────────────
-                _tab_raw, _tab_prev, _tab_fmt = st.tabs([
-                    "📝 Post Text",
-                    "📱 LinkedIn Preview",
-                    "✏️ Unicode Formatter",
-                ])
+        # ── Tabs: Raw text / Preview / Formatter ──────────────────
+        _tab_raw, _tab_prev, _tab_fmt = st.tabs([
+            "📝 Post Text",
+            "📱 LinkedIn Preview",
+            "✏️ Unicode Formatter",
+        ])
 
-                with _tab_raw:
-                    st.markdown(content)
-                    _cc = len(content)
-                    _cc_color = "#00c851" if _cc <= 3000 else "#e63946"
-                    st.markdown(
-                        f"<div style='font-size:0.75rem;color:{_cc_color};text-align:right;'>"
-                        f"{_cc:,} / 3,000 chars</div>",
-                        unsafe_allow_html=True,
-                    )
+        with _tab_raw:
+            st.markdown(post_content)
+            _cc = len(post_content)
+            _cc_color = "#00c851" if _cc <= 3000 else "#e63946"
+            st.markdown(
+                f"<div style='font-size:0.75rem;color:{_cc_color};text-align:right;'>"
+                f"{_cc:,} / 3,000 chars</div>",
+                unsafe_allow_html=True,
+            )
 
-                with _tab_prev:
-                    _prf  = st.session_state.get("user_profile", {})
-                    _name = _prf.get("name", "")
-                    _role = _prf.get("role", "") or _prf.get("headline", "")
-                    _html_card = _linkedin_preview_html(content, _name, _role)
-                    _components.html(_html_card, height=520, scrolling=True)
+        with _tab_prev:
+            _prf  = st.session_state.get("user_profile", {})
+            _name = _prf.get("name", "")
+            _role = _prf.get("role", "") or _prf.get("headline", "")
+            _html_card = _linkedin_preview_html(post_content, _name, _role)
+            _components.html(_html_card, height=520, scrolling=True)
 
-                with _tab_fmt:
-                    st.markdown(
-                        "LinkedIn strips all markdown. These **Unicode characters** "
-                        "survive copy-paste and render bold/italic directly in the feed."
-                    )
-                    st.markdown("---")
+        with _tab_fmt:
+            st.markdown(
+                "LinkedIn strips all markdown. These **Unicode characters** "
+                "survive copy-paste and render bold/italic directly in the feed."
+            )
+            st.markdown("---")
 
-                    _fmt_scope = st.radio(
-                        "Apply formatting to:",
-                        ["Full post", "First line (hook) only", "Custom text"],
-                        horizontal=True,
-                        key=f"fmt_scope_{idx}",
-                    )
+            _fmt_scope = st.radio(
+                "Apply formatting to:",
+                ["Full post", "First line (hook) only", "Custom text"],
+                horizontal=True,
+                key="fmt_scope_post",
+            )
 
-                    if _fmt_scope == "Custom text":
-                        _custom_input = st.text_input(
-                            "Type the word or phrase to format",
-                            placeholder="e.g., 3 things I wish I knew",
-                            key=f"fmt_custom_{idx}",
+            if _fmt_scope == "Custom text":
+                _custom_input = st.text_input(
+                    "Type the word or phrase to format",
+                    placeholder="e.g., 3 things I wish I knew",
+                    key="fmt_custom_post",
+                )
+                _fmt_source = _custom_input
+            elif _fmt_scope == "First line (hook) only":
+                _fmt_source = post_content.split('\n')[0].strip()
+                st.caption(f"Hook detected: *\"{_fmt_source[:80]}{'...' if len(_fmt_source) > 80 else ''}\"*")
+            else:
+                _fmt_source = post_content
+
+            _fc1, _fc2, _fc3 = st.columns(3)
+            with _fc1:
+                _do_bold   = st.button("𝗕 Bold",   key="bold_post",   use_container_width=True)
+            with _fc2:
+                _do_italic = st.button("𝘐 Italic", key="italic_post", use_container_width=True)
+            with _fc3:
+                _do_clear  = st.button("✕ Clear",  key="clear_post",  use_container_width=True)
+
+            _fmt_result_key = "fmt_result_post"
+            if _do_bold   and _fmt_source: st.session_state[_fmt_result_key] = _to_bold(_fmt_source)
+            if _do_italic and _fmt_source: st.session_state[_fmt_result_key] = _to_italic(_fmt_source)
+            if _do_clear  and _fmt_source: st.session_state[_fmt_result_key] = _strip_fmt(_fmt_source)
+
+            _result = st.session_state.get(_fmt_result_key, "")
+            if _result:
+                st.markdown("**Result -- copy and paste directly into LinkedIn:**")
+                st.code(_result, language=None)
+                st.caption(
+                    "These characters work on LinkedIn desktop & mobile. "
+                    "Don't use normal **bold** markdown -- LinkedIn will strip it."
+                )
+            else:
+                st.info("Select a scope, then click Bold or Italic to see the result.")
+
+        # ── Polish (two-pass) ──────────────────────────────────────
+        _polish_key = "pg_polished"
+        _polish_report_key = "pg_polish_report"
+        _polished = st.session_state.get(_polish_key, "")
+
+        p_col1, p_col2 = st.columns([1, 3])
+        with p_col1:
+            if st.button(
+                "✨ Polish",
+                key="polish_post",
+                use_container_width=True,
+                help="Run a second pass: critique against voice rules, then rewrite. Costs ~2x tokens.",
+            ):
+                try:
+                    with st.spinner("Polishing -- second pass running..."):
+                        gen, _orig_report = _polish.polish_stream(
+                            post_content,
+                            profile_ctx=get_profile_context(),
+                            industry_voice=get_industry_voice_block(
+                                st.session_state.get("pg_niche", "")
+                            ),
                         )
-                        _fmt_source = _custom_input
-                    elif _fmt_scope == "First line (hook) only":
-                        _fmt_source = content.split('\n')[0].strip()
-                        st.caption(f"Hook detected: *\"{_fmt_source[:80]}{'…' if len(_fmt_source) > 80 else ''}\"*")
-                    else:
-                        _fmt_source = content
+                        # Drain the generator into a single string
+                        polished_text = "".join(list(gen))
+                    st.session_state[_polish_key] = polished_text.strip()
+                    st.session_state[_polish_report_key] = _orig_report
+                    st.rerun()
+                except Exception as _e:
+                    st.error(f"Polish failed: {_e}")
+        with p_col2:
+            if _polished:
+                st.caption("✨ Polished version generated below")
 
-                    _fc1, _fc2, _fc3 = st.columns(3)
-                    with _fc1:
-                        _do_bold   = st.button("𝗕 Bold",   key=f"bold_{idx}",   use_container_width=True)
-                    with _fc2:
-                        _do_italic = st.button("𝘐 Italic", key=f"italic_{idx}", use_container_width=True)
-                    with _fc3:
-                        _do_clear  = st.button("✕ Clear",  key=f"clear_{idx}",  use_container_width=True)
-
-                    _fmt_result_key = f"fmt_result_{idx}"
-                    if _do_bold   and _fmt_source: st.session_state[_fmt_result_key] = _to_bold(_fmt_source)
-                    if _do_italic and _fmt_source: st.session_state[_fmt_result_key] = _to_italic(_fmt_source)
-                    if _do_clear  and _fmt_source: st.session_state[_fmt_result_key] = _strip_fmt(_fmt_source)
-
-                    _result = st.session_state.get(_fmt_result_key, "")
-                    if _result:
-                        st.markdown("**Result — copy and paste directly into LinkedIn:**")
-                        st.code(_result, language=None)
-                        st.caption(
-                            "✅ These characters work on LinkedIn desktop & mobile. "
-                            "Don't use normal **bold** markdown — LinkedIn will strip it."
-                        )
-                    else:
-                        st.info("Select a scope, then click Bold or Italic to see the result.")
-
-                # ── Polish (two-pass) ──────────────────────────────────────
-                _polish_key = f"pg_polished_v{idx}"
-                _polish_report_key = f"pg_polish_report_v{idx}"
-                _polished = st.session_state.get(_polish_key, "")
-
-                p_col1, p_col2 = st.columns([1, 3])
-                with p_col1:
-                    if st.button(
-                        "✨ Polish",
-                        key=f"polish_v{idx}",
-                        use_container_width=True,
-                        help="Run a second pass: critique against voice rules, then rewrite. Costs ~2× tokens.",
-                    ):
-                        try:
-                            with st.spinner("Polishing — second pass running…"):
-                                gen, _orig_report = _polish.polish_stream(
-                                    content,
-                                    profile_ctx=get_profile_context(),
-                                    industry_voice=get_industry_voice_block(
-                                        st.session_state.get("pg_niche", "")
-                                    ),
-                                )
-                                # Drain the generator into a single string
-                                polished_text = "".join(list(gen))
-                            st.session_state[_polish_key] = polished_text.strip()
-                            st.session_state[_polish_report_key] = _orig_report
-                            st.rerun()
-                        except Exception as _e:
-                            st.error(f"Polish failed: {_e}")
-                with p_col2:
-                    if _polished:
-                        st.caption("✨ Polished version generated below")
-
-                if _polished:
-                    st.markdown("**✨ Polished version**")
-                    st.markdown(
-                        f"<div style='background:#F0FFF4;padding:1rem;border-radius:8px;"
-                        f"border-left:4px solid #00c851;font-size:0.9rem;line-height:1.6;"
-                        f"white-space:pre-wrap;'>{_html.escape(_polished)}</div>",
-                        unsafe_allow_html=True,
+        if _polished:
+            st.markdown("**✨ Polished version**")
+            st.markdown(
+                f"<div style='background:#F0FFF4;padding:1rem;border-radius:8px;"
+                f"border-left:4px solid #00c851;font-size:0.9rem;line-height:1.6;"
+                f"white-space:pre-wrap;'>{_html.escape(_polished)}</div>",
+                unsafe_allow_html=True,
+            )
+            _polished_report = _validator.validate_post(_polished)
+            _validator.render_voice_score(_polished_report, key="vs_polished_post")
+            pp_col1, pp_col2 = st.columns(2)
+            with pp_col1:
+                if st.button("📚 Save polished",
+                             key="save_polished_post",
+                             use_container_width=True):
+                    ok, msg = save_post_to_library(
+                        _polished, "🚀 Post Generator (Polished)",
+                        tags=["generated", "polished"],
                     )
-                    _polished_report = _validator.validate_post(_polished)
-                    _validator.render_voice_score(_polished_report, key=f"vs_polished_v{idx}")
-                    pp_col1, pp_col2 = st.columns(2)
-                    with pp_col1:
-                        if st.button("📚 Save polished",
-                                     key=f"save_polished_v{idx}",
-                                     use_container_width=True):
-                            ok, msg = save_post_to_library(
-                                _polished, "🚀 Post Generator (Polished)",
-                                tags=["generated", f"variation-{idx}", "polished"],
-                            )
-                            st.success(msg) if ok else st.warning(msg)
-                    with pp_col2:
-                        if st.button("✕ Discard polish",
-                                     key=f"discard_polished_v{idx}",
-                                     use_container_width=True):
-                            st.session_state.pop(_polish_key, None)
-                            st.session_state.pop(_polish_report_key, None)
-                            st.rerun()
+                    st.success(msg) if ok else st.warning(msg)
+            with pp_col2:
+                if st.button("✕ Discard polish",
+                             key="discard_polished_post",
+                             use_container_width=True):
+                    st.session_state.pop(_polish_key, None)
+                    st.session_state.pop(_polish_report_key, None)
+                    st.rerun()
 
-                # ── Pipeline buttons ───────────────────────────────────────
-                # Labels kept short so all 5 buttons stay readable on tablets.
-                # Each button's full intent lives in its `help` tooltip.
-                st.markdown("**Send this post to:**")
-                btn_col1, btn_col2, btn_col3, btn_col4, btn_col5 = st.columns(5)
+        # ── Pipeline buttons ───────────────────────────────────────
+        st.markdown("**Send this post to:**")
+        btn_col1, btn_col2, btn_col3, btn_col4, btn_col5 = st.columns(5)
 
-                with btn_col1:
-                    if st.button("📋 Copy", key=f"copy_v{idx}",
-                                 use_container_width=True,
-                                 help="Reveal the post text in a code box for one-click copy"):
-                        st.code(content, language=None)
+        with btn_col1:
+            if st.button("📋 Copy", key="copy_post",
+                         use_container_width=True,
+                         help="Reveal the post text in a code box for one-click copy"):
+                st.code(post_content, language=None)
 
-                with btn_col2:
-                    if st.button("🔧 Optimize", key=f"opt_v{idx}",
-                                 use_container_width=True,
-                                 help="Open Post Optimizer with this post pre-filled"):
-                        st.session_state["po_content_pipe"] = content  # pipe key, not widget key
-                        st.session_state["po_handoff_note"] = (
-                            f"Variation {idx} from Post Generator"
-                        )
-                        st.session_state["_pending_nav"]    = "🔧 Post Optimizer"
-                        st.toast(f"Variation {idx} sent to Post Optimizer", icon="🔧")
-                        st.rerun()
+        with btn_col2:
+            if st.button("🔧 Optimize", key="opt_post",
+                         use_container_width=True,
+                         help="Open Post Optimizer with this post pre-filled"):
+                st.session_state["po_content_pipe"] = post_content
+                st.session_state["po_handoff_note"] = "From Post Generator"
+                st.session_state["_pending_nav"]    = "🔧 Post Optimizer"
+                st.toast("Post sent to Post Optimizer", icon="🔧")
+                st.rerun()
 
-                with btn_col3:
-                    if st.button("🔥 Hook", key=f"hook_v{idx}",
-                                 use_container_width=True,
-                                 help="Send to the Viral Hook Analyzer to score & rewrite the opening"):
-                        st.session_state["hook_analyzer_input"] = content
-                        st.session_state["_pending_nav"] = "🔥 Viral Hook Analyzer"
-                        st.rerun()
+        with btn_col3:
+            if st.button("🔥 Hook", key="hook_post",
+                         use_container_width=True,
+                         help="Send to the Viral Hook Analyzer to score & rewrite the opening"):
+                st.session_state["hook_analyzer_input"] = post_content
+                st.session_state["_pending_nav"] = "🔥 Viral Hook Analyzer"
+                st.rerun()
 
-                with btn_col4:
-                    if st.button("🎨 Visual", key=f"img_v{idx}",
-                                 use_container_width=True,
-                                 help="Generate a LinkedIn image for this post"):
-                        st.session_state["ig_post_content"] = content[:500]
-                        st.session_state["_pending_nav"] = "🎨 Image Generator"
-                        st.rerun()
+        with btn_col4:
+            if st.button("🎨 Visual", key="img_post",
+                         use_container_width=True,
+                         help="Generate a LinkedIn image for this post"):
+                st.session_state["ig_post_content"] = post_content[:500]
+                st.session_state["_pending_nav"] = "🎨 Image Generator"
+                st.rerun()
 
-                with btn_col5:
-                    if st.button("📚 Save", key=f"save_v{idx}",
-                                 use_container_width=True,
-                                 help="Save this post to your Library"):
-                        ok, msg = save_post_to_library(
-                            content, "🚀 Post Generator",
-                            tags=["generated", f"variation-{idx}"]
-                        )
-                        st.success(msg) if ok else st.warning(msg)
+        with btn_col5:
+            if st.button("📚 Save", key="save_post",
+                         use_container_width=True,
+                         help="Save this post to your Library"):
+                ok, msg = save_post_to_library(
+                    post_content, "🚀 Post Generator",
+                    tags=["generated"]
+                )
+                st.success(msg) if ok else st.warning(msg)
 
-        if analysis:
-            with st.expander("📊 AI Analysis", expanded=True):
-                st.markdown(analysis)
-
-        # ── Prompt debug expander — collapsed by default. Lets the user see
+        # ── Prompt debug expander -- collapsed by default. Lets the user see
         # exactly what context Gemini got, so "why is the output ignoring my
         # industry?" becomes a self-serve diagnosis instead of a support
         # ticket. The expander silently no-ops when no prompt has been
