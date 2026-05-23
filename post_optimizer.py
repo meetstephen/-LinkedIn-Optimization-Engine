@@ -9,6 +9,7 @@ from industry_profiles import get_industry_voice_block
 from core.voice import (
     HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES,
 )
+from core.examples import get_examples
 from core import validator as _validator
 from core import polish as _polish
 from core.debug import stash_prompt, render_prompt_debug
@@ -29,6 +30,15 @@ def build_optimizer_prompt(original_post: str, goal: str, niche: str = "") -> st
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(niche) if niche.strip() else ""
 
+    # ── Few-shot examples from core.examples ─────────────────────────────
+    import hashlib as _hashlib
+    _seed_raw = original_post[:50]
+    _example_seed = int(_hashlib.md5(_seed_raw.encode("utf-8")).hexdigest(), 16) % (2**31)
+    examples = get_examples(2, seed=_example_seed)
+    examples_block = "\nEXAMPLES OF THE QUALITY AND TONE TO AIM FOR:\n"
+    for i, ex in enumerate(examples, 1):
+        examples_block += f"\n---EXAMPLE {i}---\n{ex.strip()}\n"
+
     return f"""{HUMAN_VOICE_PRIMER}
 
 You are working as a world-class editor improving a first draft. Keep the writer's voice. Cut what doesn't serve the reader. Make every line do more work. Never make the post sound more generic or more "AI-written" than the original.{profile_ctx}
@@ -43,7 +53,7 @@ GOAL: {goal} — {goal_desc}
 {BANNED}
 {HUMAN_SIGNATURES}
 {industry_voice}
-
+{examples_block}
 DELIVER EXACTLY THIS STRUCTURE:
 
 ## DIAGNOSIS
@@ -64,14 +74,14 @@ Not "the hook is weak" — say "the opening line 'I have been thinking about...'
 Write the full rewritten post. Keep the author's voice and story — only improve the execution.
 
 Rewrite rules:
-- Hook must not start with "I"
-- No questions as hooks
-- One idea per line, blank line between paragraphs
+- Hook must not start with "I". Under 25 words. Specificity matters more than brevity.
+- Specific questions work as hooks when they create tension. Vague questions don't.
+- Vary paragraph length. Blank line between paragraphs.
 - Specifics over generalities (real numbers, real details)
 - One vulnerable or honest moment (earned, not performative)
 - One industry-native proof point
-- CTA is a genuine question — max one, at the very end
-- Under 260 words
+- End naturally — a genuine question, a landing statement, or no CTA at all
+- 200-500 words — use as much space as the story needs
 
 ## WHAT CHANGED & WHY
 List exactly 5 edits. For each one:

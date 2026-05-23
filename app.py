@@ -2170,7 +2170,7 @@ Rules:
 - Every rewrite must sound like a real person typed it on their phone — not a brand voice
 - No rewrite may contain any banned phrase listed above
 - No rewrite starts with "I"
-- No rewrite is a question"""
+- No rewrite is a vague question (specific tension-creating questions are fine)"""
 
             stash_prompt(
                 "hook_analyzer", prompt,
@@ -3215,7 +3215,7 @@ Return ONLY a JSON array — no markdown, no backticks, no preamble:
 ]
 
 Rules:
-- Slide 1: Bold hook claim or curiosity-gap statement that makes people swipe — never starts with "I", no questions, no emojis in the title text itself
+- Slide 1: Bold hook claim, curiosity-gap statement, or specific tension-creating question that makes people swipe — never starts with "I", no emojis in the title text itself
 - Middle slides: ONE clear insight per slide — no padding
 - Each title ≤8 words, each body ≤40 words
 - Body text must contain at least one specific number, name, or concrete detail per slide

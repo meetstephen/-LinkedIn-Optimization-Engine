@@ -1,0 +1,29 @@
+{
+  "project_type": "Python Streamlit app (LinkedIn content optimization SaaS)",
+  "language": "Python 3.11",
+  "build_system": "pip with requirements.txt; no Makefile or Dockerfile",
+  "test_framework": "pytest with tests/conftest.py providing fake Streamlit session state and sys.path setup",
+  "build_command": "export PYENV_VERSION=3.11.15 && python -c 'import post_generator; import post_optimizer; import repurposing_engine; import engagement_toolkit; import content_ideas; import engagement_intelligence; import app'",
+  "test_command": "export PYENV_VERSION=3.11.15 && python -m pytest tests/ --tb=short -q",
+  "verification_instructions": "1. Run pytest to confirm all tests pass. 2. Verify imports of all modified modules succeed without errors.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "export PYENV_VERSION=3.11.15 && pip install -r requirements.txt",
+  "environment_constraints": "pyenv required (PYENV_VERSION=3.11.15). No Docker. No Streamlit runtime in test (faked via conftest.py).",
+  "contribution_requirements": "All tests must pass. Voice system in core/voice.py is the single source of truth for all prompts.",
+  "key_patterns": "Each module has a build_*_prompt() function that composes from core/voice.py constants (HUMAN_VOICE_PRIMER, SHORT_PRIMER, BANNED, HUMAN_SIGNATURES, STRUCTURE_RULES). Post Generator uses few-shot examples from core/examples.py via get_examples(). The validator (core/validator.py) scores posts/hooks/comments. Pipeline buttons use st.session_state keys + st.rerun() for navigation.",
+  "relevant_files": [
+    "core/voice.py",
+    "core/examples.py",
+    "core/validator.py",
+    "post_generator.py",
+    "post_optimizer.py",
+    "repurposing_engine.py",
+    "engagement_toolkit.py",
+    "content_ideas.py",
+    "engagement_intelligence.py",
+    "app.py",
+    "tests/test_voice.py",
+    "tests/conftest.py"
+  ],
+  "directory_structure": "Root: app.py (main Streamlit app with Hook Analyzer + Carousel Planner inline), module files (post_generator.py, post_optimizer.py, etc.), core/ (voice.py, examples.py, validator.py, ai.py, etc.), tests/ (pytest tests)"
+}
