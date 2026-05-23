@@ -4,23 +4,27 @@
 ║  Full-stack Streamlit app for professional LinkedIn growth & content        ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
-Modules:
-  - Post Generator     : Gemini-powered viral post creation with frameworks
-  - Post Optimizer     : Diagnosis + rewrite with engagement score
-  - About Optimizer    : Personal brand story + keyword optimization
-  - Profile Enhancer   : Beginner → PRO score and 30-day roadmap
-  - Content Ideas      : Full content calendar by niche/pillar
-  - Strategy Insights  : Top creator tactics and growth playbooks
-  - Image Generator    : Stability AI (primary) + Hugging Face (fallback)
-  - Engagement Toolkit : Hooks, CTAs, hashtags, posting times
-  ── v2.0 ADDITIONS ──────────────────────────────────────────────────────────
-  - 🔥 Viral Hook Analyzer : Score, diagnose & rewrite hooks — 5 power rewrites
-                             + live mobile feed preview (LinkedIn's #1 growth lever)
-  - 📚 Post Library        : Auto-saved post history — search, star, filter, export
+Modules (16):
+  - 🔥 Viral Hook Analyzer    : Score, diagnose & rewrite hooks + live mobile preview
+  - 🚀 Post Generator         : Few-shot calibrated, single-post output + engagement prediction
+  - 🔧 Post Optimizer         : Diagnosis + rewrite with engagement score
+  - ♻️ Repurposing Engine      : One idea → text post + carousel + hooks + CTAs + comments
+  - 💬 Engagement Intelligence : Strategic comments, DMs, networking responses
+  - 🔍 Brand Scanner          : Profile vs content consistency scoring
+  - 💼 About Optimizer         : Personal brand story + keyword optimization
+  - 🌟 Profile Enhancer       : Beginner → PRO score and 30-day roadmap
+  - 💡 Content Ideas           : Full content calendar by niche/pillar
+  - 🧠 Strategy Insights       : Top creator tactics and growth playbooks
+  - 🎨 Image Generator         : Stability AI (primary) + Hugging Face (fallback)
+  - ⚡ Engagement Toolkit      : Hooks, CTAs, hashtags, posting times
+  - 🎠 Carousel Planner        : Slide-by-slide planner with PDF export
+  - 📚 Post Library            : Persistent search, star, filter, export
+  - 📅 Content Scheduler       : Weekly posting plan with direct pipeline from generator
+  - 🎙️ Voice Fingerprint       : One-time writing sample analysis → structured DNA
 
 Author : LinkedIn Optimization Engine
-Stack  : Python · Streamlit · Gemini 2.5 Flash · Stability AI · Hugging Face
-Version: 2.0 — Production-Ready
+Stack  : Python · Streamlit · Gemini 2.5 Flash · Stability AI · Hugging Face · Supabase
+Version: 4.0
 """
 
 import streamlit as st
@@ -1681,7 +1685,7 @@ def render_home():
     _ng_suffix = f" — 🇳🇬 {_ng_tone or 'Nigerian Voice'} Active" if _ng_active else ""
     st.markdown(f"""
     <div class="main-header">
-        <div class="v-badge">v3.0 · 14 Modules · Production Ready{_ng_suffix}</div>
+        <div class="v-badge">v4.0 · 16 Modules · Production Ready{_ng_suffix}</div>
         <div style="font-size:3rem;font-weight:900;letter-spacing:-1px;color:white;line-height:1.05;margin:0.4rem 0 0.1rem;text-shadow:0 2px 12px rgba(0,0,0,0.2);">
             ⚡ Linked<span style="color:#7DD3FC;text-shadow:0 0 30px rgba(125,211,252,0.6);">Edge</span>
         </div>
@@ -1801,7 +1805,7 @@ def render_home():
 
     features = [
         ("\U0001f525", "Viral Hook Analyzer",       "Score your hook across 5 dimensions, get 5 power rewrites + live mobile preview", True),
-        ("\U0001f680", "Post Generator",             "Create viral posts with proven frameworks, hooks, and 2 variations per topic", False),
+        ("\U0001f680", "Post Generator",             "One focused post per click — few-shot calibrated, engagement prediction, direct-to-scheduler", True),
         ("\U0001f527", "Post Optimizer",             "Get your existing posts diagnosed and rewritten with engagement scores", False),
         ("\u267b\ufe0f", "Repurposing Engine",       "One idea → text post + carousel + hooks + CTAs + comment prompts in one shot", True),
         ("\U0001f4ac", "Engagement Intelligence",    "Strategic comments, DMs, networking responses — where real growth happens", True),
@@ -1814,6 +1818,8 @@ def render_home():
         ("\u26a1",     "Engagement Toolkit",         "Hooks, CTAs, hashtag optimizer, and WAT-aware posting times", False),
         ("\U0001f3a0", "Carousel Planner",           "Slide-by-slide text planner — 3× more reach than text posts", False),
         ("\U0001f4da", "Post Library",               "Every generated post auto-saved — search, star, filter, and export", False),
+        ("\U0001f4c5", "Content Scheduler",          "Pin posts to weekday + time slots. Direct pipeline from Post Generator", False),
+        ("\U0001f399", "Voice Fingerprint",          "One-time writing sample analysis — AI matches your exact voice on every post", True),
     ]
 
     _card_html = ""

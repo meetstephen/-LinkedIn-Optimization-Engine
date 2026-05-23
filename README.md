@@ -1,6 +1,8 @@
 # ⚡ LinkedEdge — LinkedIn Optimization Engine
 
-> **AI-powered LinkedIn growth toolkit.** 15 modules. Built for the Nigerian professional market and configurable for any audience worldwide.
+> **AI-powered LinkedIn growth toolkit.** 16 modules. Built for the Nigerian professional market and configurable for any audience worldwide.
+>
+> Human-quality output powered by few-shot example calibration, voice fingerprinting, and a deterministic quality gate. Every post sounds like a real person wrote it - not AI.
 >
 > Every post auto-saves to a persistent Post Library. Every AI module reads your profile and writes in your voice. Production-ready Streamlit app, deploys in minutes.
 
@@ -11,7 +13,7 @@
 | # | Module | What it does |
 |---|--------|-------------|
 | 1 | 🔥 **Viral Hook Analyzer** | Scores any hook 0–100 across 5 dimensions, returns 5 power rewrites + live mobile preview |
-| 2 | 🚀 **Post Generator** | Two complete post variations from any topic, with story-beats input, Unicode bold/italic formatter, and live LinkedIn feed preview |
+| 2 | 🚀 **Post Generator** | One focused, high-quality post per generation. Few-shot example calibration, story-beats input, engagement prediction score, Unicode formatter, live LinkedIn feed preview, and direct-to-scheduler pipeline |
 | 3 | 🔧 **Post Optimizer** | Diagnoses an existing post (hook · clarity · emotional pull · formatting · CTA), assigns a score, rewrites it with 5 explained edits |
 | 4 | ♻️ **Repurposing Engine** | One idea → text post + 7-slide carousel + 5 hooks + 5 CTAs + 3 strategic comments |
 | 5 | 💬 **Engagement Intelligence** | Strategic comments, DM templates, and networking responses — three generators in one |
@@ -25,12 +27,16 @@
 | 13 | 🎠 **Carousel Planner** | AI-generated slide titles + bodies + emojis with a slide-by-slide LinkedIn-style preview |
 | 14 | 📚 **Post Library** | Persistent (Supabase). Search, star, filter by module, sort by score, export `.txt`/`.json`, re-import. Live diagnostics tell you exactly what's wrong if it's empty. |
 | 15 | 📅 **Content Scheduler** | Pin saved posts to weekday + time slots. See your full week at a glance. Export as a `.md` checklist. |
+| 16 | 🎙️ **Voice Fingerprint** | Analyses your writing sample once, extracts structured DNA (sentence length, signature phrases, structure, tells), injects into every prompt for on-voice output |
 
 Plus:
-- **🇳🇬 Nigerian Voice Mode** — a sidebar toggle that injects Nigerian context (CBN, NBA, naira, WAT times, geographic diversity beyond Lagos) into every prompt.
+- **🇳🇬 Nigerian Voice Mode** — Nigerian warmth is baked into the core voice natively. The sidebar toggle adds deeper context (CBN, NBA, naira, WAT times, geographic diversity beyond Lagos) into every prompt.
 - **Tone presets** — fine-grained Nigerian voice (Legal, Fintech, Founder, Storyteller, etc.).
-- **Profile-aware AI** — your role, industry, audience, voice sample feed every module's prompt.
-- **Cross-module pipelines** — e.g. `Post Generator → Hook Analyzer`, `Optimizer → Image Generator`, `Repurposing → Carousel Planner`.
+- **Profile-aware AI** — your role, industry, audience, voice sample, and structured voice fingerprint feed every module's prompt.
+- **Few-shot example calibration** — every module injects 2-3 real high-performing post examples into the prompt so the AI knows what "good" looks like, not just what to avoid.
+- **Engagement prediction** — deterministic 0-100 score after every generation evaluating hook strength, specificity, structure variety, and emotional pull.
+- **Voice quality gate** — deterministic validator catches 156+ banned phrases, weak CTAs, and structural issues before you ever see the output.
+- **Cross-module pipelines** — `Post Generator → Hook Analyzer`, `Post Generator → Content Scheduler`, `Optimizer → Image Generator`, `Repurposing → Carousel Planner`, and more.
 
 ---
 
@@ -137,14 +143,20 @@ You can also flip `is_admin` manually from the Supabase Table Editor (`lb_users`
 ├── core/                        # Shared infrastructure
 │   ├── ai.py                    #   Central Gemini wrapper with retry + JSON validation
 │   ├── db.py                    #   Supabase persistence (lb_posts + lb_profiles)
-│   └── state.py                 #   Session-state init + profile auto-load on cold start
+│   ├── examples.py              #   Few-shot post/hook/comment examples for prompt injection
+│   ├── polish.py                #   Two-pass rewrite (critique → polish) for any post
+│   ├── sanitize.py              #   User-input sanitisation against prompt injection
+│   ├── state.py                 #   Session-state init + profile auto-load on cold start
+│   ├── validator.py             #   Deterministic voice quality gate (156+ banned phrases)
+│   ├── voice.py                 #   Canonical voice system (primer, banned, signatures, structure)
+│   └── voice_fingerprint.py     #   One-time writing-sample analysis → structured DNA
 │
 ├── library.py                   # Single source of truth for save-to-library
 ├── gemini_client.py             # Streaming Gemini wrapper used by per-module prompts
 ├── image_client.py              # Stability AI + Hugging Face image generation
 ├── industry_profiles.py         # Industry voice blocks + Nigerian tone presets
 │
-├── post_generator.py            # 🚀 Post Generator
+├── post_generator.py            # 🚀 Post Generator (single-post, few-shot calibrated)
 ├── post_optimizer.py            # 🔧 Post Optimizer
 ├── about_optimizer.py           # 💼 About Optimizer
 ├── profile_enhancer.py          # 🌟 Profile Enhancer
@@ -155,7 +167,9 @@ You can also flip `is_admin` manually from the Supabase Table Editor (`lb_users`
 ├── engagement_intelligence.py   # 💬 Engagement Intelligence
 ├── repurposing_engine.py        # ♻️ Repurposing Engine
 ├── brand_scanner.py             # 🔍 Brand Scanner
+├── carousel_pdf.py              # 🎠 PDF carousel renderer (Pillow-based)
 │
+├── tests/                       # pytest suite (87 tests)
 ├── supabase_schema.sql          # One-time DB migration
 ├── requirements.txt
 ├── .env.example
@@ -202,6 +216,38 @@ This is what enables save buttons to work after generation — clicking save no 
 
 ---
 
+## How the voice system works
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                        core/voice.py                                │
+│  HUMAN_VOICE_PRIMER (189 words) + BANNED (156 phrases)            │
+│  + HUMAN_SIGNATURES (8 types) + STRUCTURE_RULES                    │
+└────────────────────────────────────────────────────────────────────┘
+         │                           │                    │
+         ▼                           ▼                    ▼
+┌─────────────────┐    ┌──────────────────┐    ┌────────────────────┐
+│  core/examples  │    │ core/validator   │    │ core/voice_finger- │
+│  6 post examples│    │ deterministic    │    │ print.py           │
+│  8 hook examples│    │ quality gate     │    │ structured DNA     │
+│  4 comment ex.  │    │ runs AFTER gen   │    │ from user's sample │
+└─────────────────┘    └──────────────────┘    └────────────────────┘
+         │                           │                    │
+         └───────────────────────────┴────────────────────┘
+                                     │
+                              Every AI prompt
+                           (all 16 modules use
+                            the same voice)
+```
+
+The voice system has three layers:
+
+1. **Before generation** — `core/voice.py` constants + `core/examples.py` few-shot posts inject into every prompt. The user's voice fingerprint (if set) adds per-user calibration.
+2. **After generation** — `core/validator.py` runs a deterministic check: banned phrases, hook structure, CTA quality. Score 0-100.
+3. **Optional polish** — `core/polish.py` sends the draft + validator report back to Gemini for a tightening pass.
+
+---
+
 ## Counters (Home page stats)
 
 | Counter | When it increments |
@@ -225,6 +271,8 @@ Saving a post does **not** inflate `session_posts_generated`.
 | Add an industry's voice block | `industry_profiles.py` → `INDUSTRY_VOICES` |
 | Add a Nigerian tone preset | `industry_profiles.py` → `NIGERIAN_TONE_PRESETS` |
 | Change the default Gemini model | Sidebar → **🤖 Gemini Model**, or `core/state.py` defaults |
+| Add a few-shot example | `core/examples.py` → `_EXAMPLES`, `_HOOK_EXAMPLES`, or `_COMMENT_EXAMPLES` |
+| Add a banned phrase | `core/voice.py` → `BANNED` constant (validator picks it up automatically) |
 | Change theme colours | `.streamlit/config.toml` |
 
 ---
@@ -253,6 +301,6 @@ Saving a post does **not** inflate `session_posts_generated`.
 
 ## Stack
 
-Python 3.9+ · [Streamlit](https://streamlit.io) · [Google Gemini](https://aistudio.google.com) ·
+Python 3.10+ · [Streamlit](https://streamlit.io) · [Google Gemini 2.5 Flash](https://aistudio.google.com) ·
 [Stability AI SDXL](https://platform.stability.ai) · [Hugging Face](https://huggingface.co) ·
-[Supabase](https://supabase.com)
+[Supabase](https://supabase.com) · [Pillow](https://python-pillow.org) (carousel PDF)
