@@ -46,6 +46,7 @@ INDUSTRY_VOICE_PROFILES: dict[str, dict] = {
             "3 contracts Nigerian founders sign without reading. All 3 will haunt them.",
             "Nigerian lawyers will argue about this. Good — it means the point is worth making.",
             "A client called me at 11pm. The acquisition had just closed. The problem had been there since page 4.",
+            "My client's MD called at 11:42pm. 'They filed.' Two words. I was already opening my laptop.",
         ],
         "avoid": [
             "American case citations as the primary example (cite Nigerian/Commonwealth cases)",
@@ -57,6 +58,7 @@ INDUSTRY_VOICE_PROFILES: dict[str, dict] = {
             "Confident, precise, occasionally dry. Short declarative sentences carry the authority. "
             "Numbered lists for multi-part legal points. One moment of practitioner-level candour per post — "
             "the thing only someone who has actually been in that courtroom would say."
+            " Comfortable with 2-3 sentence paragraphs for narrative passages. Does not force one-idea-per-line. Warmth and precision coexist."
         ),
         "nigerian_ctx": (
             "Institutions: NBA (Nigerian Bar Association), FIDA, NEC, SAN (Senior Advocate of Nigeria), "
@@ -90,6 +92,7 @@ INDUSTRY_VOICE_PROFILES: dict[str, dict] = {
             "CBN's new circular just changed the maths for every fintech in Nigeria. Here's what it means.",
             "4 things Nigerian fintechs get wrong about KYC — and the one that gets them shut down.",
             "Our chargeback rate hit 3.2% in month 5. Here's the exact thing we fixed.",
+            "'The transaction failed.' Three words from our Head of Engineering on a Saturday morning. 100,000 users mid-transfer.",
         ],
         "avoid": [
             "Blockchain buzzwords used vaguely ('Web3 will save African finance')",
@@ -101,6 +104,7 @@ INDUSTRY_VOICE_PROFILES: dict[str, dict] = {
             "Data-forward and direct. Short punchy claim, then the specific number that proves it. "
             "Slightly more casual than traditional banking. Practitioners in this space are fast-moving — "
             "match that energy. One moment of hard-won insight per post."
+            " Varies paragraph length naturally. Single-line punches mixed with flowing 2-3 sentence context. Communal framing ('we') is the default."
         ),
         "nigerian_ctx": (
             "Regulators: CBN, SEC Nigeria, NDIC, NAICOM, PENCOM. "
@@ -171,6 +175,7 @@ INDUSTRY_VOICE_PROFILES: dict[str, dict] = {
             "I've done 40+ business diagnostics. The real problem is almost never the stated problem.",
             "3 things McKinsey decks always get wrong about Nigerian SMEs.",
             "We saved a client ₦180 million. They almost didn't hire us because our proposal was 4 pages.",
+            "The CEO put down his pen. 'That's not what I asked for.' We'd spent 6 weeks on the wrong problem.",
         ],
         "avoid": [
             "Consulting jargon used unironically ('we leveraged our synergies to deliver key deliverables')",
@@ -182,6 +187,7 @@ INDUSTRY_VOICE_PROFILES: dict[str, dict] = {
             "Structured but story-first. The insight is earned through narrative, not stated upfront. "
             "Use the 'here's what I expected vs what I actually found' tension. "
             "Short sentences for the key reveal. Don't bury the insight in paragraph 4."
+            " Mixes paragraph lengths - single-line reveals after longer narrative setup. Communal framing when discussing client work."
         ),
         "nigerian_ctx": (
             "Nigerian business context: family-owned conglomerates, FMCGs, public sector MDAs, "
@@ -211,6 +217,7 @@ INDUSTRY_VOICE_PROFILES: dict[str, dict] = {
             "Our retention doubled after we deleted a feature. The feature users had asked for.",
             "The metric we optimised for 6 months was lying to us the entire time.",
             "Nigerian users don't behave the way Y Combinator batch decks assume they will.",
+            "The Slack message said 'we need to talk.' It was from our biggest user. The one we'd built the feature for.",
         ],
         "avoid": [
             "'We're building the Stripe/Airbnb of Africa' framing (exhausted)",
@@ -222,6 +229,7 @@ INDUSTRY_VOICE_PROFILES: dict[str, dict] = {
             "Analytical and specific. One data point, one story, one insight per post. "
             "Self-aware and occasionally self-deprecating — the posts that perform best in tech "
             "are honest about what didn't work. Short punchy insight sentences after longer context."
+            " Varies paragraph structure - not every line is its own paragraph. Real writing mixes lengths."
         ),
         "nigerian_ctx": (
             "Ecosystem: CcHub (Yaba), Founders Factory Africa, Techstars Lagos, Ventures Platform, "
@@ -458,6 +466,7 @@ INDUSTRY_VOICE_PROFILES: dict[str, dict] = {
             "47 investors passed on us. The 48th said yes. I now know exactly why.",
             "We were growing 40% month-on-month. Then we hired the wrong person for one role.",
             "Nigerian VCs kept saying 'the market isn't ready'. Our customers didn't agree.",
+            "My co-founder walked in and put her laptop on the table. 'We have 4 weeks of runway.' It was a Monday.",
         ],
         "avoid": [
             "Hustle porn: 'sleep is for the weak', '18-hour days', toxic grind culture",
@@ -469,6 +478,7 @@ INDUSTRY_VOICE_PROFILES: dict[str, dict] = {
             "Honest and specific. Number + story + insight per post. "
             "Self-aware about the failures — the best startup posts in Nigeria in 2025 are the ones "
             "that don't pretend the founder had everything figured out. Short sentences for the key reveal."
+            " Mixes paragraph lengths naturally. Communal 'we' framing for team stories. Single lines for reveals, flowing paragraphs for context."
         ),
         "nigerian_ctx": (
             "Ecosystem: CcHub, Techstars Lagos, Ventures Platform, Microtraction, LoftyInc, "
@@ -490,19 +500,19 @@ INDUSTRY_VOICE_PROFILES: dict[str, dict] = {
 NIGERIAN_TONE_PRESETS: dict[str, dict] = {
     "Lagos Startup Founder": {
         "description": "Scrappy, data-driven, honest about failure. Speaks in metrics and pivots.",
-        "voice_cues": "Use naira figures. Reference hustle without glamorising it. Acknowledge infrastructure constraints (power, FX). Cite Nigerian VC ecosystem. Occasional Pidgin for warmth.",
-        "hook_style": "Bold claim with a number. 'We burnt ₦2.4M before finding PMF.'",
+        "voice_cues": "Use naira figures. Reference hustle without glamorising it. Acknowledge infrastructure constraints (power, FX). Cite Nigerian VC ecosystem. Occasional Pidgin for warmth. Use 'we' framing naturally - this is communal storytelling, not solo hero narrative. Comfortable with flowing 2-3 sentence paragraphs.",
+        "hook_style": "Bold claim, mid-scene moment, or specific number. 'We burnt ₦2.4M before finding PMF.' OR 'The investor looked at our deck and said one word.' Either works.",
         "avoid": "Toxic positivity, Silicon Valley cosplay, 'we're disrupting X'",
     },
     "Nigerian Corporate Professional": {
-        "description": "Measured, authoritative, institution-aware. Boardroom credibility.",
-        "voice_cues": "Reference CBN, SEC, PENCOM, professional bodies (ICAN, CIBN, NIM). Use full titles. Cite policy changes by name. Formal but not stiff.",
+        "description": "Measured, warm, authoritative. Boardroom credibility with human warmth.",
+        "voice_cues": "Reference CBN, SEC, PENCOM, professional bodies (ICAN, CIBN, NIM). Use full titles. Cite policy changes by name. Warm authority - speaks to peers, not subordinates. Uses 'we' when discussing industry challenges. Comfortable with 2-3 sentence paragraphs that flow naturally.",
         "hook_style": "Authority opening. 'The CBN circular of January 2024 changed three things most bankers haven't noticed yet.'",
         "avoid": "Slang, informality, anything that undermines professional gravitas",
     },
     "Nigerian Lawyer / SAN": {
         "description": "Precise, confident, case-backed. Commands respect without demanding it.",
-        "voice_cues": "Reference Nigerian statutes by name. Cite court decisions. Use legal vocabulary naturally. Occasionally direct Bench-Bar commentary.",
+        "voice_cues": "Reference Nigerian statutes by name. Cite court decisions. Use legal vocabulary naturally. Occasionally direct Bench-Bar commentary. Warmth coexists with precision. Uses 'we' when speaking about the profession. Flowing sentences for narrative, short ones for impact.",
         "hook_style": "Consequence-first. 'One clause. ₦80 million liability. My client had signed it three times.'",
         "avoid": "Vague legal generalisations, US-centric case citations as primary source",
     },
@@ -520,13 +530,13 @@ NIGERIAN_TONE_PRESETS: dict[str, dict] = {
     },
     "Nigerian Fintech Founder": {
         "description": "CBN-aware, user-obsessed, growth-focused. Speaks in ARPU and churn.",
-        "voice_cues": "Reference CBN licences (PSB, MMO), NIBSS, agent banking, USSD penetration. Cite Paystack/Flutterwave/Moniepoint as benchmarks. Naira-first metrics.",
+        "voice_cues": "Reference CBN licences (PSB, MMO), NIBSS, agent banking, USSD penetration. Cite Paystack/Flutterwave/Moniepoint as benchmarks. Naira-first metrics. Communal framing - 'we built', 'we learnt', not just 'I did'. Direct about numbers - naira figures without apology.",
         "hook_style": "Metric surprise. 'Our USSD users retained 3× better than app users. Everyone said it would be the opposite.'",
         "avoid": "Crypto hype, Web3 vagueness, dollar-only metrics",
     },
     "Global Nigerian Professional": {
         "description": "Diaspora or internationally-facing Nigerian. Bridges local knowledge and global context.",
-        "voice_cues": "Compare Nigerian market to global benchmarks — but always bring it back to local implications. Code-switch naturally between global and Nigerian vocabulary.",
+        "voice_cues": "Compare Nigerian market to global benchmarks — but always bring it back to local implications. Code-switch naturally between global and Nigerian vocabulary. Warm and direct. Uses 'we' when discussing Nigerian market. Comfortable moving between analytical and personal in the same post.",
         "hook_style": "Reframe. 'What London's fintech founders don't know about Nigerian banking infrastructure would keep them up at night.'",
         "avoid": "Treating Nigeria as a charity case, 'Africa is rising' clichés",
     },
