@@ -15,6 +15,7 @@ from core.voice import (
 from core.examples import get_examples
 from core import validator as _validator
 from core import polish as _polish
+from core import web_research as _web_research
 from core.debug import stash_prompt, render_prompt_debug
 
 
@@ -429,6 +430,7 @@ def build_post_prompt(
     different_angle: bool = False,
     avoid_framework: str = "",
     no_cta: bool = False,
+    research: str = "",
 ) -> str:
     """
     Compose the full Post Generator prompt.
@@ -446,6 +448,11 @@ def build_post_prompt(
     no_cta : bool, default False
         When True, instruct the model to end the post without a question or
         call-to-action.
+    research : str, default ""
+        A pre-rendered LIVE LINKEDIN RESEARCH block (from
+        ``core.web_research.research_block``). When non-empty it is injected so
+        the model shapes the hook/structure around current best practice. The
+        block is already sanitised + delimiter-wrapped as untrusted data.
     """
     tone_desc        = TONE_DESCRIPTIONS.get(tone, tone)
     framework_desc   = FRAMEWORK_DESCRIPTIONS.get(framework, framework)
@@ -458,7 +465,14 @@ def build_post_prompt(
     import hashlib as _hashlib
     _seed_raw = "|".join([topic.strip(), niche.strip(), tone.strip(), framework.strip()])
     _example_seed = int(_hashlib.md5(_seed_raw.encode("utf-8")).hexdigest(), 16) % (2**31)
-    examples = get_examples(2, seed=_example_seed)
+    # Region-aware calibration: when Nigerian Voice Mode is OFF, draw from the
+    # region-neutral example pool so non-Nigerian users don't get naira/Lagos
+    # context bleeding into their posts.
+    try:
+        _global_mode = not bool(st.session_state.get("nigerian_mode", True))
+    except Exception:
+        _global_mode = False
+    examples = get_examples(2, seed=_example_seed, global_mode=_global_mode)
     examples_block = "\nEXAMPLES OF THE QUALITY AND TONE TO AIM FOR:\nEach example below is the calibre of writing you must match. Study the rhythm, specificity, and humanity.\n"
     for i, ex in enumerate(examples, 1):
         examples_block += f"\n---EXAMPLE {i}---\n{ex.strip()}\n"
@@ -501,6 +515,7 @@ You are writing for this specific person:
 - Tone: {tone} -- {tone_desc}
 - Framework: {framework} -- {framework_desc}{profile_ctx}
 {beats_block}
+{research}
 {industry_voice}
 {BANNED}
 {HUMAN_SIGNATURES}
@@ -555,6 +570,25 @@ def _generation_signature(topic: str, niche: str, tone: str, framework: str) -> 
     return hashlib.md5(raw.encode("utf-8")).hexdigest()
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def _cached_research(topic: str, niche: str, audience: str, api_key: str) -> dict:
+    """
+    Cached live-web research for a (topic, niche, audience) tuple.
+
+    Cached for one hour so re-rolling the SAME topic doesn't fire a fresh
+    (slower, billable) grounded search every click. A new topic/niche misses
+    the cache and triggers a fresh search. Always research with the strong
+    model — Flash-Lite grounds poorly.
+    """
+    return dict(
+        _web_research.research_linkedin_strategy(
+            topic, niche, audience,
+            api_key=api_key,
+            model=_web_research.RESEARCH_MODEL_DEFAULT,
+        )
+    )
+
+
 def render_post_generator():
     st.markdown("""
     <div class="main-header">
@@ -597,6 +631,17 @@ def render_post_generator():
         framework = st.selectbox("📐 Content Framework", list(FRAMEWORK_DESCRIPTIONS.keys()))
         st.info(f"**Framework:** {FRAMEWORK_DESCRIPTIONS[framework]}")
         no_cta = st.checkbox("No CTA ending", value=False, help="End the post without a question or call-to-action. Some of the best posts just land and stop.", key="pg_no_cta")
+        research_on = st.checkbox(
+            "🔎 Research-backed (live web)",
+            value=st.session_state.get("pg_research_on", False),
+            help=(
+                "Before writing, search the web for how top-performing LinkedIn "
+                "posts in your niche are written right now — current hooks, "
+                "formats, and what's getting reach — and feed those findings "
+                "into the post. Adds a few seconds and uses a little more quota."
+            ),
+            key="pg_research_on",
+        )
 
     # ── Story Beats — the specificity engine ─────────────────────────────────
     with st.expander("✍️ Story Beats — Optional, but this is what separates great posts from generic ones", expanded=False):
@@ -701,6 +746,40 @@ def render_post_generator():
         _stream_box = st.empty()
         try:
 
+            # ── Optional: live web research ──────────────────────────────
+            # When the user opted in, research current best-practice for this
+            # topic/niche and inject the findings into the prompt. Cached for
+            # an hour so re-rolls don't re-search. Fully non-fatal: if research
+            # fails we just generate without it.
+            _research_block = ""
+            _research_result = None
+            if st.session_state.get("pg_research_on", False):
+                _api_key = st.session_state.get("gemini_api_key", "")
+                with st.spinner("🔎 Researching how top posts in your niche are written…"):
+                    try:
+                        _research_result = _cached_research(
+                            _topic_val,
+                            st.session_state.get("pg_niche", ""),
+                            st.session_state.get("pg_audience", "Professionals on LinkedIn"),
+                            _api_key,
+                        )
+                        # Don't let a transient failure stay cached for an hour —
+                        # drop it so the next attempt re-researches.
+                        if not (_research_result and _research_result.get("ok")):
+                            try:
+                                _cached_research.clear()
+                            except Exception:
+                                pass
+                        _research_block = _web_research.research_block(_research_result)
+                    except Exception:
+                        _research_result = None
+                        _research_block = ""
+                st.session_state["pg_research_result"] = _research_result
+            else:
+                # Non-research run — drop any stale brief from a prior run so
+                # the output panel doesn't show research that wasn't used here.
+                st.session_state.pop("pg_research_result", None)
+
             prompt = build_post_prompt(
                 _topic_val,
                 st.session_state.get("pg_niche", ""),
@@ -711,6 +790,7 @@ def render_post_generator():
                 different_angle=_different_angle,
                 avoid_framework=_avoid_framework,
                 no_cta=st.session_state.get("pg_no_cta", False),
+                research=_research_block,
             )
 
             # Stash for the debug expander before streaming so the user can
@@ -724,6 +804,7 @@ def render_post_generator():
                     "tone":            tone,
                     "different_angle": _different_angle,
                     "avoid":           _avoid_framework or "—",
+                    "research":        "on (live web)" if _research_block else "off",
                 },
             )
 
@@ -771,6 +852,17 @@ def render_post_generator():
 
         if st.session_state.get("pg_note"):
             st.caption(f"Angle: {st.session_state['pg_note']}")
+
+        # ── Live research brief (only when research-backed generation ran) ──
+        _research_result = st.session_state.get("pg_research_result")
+        if _research_result and _research_result.get("ok"):
+            _grounded = _research_result.get("grounded")
+            _badge = "🔎 Live web research" if _grounded else "🔎 Best-practice research"
+            with st.expander(f"{_badge} used for this post", expanded=False):
+                st.markdown(_research_result.get("summary", ""))
+                _web_research.render_sources(_research_result)
+        elif _research_result and _research_result.get("error"):
+            st.caption(f"🔎 Research skipped — {_research_result['error']}")
 
         # ── Voice Validator badge -- runs on every render ──────────
         _vs_report = _validator.validate_post(post_content)

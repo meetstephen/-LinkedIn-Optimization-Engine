@@ -42,14 +42,34 @@ import streamlit as st
 SOFT_DELETE_RETENTION_DAYS = 30
 
 
+def _secret(name: str, fallback: str = "") -> str:
+    """
+    Safe secret lookup: env var first, then st.secrets.
+
+    ``st.secrets.get(...)`` is NOT dict-like when no secrets.toml exists — it
+    raises StreamlitSecretNotFoundError. That crashed any deploy/local run
+    without a secrets file even though callers wrap db calls in try/except,
+    because the raise happened inside @st.cache_resource. Guarding it here lets
+    the app degrade gracefully to session-only mode instead of erroring.
+    """
+    import os
+    val = os.environ.get(name, "")
+    if val:
+        return val
+    try:
+        return st.secrets.get(name, fallback)
+    except Exception:
+        return fallback
+
+
 @st.cache_resource
 def _get_client():
     try:
         from supabase import create_client
     except ImportError:
         raise RuntimeError("Add 'supabase' to requirements.txt and redeploy.")
-    url = st.secrets.get("SUPABASE_URL", "")
-    key = st.secrets.get("SUPABASE_KEY", "")
+    url = _secret("SUPABASE_URL")
+    key = _secret("SUPABASE_KEY")
     if not url or not key:
         raise RuntimeError("SUPABASE_URL and SUPABASE_KEY missing from secrets.toml")
     return create_client(url, key)
@@ -406,7 +426,16 @@ def _cached_get_stats(user_id: str) -> dict:
 
 
 def get_stats() -> dict:
-    return _cached_get_stats(_user_id())
+    """Aggregate stats, degrading to zeros when the DB is unavailable.
+
+    Read helpers that feed always-rendered UI must never raise — a missing
+    Supabase config or a transient outage should drop the app into
+    session-only mode, not crash the Home dashboard.
+    """
+    try:
+        return _cached_get_stats(_user_id())
+    except Exception:
+        return {"total": 0, "starred": 0, "avg_score": 0, "top_module": "—"}
 
 
 # ─────────────────────────────────────────────────────────────────────────────

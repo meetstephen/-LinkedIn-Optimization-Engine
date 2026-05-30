@@ -1,6 +1,6 @@
 # ⚡ LinkedEdge — LinkedIn Optimization Engine
 
-> **AI-powered LinkedIn growth toolkit.** 16 modules. Built for the Nigerian professional market and configurable for any audience worldwide.
+> **AI-powered LinkedIn growth toolkit.** 17 modules. Built for the Nigerian professional market and configurable for any audience worldwide.
 >
 > Human-quality output powered by few-shot example calibration, voice fingerprinting, and a deterministic quality gate. Every post sounds like a real person wrote it - not AI.
 >
@@ -13,21 +13,22 @@
 | # | Module | What it does |
 |---|--------|-------------|
 | 1 | 🔥 **Viral Hook Analyzer** | Scores any hook 0–100 across 5 dimensions, returns 5 power rewrites + live mobile preview |
-| 2 | 🚀 **Post Generator** | One focused, high-quality post per generation. Few-shot example calibration, story-beats input, engagement prediction score, Unicode formatter, live LinkedIn feed preview, and direct-to-scheduler pipeline |
-| 3 | 🔧 **Post Optimizer** | Diagnoses an existing post (hook · clarity · emotional pull · formatting · CTA), assigns a score, rewrites it with 5 explained edits |
-| 4 | ♻️ **Repurposing Engine** | One idea → text post + 7-slide carousel + 5 hooks + 5 CTAs + 3 strategic comments |
-| 5 | 💬 **Engagement Intelligence** | Strategic comments, DM templates, and networking responses — three generators in one |
-| 6 | 🔍 **Brand Scanner** | Compares what your profile claims vs. what your content proves; scores the gap; gives a 5-day fix |
-| 7 | 💼 **About Optimizer** | 3-paragraph About section rewrite + 3 headline options + before/after + key improvements |
-| 8 | 🌟 **Profile Enhancer** | Full profile audit (0–100), 30-day action plan, 3 quick wins under 20 min each |
-| 9 | 💡 **Content Ideas** | Up to 20 ideas across selected pillars, with hooks, hashtags, and one "post this week" pick |
-| 10 | 🧠 **Strategy Insights** | Creator playbook for your archetype: hooks, post blueprints, posting rhythm, 90-day roadmap |
-| 11 | 🎨 **Image Generator** | LinkedIn visuals via Stability AI SDXL (primary) → Hugging Face (fallback). Prompt auto-derived from your post |
-| 12 | ⚡ **Engagement Toolkit** | Hooks, CTAs, hashtags, and WAT-aware posting times |
-| 13 | 🎠 **Carousel Planner** | AI-generated slide titles + bodies + emojis with a slide-by-slide LinkedIn-style preview |
-| 14 | 📚 **Post Library** | Persistent (Supabase). Search, star, filter by module, sort by score, export `.txt`/`.json`, re-import. Live diagnostics tell you exactly what's wrong if it's empty. |
-| 15 | 📅 **Content Scheduler** | Pin saved posts to weekday + time slots. See your full week at a glance. Export as a `.md` checklist. |
-| 16 | 🎙️ **Voice Fingerprint** | Analyses your writing sample once, extracts structured DNA (sentence length, signature phrases, structure, tells), injects into every prompt for on-voice output |
+| 2 | 🚀 **Post Generator** | One focused, high-quality post per generation. Few-shot example calibration, story-beats input, engagement prediction score, Unicode formatter, live LinkedIn feed preview, **optional live-web research backing**, and direct-to-scheduler pipeline |
+| 3 | 🔎 **Trend Researcher** | Goes online via Gemini's Google Search grounding to find how top-performing LinkedIn posts in your niche are written *right now* — current hooks, formats, what's getting reach — with real source links. Pipes findings straight into the Post Generator |
+| 4 | 🔧 **Post Optimizer** | Diagnoses an existing post (hook · clarity · emotional pull · formatting · CTA), assigns a score, rewrites it with 5 explained edits |
+| 5 | ♻️ **Repurposing Engine** | One idea → text post + 7-slide carousel + 5 hooks + 5 CTAs + 3 strategic comments |
+| 6 | 💬 **Engagement Intelligence** | Strategic comments, DM templates, and networking responses — three generators in one |
+| 7 | 🔍 **Brand Scanner** | Compares what your profile claims vs. what your content proves; scores the gap; gives a 5-day fix |
+| 8 | 💼 **About Optimizer** | 3-paragraph About section rewrite + 3 headline options + before/after + key improvements |
+| 9 | 🌟 **Profile Enhancer** | Full profile audit (0–100), 30-day action plan, 3 quick wins under 20 min each |
+| 10 | 💡 **Content Ideas** | Up to 20 ideas across selected pillars, with hooks, hashtags, and one "post this week" pick |
+| 11 | 🧠 **Strategy Insights** | Creator playbook for your archetype: hooks, post blueprints, posting rhythm, 90-day roadmap |
+| 12 | 🎨 **Image Generator** | LinkedIn visuals via Stability AI SDXL (primary) → Hugging Face (fallback). Prompt auto-derived from your post |
+| 13 | ⚡ **Engagement Toolkit** | Hooks, CTAs, hashtags, and WAT-aware posting times |
+| 14 | 🎠 **Carousel Planner** | AI-generated slide titles + bodies + emojis with a slide-by-slide LinkedIn-style preview |
+| 15 | 📚 **Post Library** | Persistent (Supabase). Search, star, filter by module, sort by score, export `.txt`/`.json`, re-import. Live diagnostics tell you exactly what's wrong if it's empty. |
+| 16 | 📅 **Content Scheduler** | Pin saved posts to weekday + time slots. See your full week at a glance. Export as a `.md` checklist. |
+| 17 | 🎙️ **Voice Fingerprint** | Analyses your writing sample once, extracts structured DNA (sentence length, signature phrases, structure, tells), injects into every prompt for on-voice output |
 
 Plus:
 - **🇳🇬 Nigerian Voice Mode** — Nigerian warmth is baked into the core voice natively. The sidebar toggle adds deeper context (CBN, NBA, naira, WAT times, geographic diversity beyond Lagos) into every prompt.
@@ -149,6 +150,7 @@ You can also flip `is_admin` manually from the Supabase Table Editor (`lb_users`
 │   ├── state.py                 #   Session-state init + profile auto-load on cold start
 │   ├── validator.py             #   Deterministic voice quality gate (156+ banned phrases)
 │   ├── voice.py                 #   Canonical voice system (primer, banned, signatures, structure)
+│   ├── web_research.py          #   🔎 Live web research via Gemini Google Search grounding
 │   └── voice_fingerprint.py     #   One-time writing-sample analysis → structured DNA
 │
 ├── library.py                   # Single source of truth for save-to-library
@@ -245,6 +247,31 @@ The voice system has three layers:
 1. **Before generation** — `core/voice.py` constants + `core/examples.py` few-shot posts inject into every prompt. The user's voice fingerprint (if set) adds per-user calibration.
 2. **After generation** — `core/validator.py` runs a deterministic check: banned phrases, hook structure, CTA quality. Score 0-100.
 3. **Optional polish** — `core/polish.py` sends the draft + validator report back to Gemini for a tightening pass.
+
+---
+
+## How live web research works (`core/web_research.py`)
+
+The **🔎 Trend Researcher** module and the Post Generator's **Research-backed** toggle both call `core/web_research.py`, which uses **Gemini's first-party Google Search tool** (`types.Tool(google_search=...)`). The model issues real search queries, reads current results, and grounds its answer in live web content — returning a scannable brief plus **real citation links**.
+
+```
+research_linkedin_strategy(topic, niche, audience)
+        │
+        ├─ grounding available?  ──► generate_content(tools=[GoogleSearch])
+        │                              │  → grounded brief + source links
+        │                              ▼
+        └─ unavailable / error ──► generate_content (no tools)
+                                       → best-practice brief, grounded=False
+```
+
+Design notes:
+
+- **No scraping, no ToS risk.** It researches public *writing about* LinkedIn best practice — never LinkedIn member data or profiles.
+- **Untrusted by default.** Everything the web returns is wrapped in `<<USER_WEB_RESEARCH_…>>` delimiters via `core/sanitize.py` with a trust reminder before it touches a generation prompt, so a poisoned search result can't hijack the model.
+- **Graceful fallback.** If the installed SDK or model can't ground (old SDK, transient error), the call degrades to an ungrounded best-practice brief flagged `grounded=False`, so the feature never hard-fails.
+- **Cached.** The Post Generator caches research for an hour per `(topic, niche, audience)` so re-rolling the same topic doesn't fire a fresh billable search every click.
+
+> Requires `google-genai>=1.0.0` (bundled in `requirements.txt`). Works on the free Gemini tier.
 
 ---
 
