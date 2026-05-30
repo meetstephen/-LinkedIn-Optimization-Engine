@@ -131,3 +131,49 @@ def test_extract_helpers_never_raise_on_garbage():
     assert wr._extract_sources(junk) == []
     assert wr._extract_queries(junk) == []
     assert wr._extract_sources(None) == []
+
+
+# ── New intent-specific research builders + helpers ──────────────────────────
+
+def test_build_ideas_research_prompt_includes_inputs():
+    p = wr._build_ideas_research_prompt("fintech", "founders", ["How-To", "Hot Takes"])
+    assert "fintech" in p
+    assert "founders" in p
+    assert "How-To" in p
+    assert "Timely topics right now" in p
+    assert "Post this week" in p
+
+
+def test_build_ideas_research_prompt_handles_blanks():
+    p = wr._build_ideas_research_prompt("", "", [])
+    assert isinstance(p, str) and len(p) > 100
+
+
+def test_build_strategy_research_prompt_includes_inputs():
+    p = wr._build_strategy_research_prompt("The Educator", "legal", "grow to 5k")
+    assert "The Educator" in p
+    assert "legal" in p
+    assert "grow to 5k" in p
+    assert "Algorithm & distribution now" in p
+
+
+def test_research_content_ideas_without_key():
+    r = wr.research_content_ideas("fintech", "founders", ["How-To"], api_key="")
+    assert r["ok"] is False
+    assert r["industry"] == "fintech"
+    assert r["audience"] == "founders"
+    assert "key" in (r["error"] or "").lower()
+
+
+def test_research_creator_strategy_without_key():
+    r = wr.research_creator_strategy("The Educator", "legal", "grow", api_key="")
+    assert r["ok"] is False
+    assert r["industry"] == "legal"
+    assert "key" in (r["error"] or "").lower()
+
+
+def test_research_core_meta_merges_and_no_key_short_circuits():
+    res = wr._research_core("some prompt", api_key="", model="m", meta={"topic": "t"})
+    assert res["ok"] is False
+    assert res["topic"] == "t"
+    assert res["model"] == "m"

@@ -1707,6 +1707,139 @@ def render_sidebar():
 # ─────────────────────────────────────────────
 # HOME PAGE
 # ─────────────────────────────────────────────
+@st.cache_data(ttl=86400, show_spinner=False)
+def _cached_daily_brief(niche: str, audience: str, day_key: str, api_key: str) -> dict:
+    """
+    Research timely post angles for the user's niche, cached for the day.
+
+    ``day_key`` (a YYYY-MM-DD string) is part of the cache key so the brief
+    refreshes once per day per niche — not on every Home visit — keeping
+    quota usage predictable.
+    """
+    try:
+        from core import web_research as _wr
+        return dict(_wr.research_content_ideas(
+            niche, audience, [],
+            api_key=api_key, model=_wr.RESEARCH_MODEL_DEFAULT,
+        ))
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def _extract_brief_topics(summary: str, max_n: int = 4) -> list:
+    """
+    Pull the bullet topics under the '## Timely topics right now' header out of
+    a research brief so each can become a one-click 'write this' action.
+    Returns concise topic strings. Defensive — never raises.
+    """
+    topics: list[str] = []
+    try:
+        import re as _re
+        lines = (summary or "").splitlines()
+        in_section = False
+        for ln in lines:
+            s = ln.strip()
+            if s.startswith("##"):
+                in_section = "timely topics" in s.lower()
+                continue
+            if not in_section:
+                continue
+            if s.startswith(("-", "*", "•")) or _re.match(r"^\d+[.)]", s):
+                # Strip list marker + markdown bold
+                txt = _re.sub(r"^[\-\*•]\s*", "", s)
+                txt = _re.sub(r"^\d+[.)]\s*", "", txt)
+                txt = txt.replace("**", "").strip()
+                # Keep the topic part before a 'why now' dash/colon clause
+                for sep in (" — ", " – ", " - ", ": "):
+                    if sep in txt:
+                        txt = txt.split(sep, 1)[0].strip()
+                        break
+                if 3 <= len(txt) <= 90:
+                    topics.append(txt)
+            if len(topics) >= max_n:
+                break
+    except Exception:
+        pass
+    return topics
+
+
+def _render_daily_brief():
+    """
+    📬 Daily Content Brief — a research-backed 'what to post today' panel for the
+    user's niche. Button-triggered (predictable quota), cached for the day, and
+    wired so each timely topic becomes a one-click research-backed post.
+    """
+    _p = st.session_state.get("user_profile", {})
+    niche = (_p.get("industry") or "").strip()
+    audience = (_p.get("audience") or "").strip() or "Professionals on LinkedIn"
+    api_key = st.session_state.get("gemini_api_key", "")
+
+    # Only meaningful once the user has set a niche + has a key.
+    if not niche or not api_key:
+        return
+
+    from datetime import timezone, timedelta
+    day_key = datetime.now(timezone(timedelta(hours=1))).strftime("%Y-%m-%d")  # WAT day
+
+    with st.container():
+        st.markdown(
+            "<div style='background:linear-gradient(135deg,#0A66C2,#004182);"
+            "border-radius:14px;padding:1rem 1.2rem;margin-bottom:1rem;color:white;'>"
+            "<div style='font-size:1.15rem;font-weight:800;'>📬 Your Daily Content Brief</div>"
+            f"<div style='font-size:0.82rem;opacity:0.85;'>What's worth posting in "
+            f"<strong>{_html_mod.escape(niche)}</strong> today — researched live from the web.</div>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+        col_a, col_b = st.columns([3, 1])
+        with col_b:
+            if st.button("🔄 Refresh", key="brief_refresh", use_container_width=True):
+                try:
+                    _cached_daily_brief.clear()
+                except Exception:
+                    pass
+                st.session_state.pop("home_brief", None)
+
+        with col_a:
+            if st.button("📬 Get today's brief", type="primary",
+                         key="brief_fetch", use_container_width=True):
+                with st.spinner("🌐 Researching what's timely in your niche today…"):
+                    res = _cached_daily_brief(niche, audience, day_key, api_key)
+                    if not (res and res.get("ok")):
+                        try:
+                            _cached_daily_brief.clear()
+                        except Exception:
+                            pass
+                st.session_state["home_brief"] = res
+
+        res = st.session_state.get("home_brief")
+        if res and res.get("ok"):
+            topics = _extract_brief_topics(res.get("summary", ""))
+            if topics:
+                st.caption("Tap a topic to draft a research-backed post in one click:")
+                for i, topic in enumerate(topics):
+                    if st.button(f"✍️  {topic}", key=f"brief_topic_{i}",
+                                 use_container_width=True):
+                        st.session_state["pg_topic"] = topic
+                        st.session_state["pg_niche"] = niche
+                        st.session_state["pg_audience"] = audience
+                        st.session_state["pg_research_on"] = True
+                        st.session_state["_pending_nav"] = "🚀 Post Generator"
+                        st.rerun()
+            with st.expander("📄 Full brief + sources", expanded=not topics):
+                st.markdown(res.get("summary", ""))
+                try:
+                    from core import web_research as _wr
+                    _wr.render_sources(res)
+                except Exception:
+                    pass
+        elif res and res.get("error"):
+            st.caption(f"Brief unavailable right now — {res['error'][:120]}")
+
+        st.markdown("---")
+
+
 def render_home():
     """Renders the home/landing page."""
     # Hero section
@@ -1827,6 +1960,9 @@ def render_home():
 """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── 📬 Daily Content Brief — research-backed 'what to post today' ──────
+    _render_daily_brief()
 
     # ── Feature cards ── rendered in ONE st.markdown() call via CSS grid.
     # Calling st.markdown(unsafe_allow_html=True) per st.columns() cell causes
@@ -3756,6 +3892,25 @@ def render_trend_researcher():
 # ─────────────────────────────────────────────
 # MAIN APP ROUTER
 # ─────────────────────────────────────────────
+def _auth_required() -> bool:
+    """
+    Whether to force the sign-in gate before any feature page renders.
+
+    Defaults to **True** — a public deployment should require sign-in so the
+    owner's shared API key/quota isn't exposed to anonymous traffic. A deployer
+    can opt into open/demo access (e.g. a personal single-user instance or a
+    local demo) by setting ``REQUIRE_AUTH=false`` in env or st.secrets.
+    """
+    import os
+    val = os.environ.get("REQUIRE_AUTH", "")
+    if not val:
+        try:
+            val = st.secrets.get("REQUIRE_AUTH", "")
+        except Exception:
+            val = ""
+    return str(val).strip().lower() not in ("0", "false", "no", "off")
+
+
 def main():
     """Main application entry point and page router."""
 
@@ -3799,7 +3954,10 @@ def main():
     # ── AUTH GATE ─────────────────────────────────────────────────────────────
     # If multi-user auth is available and no one is logged in, show the
     # login/signup gateway and bail out — no feature pages, no sidebar.
-    if _CORE_AVAILABLE and _auth is not None and not _auth.is_logged_in():
+    # Gating is ON by default and can be disabled with REQUIRE_AUTH=false
+    # (see _auth_required) for personal/demo deployments.
+    if (_CORE_AVAILABLE and _auth is not None and _auth_required()
+            and not _auth.is_logged_in()):
         try:
             auth_pages = load_module("auth_pages", "auth_pages.py")
             auth_pages.render_auth_gateway()

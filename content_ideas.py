@@ -7,6 +7,17 @@ from gemini_client import generate_text, get_profile_context, stream_text
 from library import save_post_to_library
 from industry_profiles import get_industry_voice_block
 from core.voice import HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES
+from core import web_research as _web_research
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _cached_ideas_research(niche: str, audience: str, pillars_key: str, api_key: str) -> dict:
+    """Cached live-web research for trending angles in a niche (1h TTL)."""
+    pillars = [p for p in pillars_key.split("|") if p]
+    return dict(_web_research.research_content_ideas(
+        niche, audience, pillars,
+        api_key=api_key, model=_web_research.RESEARCH_MODEL_DEFAULT,
+    ))
 
 
 CONTENT_PILLARS = {
@@ -71,7 +82,7 @@ def _hashtag_block(use_nigerian_context: bool) -> str:
     return base
 
 
-def build_ideas_prompt(niche, role, pillars, count, timeframe):
+def build_ideas_prompt(niche, role, pillars, count, timeframe, research=""):
     pillar_list    = "\n".join([f"- {p}: {CONTENT_PILLARS[p]}" for p in pillars])
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(niche)
@@ -88,7 +99,7 @@ You are working as a sharp editor generating LinkedIn content ideas — specific
 
 Not generic. Not "share your journey". Real angles a real {niche} professional would actually post.{profile_ctx}
 {industry_voice}
-
+{research}
 CREATOR:
 - Niche: {niche}
 - Background: {role}
@@ -178,6 +189,12 @@ def render_content_ideas():
             default=["Career Growth & Lessons", "How-To & Tutorials", "Contrarian / Hot Takes"],
             max_selections=5,
         )
+        research_on = st.checkbox(
+            "🔎 Research-backed (live web)",
+            value=st.session_state.get("ci_research_on", False),
+            help="Search the web for what's trending in your niche right now and feed timely angles into the ideas.",
+            key="ci_research_on",
+        )
 
     if pillars:
         st.markdown("**Selected Pillars:**")
@@ -195,11 +212,35 @@ def render_content_ideas():
             return
 
         try:
+            # ── Optional live web research ──────────────────────────────
+            _research_block = ""
+            _research_result = None
+            if st.session_state.get("ci_research_on", False):
+                _api_key = st.session_state.get("gemini_api_key", "")
+                _audience = _p.get("audience", "") or "Professionals on LinkedIn"
+                with st.spinner("🔎 Researching what's trending in your niche…"):
+                    try:
+                        _research_result = _cached_ideas_research(
+                            niche, _audience, "|".join(pillars), _api_key,
+                        )
+                        if not (_research_result and _research_result.get("ok")):
+                            try:
+                                _cached_ideas_research.clear()
+                            except Exception:
+                                pass
+                        _research_block = _web_research.research_block(_research_result)
+                    except Exception:
+                        _research_result, _research_block = None, ""
+                st.session_state["ci_research_result"] = _research_result
+            else:
+                st.session_state.pop("ci_research_result", None)
+
             st.info("⚡ Generating content ideas — streams in real time…")
             _stream_box = st.empty()
             with _stream_box.container():
                 result = st.write_stream(stream_text(
-                    build_ideas_prompt(niche, role, pillars, count, timeframe),
+                    build_ideas_prompt(niche, role, pillars, count, timeframe,
+                                       research=_research_block),
                     temperature=0.95, max_tokens=8000,
                 ))
             _stream_box.empty()
@@ -223,6 +264,15 @@ def render_content_ideas():
 
     st.success(f"{_ct} content ideas generated.")
     st.markdown("---")
+
+    # ── Live research brief (only when research-backed) ─────────────────
+    _research_result = st.session_state.get("ci_research_result")
+    if _research_result and _research_result.get("ok"):
+        _badge = "🔎 Live web research" if _research_result.get("grounded") else "🔎 Best-practice research"
+        with st.expander(f"{_badge} used for these ideas", expanded=False):
+            st.markdown(_research_result.get("summary", ""))
+            _web_research.render_sources(_research_result)
+
     with st.expander("📄 Full Content Calendar", expanded=True):
         st.markdown(result)
 

@@ -144,6 +144,88 @@ Rules:
 - Keep the whole brief under 450 words."""
 
 
+def _build_ideas_research_prompt(topic: str, audience: str, pillars: list[str]) -> str:
+    """Research instruction for timely content-idea angles in a niche."""
+    niche = (topic or "").strip() or "professional services"
+    audience = (audience or "").strip() or "professionals on LinkedIn"
+    pillar_line = ", ".join(p for p in (pillars or []) if p) or "broad professional themes"
+
+    return f"""You are a LinkedIn content strategist with access to live web search.
+
+Research what topics and angles are getting the most traction RIGHT NOW for
+this niche, so a creator can post something timely this week:
+- Niche / industry: {niche}
+- Audience: {audience}
+- Content pillars in play: {pillar_line}
+
+Search the web for current signals: recent industry news, debates, regulatory
+or market shifts, viral posts, and what creators in this space are talking
+about this month.
+
+Return a tight brief using EXACTLY these headers:
+
+## Timely topics right now
+5-7 specific topics/angles that are hot for this niche THIS month, each with a
+one-line "why now" (tie to a real event, trend, or shift you found).
+
+## Angle patterns winning now
+3-5 framings that are over-performing for this niche right now (e.g. contrarian
+takes on X, teardown of Y), not generic advice.
+
+## Post this week
+The single most timely idea to post in the next few days, and the specific
+reason it lands now.
+
+## Avoid
+2-3 angles that are over-saturated or read as dated/AI in this niche right now.
+
+Rules:
+- Specific to {niche} and {audience}. Use real names/events where you found them.
+- Don't fabricate. If you can't verify timeliness, say it's evergreen.
+- Under 400 words."""
+
+
+def _build_strategy_research_prompt(archetype: str, topic: str, goal: str) -> str:
+    """Research instruction for how a creator archetype grows in a niche now."""
+    archetype = (archetype or "").strip() or "thought-leadership"
+    niche = (topic or "").strip() or "professional services"
+    goal = (goal or "").strip()
+    goal_line = f"\n- Their goal: {goal}" if goal else ""
+
+    return f"""You are a LinkedIn growth strategist with access to live web search.
+
+Research how successful creators are growing on LinkedIn RIGHT NOW for this
+profile, and what the current algorithm actually rewards:
+- Creator archetype / style: {archetype}
+- Niche / industry: {niche}{goal_line}
+
+Search the web for current (this year) evidence: creator growth breakdowns,
+LinkedIn algorithm updates, engagement studies, and posting-cadence data.
+
+Return a tight brief using EXACTLY these headers:
+
+## What's working for this archetype now
+3-5 bullets specific to a {archetype} creator in {niche}, data-backed where possible.
+
+## Algorithm & distribution now
+3-4 bullets on what LinkedIn is currently rewarding and suppressing (format
+preferences, external links, dwell time, the first-hour window). Cite what you found.
+
+## Cadence & timing
+What posting frequency and timing the current evidence supports for this niche.
+
+## Avoid
+2-3 tactics that are getting suppressed or read as dated right now.
+
+## One-line verdict
+A single growth move to prioritise this quarter.
+
+Rules:
+- Specific to {archetype} and {niche}. No generic guru advice.
+- Don't fabricate stats. Note when sources disagree.
+- Under 420 words."""
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # GROUNDING METADATA EXTRACTION
 # ─────────────────────────────────────────────────────────────────────────────
@@ -237,40 +319,37 @@ def _call_gemini(api_key: str, model: str, prompt: str, *, use_tool: bool):
     return client.models.generate_content(model=model, contents=prompt, config=cfg)
 
 
-def research_linkedin_strategy(
-    topic: str,
-    industry: str = "",
-    audience: str = "",
+def _research_core(
+    prompt: str,
     *,
     api_key: str,
-    model: str = RESEARCH_MODEL_DEFAULT,
+    model: str,
+    meta: Optional[dict] = None,
 ) -> ResearchResult:
     """
-    Research live LinkedIn best-practice for (topic, industry, audience).
+    Shared engine for every research intent: run a (preferably grounded)
+    generate_content call, extract text + citations, and degrade gracefully.
 
-    Returns a ResearchResult dict. ``ok`` is True when we got a usable brief;
-    ``grounded`` is True only when the answer was backed by live Google Search
-    (and therefore carries real ``sources``). On total failure ``ok`` is False
-    and ``error`` explains why — the caller decides how loudly to surface it.
+    ``prompt`` is the fully-composed research instruction. ``meta`` is merged
+    into the result so each caller can stamp its own descriptive fields
+    (topic / niche / archetype / etc.). Never raises.
     """
     base: ResearchResult = {
         "ok": False,
         "grounded": False,
-        "topic": (topic or "").strip(),
-        "industry": (industry or "").strip(),
-        "audience": (audience or "").strip(),
         "summary": "",
         "sources": [],
         "queries": [],
         "model": model,
         "error": None,
     }
+    if meta:
+        base.update(meta)  # type: ignore[arg-type]
 
     if not api_key:
         base["error"] = "No Gemini API key set — add one in the sidebar to enable web research."
         return base
 
-    prompt = _build_research_prompt(topic, industry, audience)
     want_grounding = grounding_available()
     last_exc: Optional[Exception] = None
 
@@ -301,6 +380,68 @@ def research_linkedin_strategy(
 
     base["error"] = f"Web research failed: {str(last_exc)[:200]}" if last_exc else "Web research failed."
     return base
+
+
+def research_linkedin_strategy(
+    topic: str,
+    industry: str = "",
+    audience: str = "",
+    *,
+    api_key: str,
+    model: str = RESEARCH_MODEL_DEFAULT,
+) -> ResearchResult:
+    """
+    Research live LinkedIn best-practice for (topic, industry, audience).
+
+    Returns a ResearchResult dict. ``ok`` is True when we got a usable brief;
+    ``grounded`` is True only when the answer was backed by live Google Search
+    (and therefore carries real ``sources``). On total failure ``ok`` is False
+    and ``error`` explains why — the caller decides how loudly to surface it.
+    """
+    return _research_core(
+        _build_research_prompt(topic, industry, audience),
+        api_key=api_key,
+        model=model,
+        meta={
+            "topic": (topic or "").strip(),
+            "industry": (industry or "").strip(),
+            "audience": (audience or "").strip(),
+        },
+    )
+
+
+def research_content_ideas(
+    niche: str,
+    audience: str = "",
+    pillars: Optional[list[str]] = None,
+    *,
+    api_key: str,
+    model: str = RESEARCH_MODEL_DEFAULT,
+) -> ResearchResult:
+    """Research timely, trending content angles for a niche (for Content Ideas)."""
+    return _research_core(
+        _build_ideas_research_prompt(niche, audience, pillars or []),
+        api_key=api_key,
+        model=model,
+        meta={"industry": (niche or "").strip(), "audience": (audience or "").strip()},
+    )
+
+
+def research_creator_strategy(
+    archetype: str,
+    niche: str,
+    goal: str = "",
+    *,
+    api_key: str,
+    model: str = RESEARCH_MODEL_DEFAULT,
+) -> ResearchResult:
+    """Research what's working for a creator archetype/niche now (for Strategy)."""
+    return _research_core(
+        _build_strategy_research_prompt(archetype, niche, goal),
+        api_key=api_key,
+        model=model,
+        meta={"industry": (niche or "").strip(), "topic": (archetype or "").strip()},
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -21,8 +21,8 @@
 | 7 | 🔍 **Brand Scanner** | Compares what your profile claims vs. what your content proves; scores the gap; gives a 5-day fix |
 | 8 | 💼 **About Optimizer** | 3-paragraph About section rewrite + 3 headline options + before/after + key improvements |
 | 9 | 🌟 **Profile Enhancer** | Full profile audit (0–100), 30-day action plan, 3 quick wins under 20 min each |
-| 10 | 💡 **Content Ideas** | Up to 20 ideas across selected pillars, with hooks, hashtags, and one "post this week" pick |
-| 11 | 🧠 **Strategy Insights** | Creator playbook for your archetype: hooks, post blueprints, posting rhythm, 90-day roadmap |
+| 10 | 💡 **Content Ideas** | Up to 20 ideas across selected pillars, with hooks, hashtags, and one "post this week" pick. **Optional live-web research** surfaces what's trending in your niche right now |
+| 11 | 🧠 **Strategy Insights** | Creator playbook for your archetype: hooks, post blueprints, posting rhythm, 90-day roadmap. **Optional live-web research** grounds it in what the algorithm rewards now |
 | 12 | 🎨 **Image Generator** | LinkedIn visuals via Stability AI SDXL (primary) → Hugging Face (fallback). Prompt auto-derived from your post |
 | 13 | ⚡ **Engagement Toolkit** | Hooks, CTAs, hashtags, and WAT-aware posting times |
 | 14 | 🎠 **Carousel Planner** | AI-generated slide titles + bodies + emojis with a slide-by-slide LinkedIn-style preview |
@@ -118,6 +118,11 @@ LinkedEdge ships with built-in email + password authentication. Every signed-in 
 - Passwords are hashed with **bcrypt** (12 rounds) before being stored. Plaintext passwords are never written to the database.
 - The authenticated user's UUID becomes the per-row `user_id` in `lb_posts`, `lb_profiles`, `lb_schedule`. Two users with the same Gemini key still see *only their own* posts.
 - Every successful login, signup, logout and failed attempt is recorded in `lb_login_events` for audit.
+
+### Access control & key safety (read before going public)
+- **Sign-in is required by default.** Set `REQUIRE_AUTH=false` in env/secrets only for a personal single-user instance or a local demo — otherwise anonymous traffic could spend your shared API quota.
+- **Your server-side API keys are never exposed to visitors.** If you set `GEMINI_API_KEY` (etc.) in secrets, the sidebar keeps it hidden — it is *not* rendered into the password field (Streamlit ships widget values to the browser, so a pre-filled field could be read via devtools). Visitors see a masked notice and may type their own key to override.
+- For a public launch, either accept that signed-in users share your key/quota, or ask each user to bring their own key in the sidebar.
 
 ### Bootstrap your first admin
 1. Set `BOOTSTRAP_ADMIN_EMAIL` in your secrets/env to the email you want to use.
@@ -253,6 +258,13 @@ The voice system has three layers:
 ## How live web research works (`core/web_research.py`)
 
 The **🔎 Trend Researcher** module and the Post Generator's **Research-backed** toggle both call `core/web_research.py`, which uses **Gemini's first-party Google Search tool** (`types.Tool(google_search=...)`). The model issues real search queries, reads current results, and grounds its answer in live web content — returning a scannable brief plus **real citation links**.
+
+The same engine now backs four touchpoints, each with an opt-in **🔎 Research-backed (live web)** toggle:
+
+- **Post Generator** — injects current hook/format patterns before writing.
+- **Content Ideas** — surfaces what's trending in your niche *this week*.
+- **Strategy Insights** — grounds the playbook in what the algorithm rewards now.
+- **📬 Daily Content Brief (Home)** — a button-triggered, cached-per-day panel that researches timely angles for your niche; each topic is a one-click, research-backed draft straight into the Post Generator. This is the habit loop: open the app → see what's worth posting today → write it.
 
 ```
 research_linkedin_strategy(topic, niche, audience)
