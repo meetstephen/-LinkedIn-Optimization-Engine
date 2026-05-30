@@ -1,6 +1,6 @@
 # ⚡ LinkedEdge — LinkedIn Optimization Engine
 
-> **AI-powered LinkedIn growth toolkit.** 17 modules. Built for the Nigerian professional market and configurable for any audience worldwide.
+> **AI-powered LinkedIn growth toolkit.** 18 modules. Built for the Nigerian professional market and configurable for any audience worldwide.
 >
 > Human-quality output powered by few-shot example calibration, voice fingerprinting, and a deterministic quality gate. Every post sounds like a real person wrote it - not AI.
 >
@@ -14,21 +14,22 @@
 |---|--------|-------------|
 | 1 | 🔥 **Viral Hook Analyzer** | Scores any hook 0–100 across 5 dimensions, returns 5 power rewrites + live mobile preview |
 | 2 | 🚀 **Post Generator** | One focused, high-quality post per generation. Few-shot example calibration, story-beats input, engagement prediction score, Unicode formatter, live LinkedIn feed preview, **optional live-web research backing**, and direct-to-scheduler pipeline |
-| 3 | 🔎 **Trend Researcher** | Goes online via Gemini's Google Search grounding to find how top-performing LinkedIn posts in your niche are written *right now* — current hooks, formats, what's getting reach — with real source links. Pipes findings straight into the Post Generator |
-| 4 | 🔧 **Post Optimizer** | Diagnoses an existing post (hook · clarity · emotional pull · formatting · CTA), assigns a score, rewrites it with 5 explained edits |
-| 5 | ♻️ **Repurposing Engine** | One idea → text post + 7-slide carousel + 5 hooks + 5 CTAs + 3 strategic comments |
-| 6 | 💬 **Engagement Intelligence** | Strategic comments, DM templates, and networking responses — three generators in one |
-| 7 | 🔍 **Brand Scanner** | Compares what your profile claims vs. what your content proves; scores the gap; gives a 5-day fix |
-| 8 | 💼 **About Optimizer** | 3-paragraph About section rewrite + 3 headline options + before/after + key improvements |
-| 9 | 🌟 **Profile Enhancer** | Full profile audit (0–100), 30-day action plan, 3 quick wins under 20 min each |
-| 10 | 💡 **Content Ideas** | Up to 20 ideas across selected pillars, with hooks, hashtags, and one "post this week" pick. **Optional live-web research** surfaces what's trending in your niche right now |
-| 11 | 🧠 **Strategy Insights** | Creator playbook for your archetype: hooks, post blueprints, posting rhythm, 90-day roadmap. **Optional live-web research** grounds it in what the algorithm rewards now |
-| 12 | 🎨 **Image Generator** | LinkedIn visuals via Stability AI SDXL (primary) → Hugging Face (fallback). Prompt auto-derived from your post |
-| 13 | ⚡ **Engagement Toolkit** | Hooks, CTAs, hashtags, and WAT-aware posting times |
-| 14 | 🎠 **Carousel Planner** | AI-generated slide titles + bodies + emojis with a slide-by-slide LinkedIn-style preview |
-| 15 | 📚 **Post Library** | Persistent (Supabase). Search, star, filter by module, sort by score, export `.txt`/`.json`, re-import. Live diagnostics tell you exactly what's wrong if it's empty. |
-| 16 | 📅 **Content Scheduler** | Pin saved posts to weekday + time slots. See your full week at a glance. Export as a `.md` checklist. |
-| 17 | 🎙️ **Voice Fingerprint** | Analyses your writing sample once, extracts structured DNA (sentence length, signature phrases, structure, tells), injects into every prompt for on-voice output |
+| 3 | 🧪 **Hook Lab** | Give it a topic → generates a batch of hooks across proven patterns (Contrarian, Specific Number, Mid-Scene, Confession…), scores every one with the deterministic voice validator, and ranks them best-first. One click sends the winner into the Post Generator. **Optional live-web research backing** |
+| 4 | 🔎 **Trend Researcher** | Goes online via Gemini's Google Search grounding to find how top-performing LinkedIn posts in your niche are written *right now* — current hooks, formats, what's getting reach — with real source links. Pipes findings straight into the Post Generator |
+| 5 | 🔧 **Post Optimizer** | Diagnoses an existing post (hook · clarity · emotional pull · formatting · CTA), assigns a score, rewrites it with 5 explained edits |
+| 6 | ♻️ **Repurposing Engine** | One idea → text post + 7-slide carousel + 5 hooks + 5 CTAs + 3 strategic comments |
+| 7 | 💬 **Engagement Intelligence** | Strategic comments, DM templates, and networking responses — three generators in one |
+| 8 | 🔍 **Brand Scanner** | Compares what your profile claims vs. what your content proves; scores the gap; gives a 5-day fix |
+| 9 | 💼 **About Optimizer** | 3-paragraph About section rewrite + 3 headline options + before/after + key improvements |
+| 10 | 🌟 **Profile Enhancer** | Full profile audit (0–100), 30-day action plan, 3 quick wins under 20 min each |
+| 11 | 💡 **Content Ideas** | Up to 20 ideas across selected pillars, with hooks, hashtags, and one "post this week" pick. **Optional live-web research** surfaces what's trending in your niche right now |
+| 12 | 🧠 **Strategy Insights** | Creator playbook for your archetype: hooks, post blueprints, posting rhythm, 90-day roadmap. **Optional live-web research** grounds it in what the algorithm rewards now |
+| 13 | 🎨 **Image Generator** | LinkedIn visuals via Stability AI SDXL (primary) → Hugging Face (fallback). Prompt auto-derived from your post |
+| 14 | ⚡ **Engagement Toolkit** | Hooks, CTAs, hashtags, and WAT-aware posting times |
+| 15 | 🎠 **Carousel Planner** | AI-generated slide titles + bodies + emojis with a slide-by-slide LinkedIn-style preview |
+| 16 | 📚 **Post Library** | Persistent (Supabase). Search, star, filter by module, sort by score, export `.txt`/`.json`, re-import. Live diagnostics tell you exactly what's wrong if it's empty. |
+| 17 | 📅 **Content Scheduler** | Pin saved posts to weekday + time slots. See your full week at a glance. Export as a `.md` checklist. |
+| 18 | 🎙️ **Voice Fingerprint** | Analyses your writing sample once, extracts structured DNA (sentence length, signature phrases, structure, tells), injects into every prompt for on-voice output |
 
 Plus:
 - **🇳🇬 Nigerian Voice Mode** — Nigerian warmth is baked into the core voice natively. The sidebar toggle adds deeper context (CBN, NBA, naira, WAT times, geographic diversity beyond Lagos) into every prompt.
@@ -264,9 +265,10 @@ The voice system has three layers:
 
 The **🔎 Trend Researcher** module and the Post Generator's **Research-backed** toggle both call `core/web_research.py`, which uses **Gemini's first-party Google Search tool** (`types.Tool(google_search=...)`). The model issues real search queries, reads current results, and grounds its answer in live web content — returning a scannable brief plus **real citation links**.
 
-The same engine now backs four touchpoints, each with an opt-in **🔎 Research-backed (live web)** toggle:
+The same engine now backs five touchpoints, each with an opt-in **🔎 Research-backed (live web)** toggle:
 
 - **Post Generator** — injects current hook/format patterns before writing.
+- **Hook Lab** — pulls current winning hook patterns for your niche before generating the batch.
 - **Content Ideas** — surfaces what's trending in your niche *this week*.
 - **Strategy Insights** — grounds the playbook in what the algorithm rewards now.
 - **📬 Daily Content Brief (Home)** — a button-triggered, cached-per-day panel that researches timely angles for your niche; each topic is a one-click, research-backed draft straight into the Post Generator. This is the habit loop: open the app → see what's worth posting today → write it.

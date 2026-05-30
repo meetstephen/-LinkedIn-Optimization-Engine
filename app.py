@@ -4,9 +4,10 @@
 ║  Full-stack Streamlit app for professional LinkedIn growth & content        ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
-Modules (17):
+Modules (18):
   - 🔥 Viral Hook Analyzer    : Score, diagnose & rewrite hooks + live mobile preview
   - 🚀 Post Generator         : Few-shot calibrated, single-post output + engagement prediction
+  - 🧪 Hook Lab               : Generate a batch of hooks for a topic, scored & ranked best-first
   - 🔎 Trend Researcher       : Live web research (Google Search grounding) on what's winning now
   - 🔧 Post Optimizer         : Diagnosis + rewrite with engagement score
   - ♻️ Repurposing Engine      : One idea → text post + carousel + hooks + CTAs + comments
@@ -754,6 +755,52 @@ st.markdown("""
     }
 
     /* ══════════════════════════════════════════════
+       SIDEBAR EXPANDER CONTRAST FIX
+       Sidebar expanders (Profile, API Keys, Beta Feedback) render on a WHITE
+       card via the global expander rule, but the sidebar's
+       "* { color:white !important }" rule also turns their labels, captions
+       and slider numbers white — i.e. white-on-white & unreadable.
+       These selectors carry higher specificity (two attribute selectors) than
+       the sidebar white-text rule, so text inside sidebar expander cards is
+       forced dark and legible. Backgrounds/borders are untouched.
+    ══════════════════════════════════════════════ */
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary,
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary p,
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary span,
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary svg,
+    [data-testid="stSidebar"] [data-testid="stExpander"] label,
+    [data-testid="stSidebar"] [data-testid="stExpander"] label p,
+    [data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stWidgetLabel"],
+    [data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stWidgetLabel"] p,
+    [data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stMarkdownContainer"] li,
+    [data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stMarkdownContainer"] span,
+    [data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stMarkdownContainer"] strong,
+    [data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stCaptionContainer"],
+    [data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stCaptionContainer"] p,
+    [data-testid="stSidebar"] [data-testid="stExpander"] [data-baseweb="select"] div,
+    [data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stSlider"] * {
+        color: #1a1a1a !important;
+    }
+    /* Help icons / small print inside sidebar expanders read on the white card */
+    [data-testid="stSidebar"] [data-testid="stExpander"] small,
+    [data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stCaptionContainer"] * {
+        color: #41506b !important;
+    }
+    /* Streamlit alert boxes (info/warning/success/error) anywhere in the
+       sidebar render on a LIGHT background; the sidebar white-text rule would
+       make them white-on-light. Force dark text (higher specificity wins). */
+    [data-testid="stSidebar"] [data-testid="stAlert"] p,
+    [data-testid="stSidebar"] [data-testid="stAlert"] span,
+    [data-testid="stSidebar"] [data-testid="stAlert"] li,
+    [data-testid="stSidebar"] [data-testid="stAlert"] strong,
+    [data-testid="stSidebar"] [data-testid="stAlert"] div,
+    [data-testid="stSidebar"] [data-testid="stNotification"] p,
+    [data-testid="stSidebar"] [data-testid="stNotification"] span {
+        color: #1a1a1a !important;
+    }
+
+    /* ══════════════════════════════════════════════
        MOBILE RESPONSIVENESS — stack columns on small screens
     ══════════════════════════════════════════════ */
     @media (max-width: 768px) {
@@ -1142,6 +1189,7 @@ def render_sidebar():
             "🏠 Home",
             "🔥 Viral Hook Analyzer",
             "🚀 Post Generator",
+            "🧪 Hook Lab",
             "🔎 Trend Researcher",
             "🔧 Post Optimizer",
             "♻️ Repurposing Engine",
@@ -1898,7 +1946,7 @@ def render_home():
     _ng_suffix = f" — 🇳🇬 {_ng_tone or 'Nigerian Voice'} Active" if _ng_active else ""
     st.markdown(f"""
     <div class="main-header">
-        <div class="v-badge">v4.1 · 17 Modules · Production Ready{_ng_suffix}</div>
+        <div class="v-badge">v4.2 · 18 Modules · Production Ready{_ng_suffix}</div>
         <div style="font-size:3rem;font-weight:900;letter-spacing:-1px;color:white;line-height:1.05;margin:0.4rem 0 0.1rem;text-shadow:0 2px 12px rgba(0,0,0,0.2);">
             ⚡ Linked<span style="color:#7DD3FC;text-shadow:0 0 30px rgba(125,211,252,0.6);">Edge</span>
         </div>
@@ -2032,6 +2080,7 @@ def render_home():
     features = [
         ("\U0001f525", "Viral Hook Analyzer",       "Score your hook across 5 dimensions, get 5 power rewrites + live mobile preview", True),
         ("\U0001f680", "Post Generator",             "One focused post per click — few-shot calibrated, engagement prediction, direct-to-scheduler", True),
+        ("\U0001f9ea", "Hook Lab",                   "Give a topic → a batch of hooks across proven patterns, each scored & ranked best-first", True),
         ("\U0001f50e", "Trend Researcher",           "Go online and learn how top posts in your niche win the feed right now — live sources, then write", True),
         ("\U0001f527", "Post Optimizer",             "Get your existing posts diagnosed and rewritten with engagement scores", False),
         ("\u267b\ufe0f", "Repurposing Engine",       "One idea → text post + carousel + hooks + CTAs + comment prompts in one shot", True),
@@ -4040,6 +4089,7 @@ def main():
     # ── Page routing ──────────────────────────────────────────────────────────
     MODULE_MAP = {
         "🚀 Post Generator":      ("modules.post_generator",       "post_generator.py",       "render_post_generator"),
+        "🧪 Hook Lab":            ("modules.hook_lab",             "hook_lab.py",             "render_hook_lab"),
         "🔧 Post Optimizer":      ("modules.post_optimizer",       "post_optimizer.py",       "render_post_optimizer"),
         "♻️ Repurposing Engine":  ("modules.repurposing_engine",   "repurposing_engine.py",   "render_repurposing_engine"),
         "💬 Engagement Intelligence": ("modules.engagement_intelligence", "engagement_intelligence.py", "render_engagement_intelligence"),
