@@ -124,6 +124,11 @@ LinkedEdge ships with built-in email + password authentication. Every signed-in 
 - **Your server-side API keys are never exposed to visitors.** If you set `GEMINI_API_KEY` (etc.) in secrets, the sidebar keeps it hidden — it is *not* rendered into the password field (Streamlit ships widget values to the browser, so a pre-filled field could be read via devtools). Visitors see a masked notice and may type their own key to override.
 - For a public launch, either accept that signed-in users share your key/quota, or ask each user to bring their own key in the sidebar.
 
+### Beta feedback (for test groups)
+- Testers can send feedback any time from the sidebar **💬 Send Beta Feedback** widget (type, message, optional star rating). Each submission is tagged with the page they were on.
+- Submissions land in Supabase (`lb_feedback`) and are visible to admins in the **Admin Console → 💬 Feedback** tab, grouped by type.
+- Run the latest [`supabase_schema.sql`](./supabase_schema.sql) once so the `lb_feedback` table exists — the widget degrades gracefully with a friendly message until then.
+
 ### Bootstrap your first admin
 1. Set `BOOTSTRAP_ADMIN_EMAIL` in your secrets/env to the email you want to use.
 2. Sign up through the app's **Sign Up** tab using that exact email.

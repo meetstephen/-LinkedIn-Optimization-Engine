@@ -1701,6 +1701,56 @@ def render_sidebar():
                 st.session_state["current_page"] = "🏠 Home"
                 st.rerun()
 
+        # ── 💬 Beta Feedback ─────────────────────────────────────────────
+        # The single most valuable thing to have while a test group kicks the
+        # tyres: a one-click channel straight to the operator. Saves to
+        # Supabase (lb_feedback) and surfaces in the Admin Console. Degrades
+        # gracefully if the table isn't migrated yet.
+        st.markdown("<hr style='border-color:rgba(255,255,255,0.2);'>", unsafe_allow_html=True)
+        with st.expander("💬 Send Beta Feedback", expanded=False):
+            st.caption("Found a bug or have an idea? Tell us — it goes straight to the team.")
+            _fb_n = st.session_state.get("fb_submit_count", 0)
+            _fb_cat = st.selectbox(
+                "Type",
+                ["General", "Bug", "Idea", "Praise", "Confusing"],
+                key="fb_category",
+            )
+            _fb_msg = st.text_area(
+                "Your feedback",
+                key=f"fb_message_{_fb_n}",
+                height=90,
+                placeholder="What worked, what broke, what you wish it did…",
+            )
+            _fb_rating = st.slider(
+                "Rate your experience (0 = skip)", 0, 5,
+                value=0, key=f"fb_rating_{_fb_n}",
+            )
+            if st.button("Send feedback", key="fb_submit",
+                         use_container_width=True, type="primary"):
+                if not (_fb_msg or "").strip():
+                    st.warning("Please type a little something first.")
+                elif _CORE_AVAILABLE and _db is not None:
+                    _fb_email = ""
+                    try:
+                        _fb_email = (_auth.current_user() or {}).get("email", "") if _auth else ""
+                    except Exception:
+                        _fb_email = ""
+                    _ok, _msg = _db.save_feedback(
+                        _fb_msg, category=_fb_cat, rating=_fb_rating,
+                        page=st.session_state.get("current_page", ""),
+                        email=_fb_email,
+                    )
+                    if _ok:
+                        # Bump the key suffix so the form resets cleanly, and
+                        # flash a toast that survives the rerun.
+                        st.session_state["fb_submit_count"] = _fb_n + 1
+                        st.toast(_msg, icon="🙏")
+                        st.rerun()
+                    else:
+                        st.warning(_msg)
+                else:
+                    st.warning("Feedback needs the database configured.")
+
     return selected_page
 
 
@@ -1960,6 +2010,16 @@ def render_home():
 """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Beta pointer — sets tester expectations + drives feedback ─────────
+    st.markdown(
+        "<div style='background:#FFF8E6;border:1px solid #F5D78E;border-radius:10px;"
+        "padding:0.6rem 0.9rem;margin-bottom:1rem;font-size:0.85rem;color:#7A5C00;'>"
+        "🧪 <strong>You're testing the beta.</strong> Spotted a bug or have an idea? "
+        "Use <strong>💬 Send Beta Feedback</strong> in the sidebar — it goes straight to the team."
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
     # ── 📬 Daily Content Brief — research-backed 'what to post today' ──────
     _render_daily_brief()

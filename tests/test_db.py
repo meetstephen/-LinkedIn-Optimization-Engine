@@ -80,6 +80,78 @@ def test_valid_days_count_unchanged():
     assert len(db.VALID_DAYS) == 7
 
 
+# ── Beta feedback ────────────────────────────────────────────────────────────
+
+class _FeedbackStub:
+    """Captures the row passed to .table('lb_feedback').insert(row)."""
+    def __init__(self, captured):
+        self._captured = captured
+
+    def table(self, name):
+        cap = self._captured
+        cap["table"] = name
+
+        class _Q:
+            def insert(self, row):
+                cap["row"] = row
+                class _Exec:
+                    def execute(self): return None
+                return _Exec()
+        return _Q()
+
+
+def test_save_feedback_rejects_empty_before_db(monkeypatch):
+    """Empty message short-circuits without ever touching the client."""
+    def _boom():
+        raise AssertionError("_get_client must not be called for empty feedback")
+    monkeypatch.setattr(db, "_get_client", _boom)
+    ok, msg = db.save_feedback("   ")
+    assert ok is False
+    assert "something" in msg.lower()
+
+
+def test_save_feedback_success_and_coercion(monkeypatch):
+    captured: dict = {}
+    monkeypatch.setattr(db, "_get_client", lambda: _FeedbackStub(captured))
+    monkeypatch.setattr(db, "_user_id", lambda: "user-123")
+    ok, msg = db.save_feedback(
+        "The hook scorer is great", category="NotARealCategory",
+        rating=99, page="🚀 Post Generator", email="t@t.dev",
+    )
+    assert ok is True
+    assert captured["table"] == "lb_feedback"
+    row = captured["row"]
+    assert row["message"] == "The hook scorer is great"
+    assert row["category"] == "General"   # invalid category coerced
+    assert row["rating"] == 5             # clamped 99 → 5
+    assert row["page"] == "🚀 Post Generator"
+    assert row["email"] == "t@t.dev"
+
+
+def test_save_feedback_handles_missing_table(monkeypatch):
+    class _Raises:
+        def table(self, _):
+            raise Exception('relation "lb_feedback" does not exist')
+    monkeypatch.setattr(db, "_get_client", lambda: _Raises())
+    monkeypatch.setattr(db, "_user_id", lambda: "user-123")
+    ok, msg = db.save_feedback("hello", category="Bug")
+    assert ok is False
+    assert "table" in msg.lower() or "set up" in msg.lower()
+
+
+def test_recent_feedback_returns_empty_on_error(monkeypatch):
+    def _boom():
+        raise Exception("no client")
+    monkeypatch.setattr(db, "_get_client", _boom)
+    assert db.recent_feedback() == []
+
+
+def test_feedback_categories_contract():
+    assert db.VALID_FEEDBACK_CATEGORIES[0] == "General"
+    for c in ["Bug", "Idea", "Praise", "Confusing"]:
+        assert c in db.VALID_FEEDBACK_CATEGORIES
+
+
 def test_valid_slots_are_unique():
     """Slot labels are used as part of the lb_schedule primary key."""
     assert len(db.VALID_SLOTS) == len(set(db.VALID_SLOTS))
