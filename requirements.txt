@@ -2,7 +2,9 @@
 # Install with: pip install -r requirements.txt
 
 streamlit>=1.35.0
-google-genai>=0.8.0
+# google-genai >=1.0.0 ships the first-party Google Search grounding tool
+# (types.Tool(google_search=types.GoogleSearch())) used by core/web_research.py.
+google-genai>=1.0.0
 requests>=2.31.0
 Pillow>=10.0.0
 supabase>=2.4.0

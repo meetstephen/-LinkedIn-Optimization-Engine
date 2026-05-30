@@ -4,9 +4,10 @@
 ║  Full-stack Streamlit app for professional LinkedIn growth & content        ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
-Modules (16):
+Modules (17):
   - 🔥 Viral Hook Analyzer    : Score, diagnose & rewrite hooks + live mobile preview
   - 🚀 Post Generator         : Few-shot calibrated, single-post output + engagement prediction
+  - 🔎 Trend Researcher       : Live web research (Google Search grounding) on what's winning now
   - 🔧 Post Optimizer         : Diagnosis + rewrite with engagement score
   - ♻️ Repurposing Engine      : One idea → text post + carousel + hooks + CTAs + comments
   - 💬 Engagement Intelligence : Strategic comments, DMs, networking responses
@@ -1107,6 +1108,16 @@ def init_session_state():
         if key not in st.session_state:
             st.session_state[key] = value
 
+    # Key provenance (security): mark keys that came from server secrets/env so
+    # the sidebar never renders a shared owner key into a client-side widget.
+    for _flag, _src in [
+        ("_gemini_key_is_secret", defaults["gemini_api_key"]),
+        ("_stability_key_is_secret", defaults["stability_api_key"]),
+        ("_hf_key_is_secret", defaults["hf_api_key"]),
+    ]:
+        if _flag not in st.session_state:
+            st.session_state[_flag] = bool(_src)
+
 
 # ─────────────────────────────────────────────
 # SIDEBAR — Navigation + API Keys
@@ -1131,6 +1142,7 @@ def render_sidebar():
             "🏠 Home",
             "🔥 Viral Hook Analyzer",
             "🚀 Post Generator",
+            "🔎 Trend Researcher",
             "🔧 Post Optimizer",
             "♻️ Repurposing Engine",
             "💬 Engagement Intelligence",
@@ -1532,39 +1544,57 @@ def render_sidebar():
         # ── API Keys Section ──
         st.markdown("**🔑 API Configuration**")
 
-        with st.expander("⚙️ Configure API Keys", expanded=not bool(st.session_state["gemini_api_key"])):
-            # Gemini
-            gemini_key = st.text_input(
-                "🤖 Gemini API Key",
-                value=st.session_state["gemini_api_key"],
+        # Security: a key sourced from SERVER secrets/env (shared owner key) is
+        # never rendered into the input's value — Streamlit ships widget values
+        # to the browser, so a password field can still be read via devtools.
+        # We show an empty, masked field with a notice instead, and only adopt
+        # what the visitor types. This keeps a shared deploy key private and
+        # makes each visitor's own key session-isolated.
+        def _api_key_field(label, state_key, secret_flag, placeholder, help_text, widget_key):
+            from_secret = st.session_state.get(secret_flag, False)
+            display_value = "" if from_secret else st.session_state.get(state_key, "")
+            entered = st.text_input(
+                label,
+                value=display_value,
                 type="password",
-                placeholder="AIza...",
-                help="Get from: aistudio.google.com",
+                placeholder=("•••••• (configured on server)" if from_secret else placeholder),
+                help=help_text,
+                key=widget_key,
             )
-            if gemini_key != st.session_state["gemini_api_key"]:
-                st.session_state["gemini_api_key"] = gemini_key
+            if from_secret:
+                st.caption("🔒 A key is configured on the server and hidden for security. Type your own above to use it instead.")
+                # Only override the shared key if the visitor actually typed one.
+                if entered:
+                    st.session_state[state_key] = entered
+                    st.session_state[secret_flag] = False
+            else:
+                if entered != st.session_state.get(state_key, ""):
+                    st.session_state[state_key] = entered
 
-            # Stability AI
-            stability_key = st.text_input(
-                "🎨 Stability AI Key",
-                value=st.session_state["stability_api_key"],
-                type="password",
-                placeholder="sk-...",
-                help="Get from: platform.stability.ai",
+        with st.expander(
+            "⚙️ Configure API Keys",
+            expanded=not bool(st.session_state["gemini_api_key"]),
+        ):
+            _api_key_field(
+                "🤖 Gemini API Key", "gemini_api_key", "_gemini_key_is_secret",
+                "AIza...", "Get from: aistudio.google.com", "gemini_key_input",
             )
-            if stability_key != st.session_state["stability_api_key"]:
-                st.session_state["stability_api_key"] = stability_key
+            _api_key_field(
+                "🎨 Stability AI Key", "stability_api_key", "_stability_key_is_secret",
+                "sk-...", "Get from: platform.stability.ai", "stability_key_input",
+            )
+            _api_key_field(
+                "🤗 Hugging Face Key", "hf_api_key", "_hf_key_is_secret",
+                "hf_...", "Get from: huggingface.co/settings/tokens", "hf_key_input",
+            )
 
-            # Hugging Face
-            hf_key = st.text_input(
-                "🤗 Hugging Face Key",
-                value=st.session_state["hf_api_key"],
-                type="password",
-                placeholder="hf_...",
-                help="Get from: huggingface.co/settings/tokens",
-            )
-            if hf_key != st.session_state["hf_api_key"]:
-                st.session_state["hf_api_key"] = hf_key
+            if st.session_state.get("_gemini_key_is_secret"):
+                st.info(
+                    "ℹ️ **Deployer note:** the Gemini key is loaded from server "
+                    "secrets, so every visitor uses it (and your quota) without "
+                    "seeing it. For a public app, require sign-in or ask visitors "
+                    "to bring their own key."
+                )
 
         # API Status indicators
         st.markdown("**📊 API Status**")
@@ -1671,12 +1701,195 @@ def render_sidebar():
                 st.session_state["current_page"] = "🏠 Home"
                 st.rerun()
 
+        # ── 💬 Beta Feedback ─────────────────────────────────────────────
+        # The single most valuable thing to have while a test group kicks the
+        # tyres: a one-click channel straight to the operator. Saves to
+        # Supabase (lb_feedback) and surfaces in the Admin Console. Degrades
+        # gracefully if the table isn't migrated yet.
+        st.markdown("<hr style='border-color:rgba(255,255,255,0.2);'>", unsafe_allow_html=True)
+        with st.expander("💬 Send Beta Feedback", expanded=False):
+            st.caption("Found a bug or have an idea? Tell us — it goes straight to the team.")
+            _fb_n = st.session_state.get("fb_submit_count", 0)
+            _fb_cat = st.selectbox(
+                "Type",
+                ["General", "Bug", "Idea", "Praise", "Confusing"],
+                key="fb_category",
+            )
+            _fb_msg = st.text_area(
+                "Your feedback",
+                key=f"fb_message_{_fb_n}",
+                height=90,
+                placeholder="What worked, what broke, what you wish it did…",
+            )
+            _fb_rating = st.slider(
+                "Rate your experience (0 = skip)", 0, 5,
+                value=0, key=f"fb_rating_{_fb_n}",
+            )
+            if st.button("Send feedback", key="fb_submit",
+                         use_container_width=True, type="primary"):
+                if not (_fb_msg or "").strip():
+                    st.warning("Please type a little something first.")
+                elif _CORE_AVAILABLE and _db is not None:
+                    _fb_email = ""
+                    try:
+                        _fb_email = (_auth.current_user() or {}).get("email", "") if _auth else ""
+                    except Exception:
+                        _fb_email = ""
+                    _ok, _msg = _db.save_feedback(
+                        _fb_msg, category=_fb_cat, rating=_fb_rating,
+                        page=st.session_state.get("current_page", ""),
+                        email=_fb_email,
+                    )
+                    if _ok:
+                        # Bump the key suffix so the form resets cleanly, and
+                        # flash a toast that survives the rerun.
+                        st.session_state["fb_submit_count"] = _fb_n + 1
+                        st.toast(_msg, icon="🙏")
+                        st.rerun()
+                    else:
+                        st.warning(_msg)
+                else:
+                    st.warning("Feedback needs the database configured.")
+
     return selected_page
 
 
 # ─────────────────────────────────────────────
 # HOME PAGE
 # ─────────────────────────────────────────────
+@st.cache_data(ttl=86400, show_spinner=False)
+def _cached_daily_brief(niche: str, audience: str, day_key: str, api_key: str) -> dict:
+    """
+    Research timely post angles for the user's niche, cached for the day.
+
+    ``day_key`` (a YYYY-MM-DD string) is part of the cache key so the brief
+    refreshes once per day per niche — not on every Home visit — keeping
+    quota usage predictable.
+    """
+    try:
+        from core import web_research as _wr
+        return dict(_wr.research_content_ideas(
+            niche, audience, [],
+            api_key=api_key, model=_wr.RESEARCH_MODEL_DEFAULT,
+        ))
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def _extract_brief_topics(summary: str, max_n: int = 4) -> list:
+    """
+    Pull the bullet topics under the '## Timely topics right now' header out of
+    a research brief so each can become a one-click 'write this' action.
+    Returns concise topic strings. Defensive — never raises.
+    """
+    topics: list[str] = []
+    try:
+        import re as _re
+        lines = (summary or "").splitlines()
+        in_section = False
+        for ln in lines:
+            s = ln.strip()
+            if s.startswith("##"):
+                in_section = "timely topics" in s.lower()
+                continue
+            if not in_section:
+                continue
+            if s.startswith(("-", "*", "•")) or _re.match(r"^\d+[.)]", s):
+                # Strip list marker + markdown bold
+                txt = _re.sub(r"^[\-\*•]\s*", "", s)
+                txt = _re.sub(r"^\d+[.)]\s*", "", txt)
+                txt = txt.replace("**", "").strip()
+                # Keep the topic part before a 'why now' dash/colon clause
+                for sep in (" — ", " – ", " - ", ": "):
+                    if sep in txt:
+                        txt = txt.split(sep, 1)[0].strip()
+                        break
+                if 3 <= len(txt) <= 90:
+                    topics.append(txt)
+            if len(topics) >= max_n:
+                break
+    except Exception:
+        pass
+    return topics
+
+
+def _render_daily_brief():
+    """
+    📬 Daily Content Brief — a research-backed 'what to post today' panel for the
+    user's niche. Button-triggered (predictable quota), cached for the day, and
+    wired so each timely topic becomes a one-click research-backed post.
+    """
+    _p = st.session_state.get("user_profile", {})
+    niche = (_p.get("industry") or "").strip()
+    audience = (_p.get("audience") or "").strip() or "Professionals on LinkedIn"
+    api_key = st.session_state.get("gemini_api_key", "")
+
+    # Only meaningful once the user has set a niche + has a key.
+    if not niche or not api_key:
+        return
+
+    from datetime import timezone, timedelta
+    day_key = datetime.now(timezone(timedelta(hours=1))).strftime("%Y-%m-%d")  # WAT day
+
+    with st.container():
+        st.markdown(
+            "<div style='background:linear-gradient(135deg,#0A66C2,#004182);"
+            "border-radius:14px;padding:1rem 1.2rem;margin-bottom:1rem;color:white;'>"
+            "<div style='font-size:1.15rem;font-weight:800;'>📬 Your Daily Content Brief</div>"
+            f"<div style='font-size:0.82rem;opacity:0.85;'>What's worth posting in "
+            f"<strong>{_html_mod.escape(niche)}</strong> today — researched live from the web.</div>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+        col_a, col_b = st.columns([3, 1])
+        with col_b:
+            if st.button("🔄 Refresh", key="brief_refresh", use_container_width=True):
+                try:
+                    _cached_daily_brief.clear()
+                except Exception:
+                    pass
+                st.session_state.pop("home_brief", None)
+
+        with col_a:
+            if st.button("📬 Get today's brief", type="primary",
+                         key="brief_fetch", use_container_width=True):
+                with st.spinner("🌐 Researching what's timely in your niche today…"):
+                    res = _cached_daily_brief(niche, audience, day_key, api_key)
+                    if not (res and res.get("ok")):
+                        try:
+                            _cached_daily_brief.clear()
+                        except Exception:
+                            pass
+                st.session_state["home_brief"] = res
+
+        res = st.session_state.get("home_brief")
+        if res and res.get("ok"):
+            topics = _extract_brief_topics(res.get("summary", ""))
+            if topics:
+                st.caption("Tap a topic to draft a research-backed post in one click:")
+                for i, topic in enumerate(topics):
+                    if st.button(f"✍️  {topic}", key=f"brief_topic_{i}",
+                                 use_container_width=True):
+                        st.session_state["pg_topic"] = topic
+                        st.session_state["pg_niche"] = niche
+                        st.session_state["pg_audience"] = audience
+                        st.session_state["pg_research_on"] = True
+                        st.session_state["_pending_nav"] = "🚀 Post Generator"
+                        st.rerun()
+            with st.expander("📄 Full brief + sources", expanded=not topics):
+                st.markdown(res.get("summary", ""))
+                try:
+                    from core import web_research as _wr
+                    _wr.render_sources(res)
+                except Exception:
+                    pass
+        elif res and res.get("error"):
+            st.caption(f"Brief unavailable right now — {res['error'][:120]}")
+
+        st.markdown("---")
+
+
 def render_home():
     """Renders the home/landing page."""
     # Hero section
@@ -1685,7 +1898,7 @@ def render_home():
     _ng_suffix = f" — 🇳🇬 {_ng_tone or 'Nigerian Voice'} Active" if _ng_active else ""
     st.markdown(f"""
     <div class="main-header">
-        <div class="v-badge">v4.0 · 16 Modules · Production Ready{_ng_suffix}</div>
+        <div class="v-badge">v4.1 · 17 Modules · Production Ready{_ng_suffix}</div>
         <div style="font-size:3rem;font-weight:900;letter-spacing:-1px;color:white;line-height:1.05;margin:0.4rem 0 0.1rem;text-shadow:0 2px 12px rgba(0,0,0,0.2);">
             ⚡ Linked<span style="color:#7DD3FC;text-shadow:0 0 30px rgba(125,211,252,0.6);">Edge</span>
         </div>
@@ -1798,6 +2011,19 @@ def render_home():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # ── Beta pointer — sets tester expectations + drives feedback ─────────
+    st.markdown(
+        "<div style='background:#FFF8E6;border:1px solid #F5D78E;border-radius:10px;"
+        "padding:0.6rem 0.9rem;margin-bottom:1rem;font-size:0.85rem;color:#7A5C00;'>"
+        "🧪 <strong>You're testing the beta.</strong> Spotted a bug or have an idea? "
+        "Use <strong>💬 Send Beta Feedback</strong> in the sidebar — it goes straight to the team."
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    # ── 📬 Daily Content Brief — research-backed 'what to post today' ──────
+    _render_daily_brief()
+
     # ── Feature cards ── rendered in ONE st.markdown() call via CSS grid.
     # Calling st.markdown(unsafe_allow_html=True) per st.columns() cell causes
     # Streamlit's markdown parser to escape subsequent cards as raw code blocks.
@@ -1806,6 +2032,7 @@ def render_home():
     features = [
         ("\U0001f525", "Viral Hook Analyzer",       "Score your hook across 5 dimensions, get 5 power rewrites + live mobile preview", True),
         ("\U0001f680", "Post Generator",             "One focused post per click — few-shot calibrated, engagement prediction, direct-to-scheduler", True),
+        ("\U0001f50e", "Trend Researcher",           "Go online and learn how top posts in your niche win the feed right now — live sources, then write", True),
         ("\U0001f527", "Post Optimizer",             "Get your existing posts diagnosed and rewritten with engagement scores", False),
         ("\u267b\ufe0f", "Repurposing Engine",       "One idea → text post + carousel + hooks + CTAs + comment prompts in one shot", True),
         ("\U0001f4ac", "Engagement Intelligence",    "Strategic comments, DMs, networking responses — where real growth happens", True),
@@ -3571,8 +3798,179 @@ Rules:
 
 
 # ─────────────────────────────────────────────
+# TREND RESEARCHER — live web research on top-performing LinkedIn content
+# ─────────────────────────────────────────────
+def render_trend_researcher():
+    """
+    Research how the best-performing LinkedIn posts in the user's niche are
+    written right now, using Gemini's live Google Search grounding. Shows a
+    scannable brief + real source links, and pipes the findings straight into
+    the Post Generator.
+    """
+    st.markdown("""
+    <div class="main-header">
+        <div class="v-badge">Live Web Research · Powered by Google Search grounding</div>
+        <h1>🔎 LinkedIn Trend Researcher</h1>
+        <p>Go online and learn how top creators in your niche are winning the feed — right now.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    try:
+        from core import web_research as _wr
+    except Exception as e:
+        st.error(f"Research engine unavailable: {e}")
+        return
+
+    _gemini_ok = bool(st.session_state.get("gemini_api_key", ""))
+    if not _gemini_ok:
+        st.warning("⚠️ Add your Gemini API key in the sidebar to enable live web research.")
+
+    if _wr.grounding_available():
+        st.info(
+            "🌐 **Live mode active.** This searches the public web for current "
+            "creator breakdowns, engagement studies and viral teardowns — then "
+            "returns a brief with real source links. No LinkedIn scraping, no "
+            "member data — just public writing *about* what's working."
+        )
+    else:
+        st.info(
+            "ℹ️ Live Google Search grounding isn't available in this environment, "
+            "so research will use the model's best-practice knowledge instead "
+            "(no live source links). Everything else still works."
+        )
+
+    _p = st.session_state.get("user_profile", {})
+
+    col1, col2 = st.columns(2)
+    with col1:
+        topic = st.text_input(
+            "📌 Topic / angle (optional)",
+            placeholder="e.g., pricing transparency, hiring, a product launch",
+            key="tr_topic",
+        )
+        niche = st.text_input(
+            "🎯 Your niche / industry",
+            value=st.session_state.get("tr_niche", _p.get("industry", "")),
+            placeholder="e.g., Fintech, Legal Practice, B2B SaaS",
+            key="tr_niche",
+        )
+    with col2:
+        audience = st.text_input(
+            "👥 Target audience",
+            value=st.session_state.get("tr_audience", _p.get("audience", "") or "Professionals on LinkedIn"),
+            placeholder="e.g., Nigerian founders, HR leaders, CFOs",
+            key="tr_audience",
+        )
+        st.caption(
+            "Tip: leave the topic blank for a broad read on your niche, or set "
+            "it to research a specific angle before you write."
+        )
+
+    _research_clicked = st.button(
+        "🔎 Research my niche",
+        type="primary",
+        use_container_width=True,
+        disabled=not _gemini_ok,
+        key="tr_research_btn",
+    )
+
+    if _research_clicked:
+        if not niche.strip() and not topic.strip():
+            st.error("Enter at least a niche or a topic to research.")
+        else:
+            with st.spinner("🌐 Searching the web for what's working now…"):
+                try:
+                    result = _wr.research_linkedin_strategy(
+                        topic.strip(),
+                        niche.strip(),
+                        audience.strip(),
+                        api_key=st.session_state.get("gemini_api_key", ""),
+                        model=_wr.RESEARCH_MODEL_DEFAULT,
+                    )
+                except Exception as e:
+                    result = {"ok": False, "error": str(e)}
+            st.session_state["tr_result"] = result
+
+    # ── Persistent result panel ───────────────────────────────────────────
+    result = st.session_state.get("tr_result")
+    if result:
+        if result.get("ok"):
+            st.markdown("---")
+            _grounded = result.get("grounded")
+            _badge = (
+                "<span style='background:#d4edda;color:#155724;padding:3px 10px;"
+                "border-radius:12px;font-size:0.75rem;font-weight:700;'>🌐 Live web sources</span>"
+                if _grounded else
+                "<span style='background:#fff3cd;color:#856404;padding:3px 10px;"
+                "border-radius:12px;font-size:0.75rem;font-weight:700;'>📚 Best-practice knowledge</span>"
+            )
+            st.markdown(_badge, unsafe_allow_html=True)
+            st.markdown(result.get("summary", ""))
+            _wr.render_sources(result)
+
+            if result.get("queries"):
+                with st.expander("🔍 Searches run", expanded=False):
+                    for q in result["queries"]:
+                        st.markdown(f"- {q}")
+
+            st.markdown("---")
+            act1, act2 = st.columns(2)
+            with act1:
+                if st.button("✍️ Write a post with this research", type="primary",
+                             use_container_width=True, key="tr_to_generator"):
+                    # Turn research on in the generator and carry niche/audience.
+                    st.session_state["pg_research_on"] = True
+                    st.session_state["pg_niche"] = niche.strip()
+                    st.session_state["pg_audience"] = audience.strip() or "Professionals on LinkedIn"
+                    if topic.strip():
+                        st.session_state["pg_topic"] = topic.strip()
+                    st.session_state["_pending_nav"] = "🚀 Post Generator"
+                    st.toast("Research carried into the Post Generator", icon="✍️")
+                    st.rerun()
+            with act2:
+                if st.button("📚 Save brief to Library", use_container_width=True,
+                             key="tr_save_lib"):
+                    _hdr = topic.strip() or niche.strip() or "LinkedIn"
+                    _entry = (
+                        f"[🔎 Research brief — {_hdr}]\n\n"
+                        + result.get("summary", "")
+                    )
+                    if result.get("sources"):
+                        _entry += "\n\nSources:\n" + "\n".join(
+                            f"- {s.get('title','')}: {s.get('url','')}"
+                            for s in result["sources"][:8]
+                        )
+                    from library import save_post_to_library as _save_lib
+                    ok, msg = _save_lib(
+                        _entry, "🔎 Trend Researcher", tags=["research"]
+                    )
+                    st.success(msg) if ok else st.warning(msg)
+        else:
+            st.error(f"Research failed: {result.get('error', 'unknown error')}")
+
+
+# ─────────────────────────────────────────────
 # MAIN APP ROUTER
 # ─────────────────────────────────────────────
+def _auth_required() -> bool:
+    """
+    Whether to force the sign-in gate before any feature page renders.
+
+    Defaults to **True** — a public deployment should require sign-in so the
+    owner's shared API key/quota isn't exposed to anonymous traffic. A deployer
+    can opt into open/demo access (e.g. a personal single-user instance or a
+    local demo) by setting ``REQUIRE_AUTH=false`` in env or st.secrets.
+    """
+    import os
+    val = os.environ.get("REQUIRE_AUTH", "")
+    if not val:
+        try:
+            val = st.secrets.get("REQUIRE_AUTH", "")
+        except Exception:
+            val = ""
+    return str(val).strip().lower() not in ("0", "false", "no", "off")
+
+
 def main():
     """Main application entry point and page router."""
 
@@ -3616,7 +4014,10 @@ def main():
     # ── AUTH GATE ─────────────────────────────────────────────────────────────
     # If multi-user auth is available and no one is logged in, show the
     # login/signup gateway and bail out — no feature pages, no sidebar.
-    if _CORE_AVAILABLE and _auth is not None and not _auth.is_logged_in():
+    # Gating is ON by default and can be disabled with REQUIRE_AUTH=false
+    # (see _auth_required) for personal/demo deployments.
+    if (_CORE_AVAILABLE and _auth is not None and _auth_required()
+            and not _auth.is_logged_in()):
         try:
             auth_pages = load_module("auth_pages", "auth_pages.py")
             auth_pages.render_auth_gateway()
@@ -3655,6 +4056,8 @@ def main():
         render_home()
     elif selected_page == "🔥 Viral Hook Analyzer":
         render_viral_hook_analyzer()
+    elif selected_page == "🔎 Trend Researcher":
+        render_trend_researcher()
     elif selected_page == "🎠 Carousel Planner":
         render_carousel_planner()
     elif selected_page == "📚 Post Library":

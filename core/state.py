@@ -175,6 +175,22 @@ def init_session_state() -> None:
         if key not in st.session_state:
             st.session_state[key] = value
 
+    # ── Key provenance (security) ────────────────────────────────────────
+    # Record, once, whether each API key came from SERVER secrets/env rather
+    # than being typed by this visitor. Server-sourced keys must NEVER be
+    # rendered back into a client-side input widget (Streamlit ships the
+    # widget value to the browser, where it can be read via devtools even
+    # behind type="password"). The sidebar uses these flags to keep a shared
+    # owner key hidden from the public. We set them once so a user who later
+    # types their own key flips the flag to False.
+    for _flag, _val in [
+        ("_gemini_key_is_secret", gemini_key),
+        ("_stability_key_is_secret", stability_key),
+        ("_hf_key_is_secret", hf_key),
+    ]:
+        if _flag not in st.session_state:
+            st.session_state[_flag] = bool(_val)
+
     # Derive user_id (must happen before profile load)
     _ensure_user_id()
 

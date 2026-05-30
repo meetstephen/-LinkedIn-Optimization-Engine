@@ -360,3 +360,40 @@ CREATE POLICY lb_error_events_anon_all
 --   lb_posts, lb_profiles, lb_schedule, lb_users, lb_login_events,
 --   lb_usage_events, lb_password_resets, lb_error_events
 -- And lb_posts.id should now be type TEXT.
+
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- v4.1 — BETA FEEDBACK
+-- ════════════════════════════════════════════════════════════════════════════
+-- One row per piece of feedback a tester submits from the sidebar widget.
+-- Admins read all rows from the Admin Console → 💬 Feedback tab. Additive and
+-- idempotent — safe to re-run.
+CREATE TABLE IF NOT EXISTS lb_feedback (
+    id          BIGSERIAL    PRIMARY KEY,
+    user_id     TEXT,
+    email       TEXT         DEFAULT '',
+    category    TEXT         DEFAULT 'General',   -- Bug | Idea | Praise | Confusing | General
+    rating      INTEGER      DEFAULT 0,           -- 0 (unset) or 1–5
+    message     TEXT         NOT NULL,
+    page        TEXT         DEFAULT '',          -- which module they were on
+    status      TEXT         DEFAULT 'new',       -- new | reviewed (future use)
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS lb_feedback_recent_idx
+    ON lb_feedback (created_at DESC);
+
+ALTER TABLE lb_feedback ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS lb_feedback_anon_all ON lb_feedback;
+CREATE POLICY lb_feedback_anon_all
+    ON lb_feedback FOR ALL
+    TO anon
+    USING (true)
+    WITH CHECK (true);
+
+-- ── SANITY CHECK (v4.1) ─────────────────────────────────────────────────────
+-- After running, you should now see NINE tables in your Supabase Table Editor:
+--   lb_posts, lb_profiles, lb_schedule, lb_users, lb_login_events,
+--   lb_usage_events, lb_password_resets, lb_error_events, lb_feedback

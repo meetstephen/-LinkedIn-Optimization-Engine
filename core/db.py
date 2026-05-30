@@ -42,14 +42,34 @@ import streamlit as st
 SOFT_DELETE_RETENTION_DAYS = 30
 
 
+def _secret(name: str, fallback: str = "") -> str:
+    """
+    Safe secret lookup: env var first, then st.secrets.
+
+    ``st.secrets.get(...)`` is NOT dict-like when no secrets.toml exists — it
+    raises StreamlitSecretNotFoundError. That crashed any deploy/local run
+    without a secrets file even though callers wrap db calls in try/except,
+    because the raise happened inside @st.cache_resource. Guarding it here lets
+    the app degrade gracefully to session-only mode instead of erroring.
+    """
+    import os
+    val = os.environ.get(name, "")
+    if val:
+        return val
+    try:
+        return st.secrets.get(name, fallback)
+    except Exception:
+        return fallback
+
+
 @st.cache_resource
 def _get_client():
     try:
         from supabase import create_client
     except ImportError:
         raise RuntimeError("Add 'supabase' to requirements.txt and redeploy.")
-    url = st.secrets.get("SUPABASE_URL", "")
-    key = st.secrets.get("SUPABASE_KEY", "")
+    url = _secret("SUPABASE_URL")
+    key = _secret("SUPABASE_KEY")
     if not url or not key:
         raise RuntimeError("SUPABASE_URL and SUPABASE_KEY missing from secrets.toml")
     return create_client(url, key)
@@ -406,7 +426,16 @@ def _cached_get_stats(user_id: str) -> dict:
 
 
 def get_stats() -> dict:
-    return _cached_get_stats(_user_id())
+    """Aggregate stats, degrading to zeros when the DB is unavailable.
+
+    Read helpers that feed always-rendered UI must never raise — a missing
+    Supabase config or a transient outage should drop the app into
+    session-only mode, not crash the Home dashboard.
+    """
+    try:
+        return _cached_get_stats(_user_id())
+    except Exception:
+        return {"total": 0, "starred": 0, "avg_score": 0, "top_module": "—"}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -597,3 +626,83 @@ def load_profile() -> dict:
         }
     except Exception:
         return _empty
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BETA FEEDBACK — tester feedback channel (sidebar widget → Admin Console)
+# ─────────────────────────────────────────────────────────────────────────────
+
+VALID_FEEDBACK_CATEGORIES = ["General", "Bug", "Idea", "Praise", "Confusing"]
+
+
+def save_feedback(
+    message: str,
+    category: str = "General",
+    rating: int = 0,
+    page: str = "",
+    email: str = "",
+) -> tuple[bool, str]:
+    """
+    Persist a tester's feedback. Returns (ok, message_for_user).
+
+    Never raises — a logging/DB failure must not break the tester's flow.
+    On failure we record it via the error logger and return a friendly note
+    (most common cause: the lb_feedback table hasn't been created yet — run
+    the latest supabase_schema.sql).
+    """
+    message = (message or "").strip()
+    if not message:
+        return False, "Please type a little something first."
+    if len(message) > 4000:
+        message = message[:4000]
+
+    cat = category if category in VALID_FEEDBACK_CATEGORIES else "General"
+    try:
+        rating_int = int(rating)
+    except Exception:
+        rating_int = 0
+    rating_int = max(0, min(5, rating_int))
+
+    row = {
+        "user_id":    _user_id(),
+        "email":      (email or "")[:200],
+        "category":   cat,
+        "rating":     rating_int,
+        "message":    message,
+        "page":       (page or "")[:80],
+        "status":     "new",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        client = _get_client()
+        client.table("lb_feedback").insert(row).execute()
+        return True, "Thank you! Your feedback was sent. 🙏"
+    except Exception as e:
+        try:
+            from core.error_logger import log_error
+            log_error("feedback.save", e, context={"category": cat, "page": page})
+        except Exception:
+            pass
+        msg = str(e).lower()
+        if "lb_feedback" in msg or "relation" in msg or "does not exist" in msg:
+            return False, (
+                "Couldn't save feedback — the feedback table isn't set up yet. "
+                "(Admin: run the latest supabase_schema.sql.)"
+            )
+        return False, "Couldn't save feedback right now. Please try again later."
+
+
+def recent_feedback(limit: int = 200) -> list[dict]:
+    """
+    Return recent feedback across ALL users (admin-only view). Newest first.
+    Returns [] on any failure (e.g. table not yet created).
+    """
+    try:
+        client = _get_client()
+        resp = client.table("lb_feedback").select("*") \
+                     .order("created_at", desc=True) \
+                     .limit(max(1, min(limit, 1000))) \
+                     .execute()
+        return resp.data or []
+    except Exception:
+        return []

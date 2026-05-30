@@ -110,7 +110,91 @@ My business partner thinks I'm stubborn. Maybe. Our pipeline is thinner this mon
 ]
 
 
-def get_examples(n: int = 3, seed: int | None = None) -> List[str]:
+# ─────────────────────────────────────────────────────────────────────────────
+# REGION-NEUTRAL EXAMPLES
+# ─────────────────────────────────────────────────────────────────────────────
+# Same gold standard as _EXAMPLES (specificity, rhythm, zero banned phrases) but
+# without Nigeria-specific markers (naira, Lagos, CAC, etc). Used when Nigerian
+# Voice Mode is OFF so a US/EU/global user doesn't get local context bleed.
+
+_GLOBAL_EXAMPLES: List[str] = [
+    # ── 1. Data-driven, generic currency ─────────────────────────────────────
+    """Tracked every proposal we sent last year. All 88 of them.
+
+Win rate: 31%. A little above our industry's 26%.
+
+The breakdown is where it got interesting:
+
+Proposals sent within 48 hours of the first call: 49% win rate.
+Proposals sent after 5+ days: 9%.
+Proposals that opened with a one-page "here's what we heard" summary: 58%.
+
+That summary takes about 40 minutes. It isn't a pitch. It's proof we actually listened on the call instead of waiting to paste our deck.
+
+We left roughly $90k on the table last year on proposals we sent too late. I went back and counted.
+
+This year the rule is simple: it goes out in 48 hours or we pass. Q1 win rate so far is 46%.""",
+
+    # ── 2. Mid-scene opener ──────────────────────────────────────────────────
+    """"Kill the whole feature," my head of product said. 6:10pm on a Thursday. The release was Monday.
+
+We'd spent five weeks on it. Two engineers, one designer, a stack of mockups everyone loved.
+
+She'd watched six users try it that afternoon. Four couldn't find it. The two who did used it wrong and assumed they'd broken something.
+
+So we cut it. Friday morning we shipped a smaller version built in a day instead of five weeks.
+
+Support tickets for that flow dropped 40% the following month.
+
+I still have the original mockups pinned above my desk. Beautiful screens. Nobody missed them.""",
+
+    # ── 3. Withhold-the-lesson ────────────────────────────────────────────────
+    """My first hire quit after five months. Gave notice on a Monday.
+
+I'd raised her pay twice. Handed her the biggest account. Let her run the team while I chased new business.
+
+During her notice I asked what went wrong.
+
+She said: "You never once asked what I thought. You told me what to do. Every day. For five months."
+
+She joined a ten-person team across town. Took a pay cut to do it. She runs their product org now.
+
+I gave her replacement a better title and the same job. Same salary.
+
+It took a second resignation, a year later, before I changed anything that actually mattered.""",
+
+    # ── 4. Contrarian, calm ───────────────────────────────────────────────────
+    """We stopped doing daily standups four months ago. Revenue is up. So is the team's mood.
+
+Everyone said it would fall apart. It didn't.
+
+Here's what we did instead. Each person posts three lines in a shared doc before noon: what shipped, what's stuck, what they need. No meeting. No 15 minutes of waiting for the laggard to join.
+
+Blockers now get answered in writing, in minutes, by whoever knows the answer -- not at 9am the next morning by whoever happens to be in the room.
+
+We got back about 45 minutes a day per person. Across eight people that's nearly five hours daily.
+
+The standup was never the work. It was a status ritual we mistook for alignment.""",
+
+    # ── 5. Communal/warm, no CTA ──────────────────────────────────────────────
+    """Ran our first 8-person founder cohort through a 90-day revenue sprint last quarter.
+
+Numbers first: 5 of 8 hit their target. Average lift was 44% month-over-month by week 12. The other three pivoted mid-sprint and are tracking to hit it this month.
+
+The part we didn't plan for: the group chat became more useful than the curriculum. Founders traded supplier contacts, made customer intros, split logistics costs.
+
+One founder connected another to her manufacturer and saved him about $14k on his first run. We didn't teach that. It happened because the right eight people were in one room.
+
+Cohort two starts next month. Still eight people. We won't grow it -- eight is where trust forms fast enough to matter.""",
+]
+
+
+def _examples_pool_for(global_mode: bool) -> List[str]:
+    """Expose the resolved pool (used by tests / debugging)."""
+    return _GLOBAL_EXAMPLES if global_mode else _EXAMPLES
+
+
+def get_examples(n: int = 3, seed: int | None = None, *, global_mode: bool = False) -> List[str]:
     """Return *n* randomly selected few-shot examples (without replacement).
 
     If n >= total available examples, returns all of them (shuffled).
@@ -120,12 +204,23 @@ def get_examples(n: int = 3, seed: int | None = None) -> List[str]:
     seed : int or None
         When provided, creates a local Random instance seeded with this value
         so selection is deterministic without polluting the global random state.
+    global_mode : bool, default False
+        When True, draw from the region-neutral example pool (USD/generic) so
+        non-Nigerian users don't get naira/Lagos context bleeding into their
+        posts. When False (Nigerian Voice Mode), draw from the Nigerian pool.
+        Falls back to the full combined pool if the chosen pool is too small.
     """
-    count = min(n, len(_EXAMPLES))
+    pool = _GLOBAL_EXAMPLES if global_mode else _EXAMPLES
+    if len(pool) < n:
+        # Top up from the other pool so we always have enough calibration.
+        other = _EXAMPLES if global_mode else _GLOBAL_EXAMPLES
+        pool = pool + [e for e in other if e not in pool]
+
+    count = min(n, len(pool))
     if seed is not None:
         rng = random.Random(seed)
-        return rng.sample(_EXAMPLES, count)
-    return random.sample(_EXAMPLES, count)
+        return rng.sample(pool, count)
+    return random.sample(pool, count)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

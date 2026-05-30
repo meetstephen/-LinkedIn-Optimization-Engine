@@ -45,6 +45,15 @@ _EVENT_BADGE = {
 }
 
 
+_FEEDBACK_BADGE = {
+    "Bug":       ("🐞 Bug",       "#c0392b"),
+    "Idea":      ("💡 Idea",      "#0A66C2"),
+    "Praise":    ("🌟 Praise",    "#00a86b"),
+    "Confusing": ("❓ Confusing", "#d68910"),
+    "General":   ("💬 General",   "#666"),
+}
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Sub-renderers
 # ─────────────────────────────────────────────────────────────────────────────
@@ -242,6 +251,66 @@ def _render_login_feed() -> None:
 # Public
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _render_feedback() -> None:
+    """Beta feedback feed — what testers are telling us, newest first."""
+    st.subheader("💬 Beta Feedback")
+    try:
+        from core import db as _db
+        items = _db.recent_feedback(limit=300)
+    except Exception:
+        items = []
+
+    if not items:
+        st.info(
+            "No feedback yet. The sidebar **💬 Send Beta Feedback** widget writes "
+            "here. (If you just added the feature, run the latest "
+            "`supabase_schema.sql` so the `lb_feedback` table exists.)"
+        )
+        return
+
+    # Category filter + quick counts
+    cats = ["All"] + list(_FEEDBACK_BADGE.keys())
+    chosen = st.selectbox("Filter type", cats, key="admin_fb_filter")
+    shown = [i for i in items if chosen == "All" or i.get("category") == chosen]
+
+    counts: dict[str, int] = {}
+    for i in items:
+        c = i.get("category", "General")
+        counts[c] = counts.get(c, 0) + 1
+    summary = " · ".join(f"{k}: {v}" for k, v in counts.items())
+    st.caption(f"**{len(items)}** total — {summary}")
+
+    for i in shown:
+        cat = i.get("category", "General")
+        label, color = _FEEDBACK_BADGE.get(cat, (cat, "#666"))
+        when = _fmt_dt(i.get("created_at"))
+        who = i.get("email") or _short_id(i.get("user_id", "")) or "anonymous"
+        page = i.get("page", "") or "—"
+        rating = i.get("rating", 0) or 0
+        stars = ("⭐" * rating) if rating else "—"
+        # message is user-supplied → escape before rendering inside HTML
+        import html as _h
+        msg = _h.escape(i.get("message", ""))
+        st.markdown(
+            f"""
+            <div style="padding:0.7rem 0.9rem;margin:0.4rem 0;background:#fafbfc;
+                        border:1px solid #f0f0f0;border-left:4px solid {color};
+                        border-radius:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span style="background:{color}20;color:{color};padding:2px 9px;
+                                 border-radius:99px;font-size:0.72rem;font-weight:700;">{label}</span>
+                    <span style="color:#888;font-size:0.76rem;">{when}</span>
+                </div>
+                <div style="margin:0.5rem 0;color:#1a1a1a;font-size:0.9rem;white-space:pre-wrap;">{msg}</div>
+                <div style="color:#888;font-size:0.74rem;">
+                    {_h.escape(str(who))} · on <b>{_h.escape(str(page))}</b> · {stars}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
 def render_admin_dashboard() -> None:
     """Top-level admin page. Caller MUST have already checked require_admin()."""
     me = _auth.current_user() or {}
@@ -266,8 +335,12 @@ def render_admin_dashboard() -> None:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    tab_users, tab_activity = st.tabs(["👥 Users", "🛰️ Recent Activity"])
+    tab_users, tab_activity, tab_feedback = st.tabs(
+        ["👥 Users", "🛰️ Recent Activity", "💬 Feedback"]
+    )
     with tab_users:
         _render_users_section(me_id)
     with tab_activity:
         _render_login_feed()
+    with tab_feedback:
+        _render_feedback()
