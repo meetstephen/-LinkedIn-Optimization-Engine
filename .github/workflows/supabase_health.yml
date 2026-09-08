@@ -1,0 +1,70 @@
+name: LinkedBoost Supabase Health Check
+
+on:
+  schedule:
+    # 01:17, 07:17, 13:17 and 19:17 WAT (UTC+1).
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/supabase_health.yml']
+
+permissions: {}
+
+concurrency:
+  group: linkedboost-supabase-health
+  cancel-in-progress: false
+
+jobs:
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check Supabase database
+        env:
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          import time
+          import urllib.error
+          import urllib.request
+
+          key = os.environ.get("SUPABASE_PUBLISHABLE_KEY", "").strip()
+          if not key.startswith("sb_publishable_"):
+              sys.exit("::error::Set SUPABASE_PUBLISHABLE_KEY to the project's publishable API key.")
+
+          # A real read through PostgREST, restricted to an impossible row match.
+          # No user records are downloaded, logged, or changed.
+          url = "https://avmbwrxlmybnfxzphkur.supabase.co/rest/v1/lb_posts?select=id&id=is.null&limit=1"
+          request = urllib.request.Request(url, headers={
+              "apikey": key,
+              "Accept": "application/json",
+              "User-Agent": "LinkedBoost-Database-Health/1.0",
+          })
+          for attempt in range(1, 4):
+              try:
+                  with urllib.request.urlopen(request, timeout=25) as response:
+                      if response.status != 200:
+                          raise ValueError("Unexpected HTTP status")
+                      result = json.load(response)
+                      if result != []:
+                          raise ValueError("Unexpected health-check response")
+                  print("Supabase database query succeeded.")
+                  with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+                      summary.write("LinkedBoost database: successful read-only API check.\n")
+                  break
+              except urllib.error.HTTPError as error:
+                  print(f"Attempt {attempt}: HTTP {error.code}")
+              except (urllib.error.URLError, TimeoutError, ValueError):
+                  print(f"Attempt {attempt}: connection or response validation failed")
+              if attempt == 3:
+                  sys.exit("::error::Supabase health check failed. Check project status, API key, and lb_posts table access.")
+              time.sleep(10)
+          PY
+
+# Free-plan activity is not a guarantee against pausing.
+# Public repository schedules may be disabled after 60 days without repository
+# activity. Check the Actions page periodically and re-enable if needed.
