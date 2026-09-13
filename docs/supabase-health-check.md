@@ -5,7 +5,7 @@ The `LinkedBoost Supabase Health Check` workflow queries project `avmbwrxlmybnfx
 ## Configuration
 
 - Workflow: `.github/workflows/supabase_health.yml` on `main`.
-- Repository secrets: `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. The latter is required because the hardened schema intentionally blocks the public roles. Restrict workflow changes to trusted reviewers and rotate this secret if it is exposed.
+- Repository secrets: `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. The workflow temporarily accepts the existing `SUPABASE_PUBLISHABLE_KEY` before migration; it will stop working after the hardened schema blocks public roles. Restrict workflow changes to trusted reviewers and rotate the service-role secret if it is exposed.
 - The query reads `lb_posts` with `id=is.null` and a limit of one. Since the ID is a primary key, the expected response is an empty JSON array. No application records are changed or logged.
 - The job retries transient failures up to three times and fails visibly if the database check cannot succeed. It needs no repository write permissions or third-party packages.
 

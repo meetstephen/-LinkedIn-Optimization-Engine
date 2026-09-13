@@ -15,9 +15,9 @@ Never expose the service-role key in a Streamlit widget, repository, browser
 bundle, screenshot, client log, or support ticket. Rotate it immediately if it
 is exposed.
 
-`ALLOW_INSECURE_ANON_DB=true` exists only to keep a legacy private deployment
-running during migration. In that mode the application cannot provide a secure
-multi-user isolation guarantee.
+`SUPABASE_KEY` is accepted only as a temporary compatibility fallback before
+the hardened schema is applied. In that mode the application cannot provide a
+secure multi-user isolation guarantee. Remove it after migration.
 
 ## Upgrade from the former anonymous schema
 
@@ -28,7 +28,7 @@ multi-user isolation guarantee.
    policy and revokes public table/sequence privileges.
 4. Replace `SUPABASE_PUBLISHABLE_KEY` with `SUPABASE_SERVICE_ROLE_KEY` in the
    repository health-check secret.
-5. Remove the old `SUPABASE_KEY` and ensure `ALLOW_INSECURE_ANON_DB` is unset.
+5. Remove the old `SUPABASE_KEY`.
 6. Test signup, login, reset, save, schedule, admin, and feedback flows.
 
 ## AI trust boundaries

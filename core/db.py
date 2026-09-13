@@ -75,16 +75,15 @@ def _get_client():
     # Keep privileged DB access server-side instead.
     key = _secret("SUPABASE_SERVICE_ROLE_KEY")
     if not key:
-        legacy_ok = _secret("ALLOW_INSECURE_ANON_DB", "").strip().lower() in {
-            "1", "true", "yes", "on",
-        }
-        if legacy_ok:
-            key = _secret("SUPABASE_KEY")
+        # Transitional fallback keeps existing deployments online long enough
+        # to add the service-role secret and run the hardened SQL migration.
+        # Once the migration revokes anon access this key will stop working.
+        key = _secret("SUPABASE_KEY")
     if not url or not key:
         raise RuntimeError(
             "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for secure "
-            "server-side persistence. Legacy SUPABASE_KEY access is disabled "
-            "unless ALLOW_INSECURE_ANON_DB=true."
+            "server-side persistence. SUPABASE_KEY is accepted only as a "
+            "temporary pre-migration compatibility fallback."
         )
     return create_client(url, key)
 

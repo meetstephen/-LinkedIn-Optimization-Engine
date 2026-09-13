@@ -24,6 +24,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
         run: |
           python3 - <<'PY'
           import json
@@ -33,10 +34,13 @@ jobs:
           import urllib.error
           import urllib.request
 
-          key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+          key = (
+              os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+              or os.environ.get("SUPABASE_PUBLISHABLE_KEY", "").strip()
+          )
           base_url = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
           if not key or not base_url.startswith("https://") or not base_url.endswith(".supabase.co"):
-              sys.exit("::error::Set SUPABASE_URL and the server-only SUPABASE_SERVICE_ROLE_KEY secrets.")
+              sys.exit("::error::Set SUPABASE_URL and a Supabase API key secret.")
 
           # A real read through PostgREST, restricted to an impossible row match.
           # No user records are downloaded, logged, or changed.
