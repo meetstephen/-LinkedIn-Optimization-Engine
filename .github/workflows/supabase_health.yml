@@ -38,7 +38,12 @@ jobs:
               os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
               or os.environ.get("SUPABASE_PUBLISHABLE_KEY", "").strip()
           )
-          base_url = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+          # Preserve the existing project's public URL during the secret-name
+          # migration. SUPABASE_URL takes priority when configured.
+          base_url = (
+              os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+              or "https://avmbwrxlmybnfxzphkur.supabase.co"
+          )
           if not key or not base_url.startswith("https://") or not base_url.endswith(".supabase.co"):
               sys.exit("::error::Set SUPABASE_URL and a Supabase API key secret.")
 
