@@ -6,6 +6,6 @@ streamlit>=1.35.0
 # (types.Tool(google_search=types.GoogleSearch())) used by core/web_research.py.
 google-genai>=1.0.0
 requests>=2.31.0
-Pillow>=10.0.0
+Pillow>=12.3.0
 supabase>=2.4.0
 bcrypt>=4.1.0
