@@ -11,9 +11,13 @@ from library import save_post_to_library
 from core.voice import HUMAN_VOICE_PRIMER, SHORT_PRIMER, BANNED
 from core.examples import get_examples, get_comment_examples
 from core import validator as _validator
+from core.sanitize import sanitize_user_text as _safe_prompt_text
 
 
 def build_comment_prompt(post_text: str, goal: str, niche: str) -> str:
+    post_text = _safe_prompt_text(post_text)
+    goal = _safe_prompt_text(goal)
+    niche = _safe_prompt_text(niche)
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(niche)
 
@@ -81,14 +85,14 @@ Write 5 strategic comments. Each comment:
 - Never starts with "Great post", "Love this", "So true", or any empty affirmation
 - Never starts with the commenter's name or "I" (start with the substance)
 - References something specific from the post in the FIRST sentence
-- Ends with either a genuine question OR a soft reference to the commenter's own experience
+- Ends with a genuine, specific question or a useful implication; never fabricates the commenter's experience
 - Reads like it came from a real practitioner, not a bot
 
 For each comment, deliver this format exactly:
 
 ────────────────────────────────
 **COMMENT 1 — Authority Add**
-[The actual comment, 2-4 sentences, that adds a specific fact, stat, or experience that builds on the post's exact claim.]
+[The actual comment, 2-4 sentences, that adds a useful mechanism, distinction, or decision check. Do not invent facts, statistics, or experience.]
 
 📎 Anchored to: "[the specific phrase, claim, or number from the post this comment locks onto]"
 🧠 What it adds: [one line — the new value this comment brings to the thread]
@@ -103,8 +107,8 @@ For each comment, deliver this format exactly:
 🎯 Likely result: [expected behaviour]
 
 ────────────────────────────────
-**COMMENT 3 — Story Micro**
-[One specific sentence from your own experience that mirrors or extends the post's situation. Concrete details: names a place, a number, a moment.]
+**COMMENT 3 — Practical Extension**
+[Extend the post with a concrete workflow implication or question. Never claim personal experience, clients, numbers, or outcomes that were not supplied.]
 
 📎 Anchored to: "[which part of the post this story echoes]"
 🧠 What it adds: [the personal proof being offered]
@@ -137,6 +141,9 @@ The single best comment for this specific goal ({goal}): [Comment N — one-line
 
 
 def build_dm_prompt(context: str, dm_type: str, niche: str) -> str:
+    context = _safe_prompt_text(context)
+    dm_type = _safe_prompt_text(dm_type)
+    niche = _safe_prompt_text(niche)
     profile_ctx = get_profile_context()
     return f"""{SHORT_PRIMER}
 
@@ -184,6 +191,8 @@ Write 3 DM variations for this situation. Each:
 
 
 def build_networking_prompt(situation: str, niche: str) -> str:
+    situation = _safe_prompt_text(situation)
+    niche = _safe_prompt_text(niche)
     profile_ctx = get_profile_context()
     return f"""{SHORT_PRIMER}
 

@@ -7,6 +7,7 @@ from gemini_client import generate_text, get_profile_context, stream_text
 from library import save_post_to_library
 from industry_profiles import get_industry_voice_block
 from core.voice import HUMAN_VOICE_PRIMER, BANNED
+from core.sanitize import sanitize_user_text as _safe_prompt_text
 
 
 _BANNED_PROFILE = """
@@ -20,6 +21,10 @@ ADDITIONAL BANNED PHRASES SPECIFIC TO PROFILES & HEADLINES:
 
 
 def build_profile_prompt(profile_data):
+    profile_data = {
+        key: (_safe_prompt_text(value) if isinstance(value, str) else value)
+        for key, value in profile_data.items()
+    }
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(profile_data.get("industry", ""))
     return f"""{HUMAN_VOICE_PRIMER}

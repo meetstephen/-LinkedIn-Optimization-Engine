@@ -184,51 +184,15 @@ DROP POLICY IF EXISTS lb_login_events_anon_all     ON lb_login_events;
 DROP POLICY IF EXISTS lb_usage_events_anon_all     ON lb_usage_events;
 DROP POLICY IF EXISTS lb_password_resets_anon_all  ON lb_password_resets;
 
--- Permissive policies — the app layer enforces ownership via user_id filters.
--- The anon key is the only key shipped to clients, so this matches the rest
--- of the schema. Tighten to auth.uid()-based policies once you migrate to
--- Supabase Auth proper.
-CREATE POLICY lb_posts_anon_all
-    ON lb_posts FOR ALL
-    TO anon
-    USING (true)
-    WITH CHECK (true);
-
-CREATE POLICY lb_profiles_anon_all
-    ON lb_profiles FOR ALL
-    TO anon
-    USING (true)
-    WITH CHECK (true);
-
-CREATE POLICY lb_schedule_anon_all
-    ON lb_schedule FOR ALL
-    TO anon
-    USING (true)
-    WITH CHECK (true);
-
-CREATE POLICY lb_users_anon_all
-    ON lb_users FOR ALL
-    TO anon
-    USING (true)
-    WITH CHECK (true);
-
-CREATE POLICY lb_login_events_anon_all
-    ON lb_login_events FOR ALL
-    TO anon
-    USING (true)
-    WITH CHECK (true);
-
-CREATE POLICY lb_usage_events_anon_all
-    ON lb_usage_events FOR ALL
-    TO anon
-    USING (true)
-    WITH CHECK (true);
-
-CREATE POLICY lb_password_resets_anon_all
-    ON lb_password_resets FOR ALL
-    TO anon
-    USING (true)
-    WITH CHECK (true);
+-- The application uses custom server-side authentication, so browser-facing
+-- Supabase roles must have no access. The Streamlit server connects with
+-- SUPABASE_SERVICE_ROLE_KEY, which bypasses RLS and must never be exposed to
+-- a widget, client bundle, log, or repository.
+REVOKE ALL ON TABLE lb_posts, lb_profiles, lb_schedule, lb_users,
+    lb_login_events, lb_usage_events, lb_password_resets
+    FROM anon, authenticated;
+REVOKE ALL ON SEQUENCE lb_login_events_id_seq, lb_usage_events_id_seq
+    FROM anon, authenticated;
 
 
 -- ── 7. SANITY CHECK ─────────────────────────────────────────────────────────
@@ -334,11 +298,8 @@ CREATE INDEX IF NOT EXISTS lb_error_events_module_idx
 ALTER TABLE lb_error_events ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS lb_error_events_anon_all ON lb_error_events;
-CREATE POLICY lb_error_events_anon_all
-    ON lb_error_events FOR ALL
-    TO anon
-    USING (true)
-    WITH CHECK (true);
+REVOKE ALL ON TABLE lb_error_events FROM anon, authenticated;
+REVOKE ALL ON SEQUENCE lb_error_events_id_seq FROM anon, authenticated;
 
 
 -- ── D. (Optional) Auto-purge soft-deleted posts older than 30 days ──────────
@@ -387,11 +348,8 @@ CREATE INDEX IF NOT EXISTS lb_feedback_recent_idx
 ALTER TABLE lb_feedback ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS lb_feedback_anon_all ON lb_feedback;
-CREATE POLICY lb_feedback_anon_all
-    ON lb_feedback FOR ALL
-    TO anon
-    USING (true)
-    WITH CHECK (true);
+REVOKE ALL ON TABLE lb_feedback FROM anon, authenticated;
+REVOKE ALL ON SEQUENCE lb_feedback_id_seq FROM anon, authenticated;
 
 -- ── SANITY CHECK (v4.1) ─────────────────────────────────────────────────────
 -- After running, you should now see NINE tables in your Supabase Table Editor:

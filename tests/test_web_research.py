@@ -41,6 +41,20 @@ def test_build_research_prompt_handles_blanks():
     assert isinstance(p, str) and len(p) > 100
 
 
+def test_domain_research_is_about_subject_matter_not_linkedin_tactics():
+    p = wr._build_domain_research_prompt("chargeback disputes", "fintech", "merchants")
+    assert "SUBJECT MATTER" in p
+    assert "Current verified facts" in p
+    assert "Decision points and trade-offs" in p
+    assert "Do not research LinkedIn hooks" in p
+
+
+def test_domain_research_without_key_is_safe():
+    r = wr.research_domain_knowledge("x", "cybersecurity", "CISOs", api_key="")
+    assert r["ok"] is False
+    assert r["intent"] == "domain_knowledge"
+
+
 # ── research_block: the security-critical injection path ─────────────────────
 
 def test_research_block_empty_for_unusable_results():

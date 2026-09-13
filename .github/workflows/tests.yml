@@ -11,6 +11,8 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions: {}
+
 # Cancel any in-flight run for the same PR when a new commit lands.
 concurrency:
   group: tests-${{ github.ref }}

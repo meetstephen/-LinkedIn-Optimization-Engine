@@ -49,6 +49,7 @@ import os
 import re
 import secrets
 import uuid
+from functools import lru_cache
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
@@ -109,6 +110,23 @@ def _verify_password(password: str, hashed: str) -> bool:
         return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
     except Exception:
         return False
+
+
+@lru_cache(maxsize=1)
+def _dummy_password_hash() -> str:
+    """Cached bcrypt hash used to reduce account-enumeration timing leaks."""
+    return _hash_password(secrets.token_urlsafe(24))
+
+
+def _password_error(password: str) -> str:
+    min_length = max(10, _get_int_secret("MIN_PASSWORD_LENGTH", 12))
+    if len(password or "") < min_length:
+        return f"Password must be at least {min_length} characters."
+    if len(password) > 128:
+        return "Password is too long (max 128 characters)."
+    if password.lower() in {"password1234", "qwerty123456", "letmein123456", "123456789012"}:
+        return "Choose a less common password."
+    return ""
 
 
 def _bootstrap_admin_email() -> str:
@@ -284,10 +302,9 @@ def sign_up(email: str, password: str, name: str = "") -> tuple[bool, str]:
 
     if not EMAIL_RE.match(email):
         return False, "Please enter a valid email address."
-    if len(password) < 8:
-        return False, "Password must be at least 8 characters."
-    if len(password) > 128:
-        return False, "Password is too long (max 128 characters)."
+    password_error = _password_error(password)
+    if password_error:
+        return False, password_error
 
     try:
         client = _client()
@@ -313,8 +330,8 @@ def sign_up(email: str, password: str, name: str = "") -> tuple[bool, str]:
         _set_session_user(row)
         promo = " (you've been promoted to admin)" if is_admin else ""
         return True, f"Welcome, {name or email}!{promo}"
-    except Exception as e:
-        return False, f"Could not create account: {e}"
+    except Exception:
+        return False, "Could not create the account right now. Please try again later."
 
 
 # ── Login ─────────────────────────────────────────────────────────────────────
@@ -353,16 +370,17 @@ def log_in(email: str, password: str) -> tuple[bool, str]:
         client = _client()
         resp = client.table("lb_users").select("*").eq("email", email).limit(1).execute()
         if not resp.data:
+            _verify_password(password, _dummy_password_hash())
             _log_event("00000000-0000-0000-0000-000000000000", email, "failed_login")
             return False, "Invalid email or password."
         row = resp.data[0]
 
-        if not row.get("is_active", True):
-            return False, "This account is deactivated. Contact the administrator."
-
         if not _verify_password(password, row["password_hash"]):
             _log_event(str(row["id"]), email, "failed_login")
             return False, "Invalid email or password."
+
+        if not row.get("is_active", True):
+            return False, "Sign-in is unavailable for this account. Contact the administrator."
 
         # Update last login
         try:
@@ -376,8 +394,8 @@ def log_in(email: str, password: str) -> tuple[bool, str]:
         _log_event(str(row["id"]), email, "login")
         _set_session_user(row)
         return True, f"Welcome back, {row.get('name') or email}!"
-    except Exception as e:
-        return False, f"Login failed: {e}"
+    except Exception:
+        return False, "Sign-in is temporarily unavailable. Please try again later."
 
 
 # ── Logout ────────────────────────────────────────────────────────────────────
@@ -554,11 +572,10 @@ def request_password_reset(email: str) -> tuple[bool, str]:
                 "created_at": _now_iso(),
                 "used_at":    None,
             }).execute()
-        except Exception as e:
-            return False, (
-                f"Could not start password reset (database error: {e}). "
-                "Please contact the administrator."
-            )
+        except Exception:
+            # Preserve the same response for registered and unknown emails.
+            # Otherwise a database failure here becomes an account oracle.
+            return generic_ok
 
         reset_url = _build_reset_url(raw_token)
 
@@ -578,8 +595,8 @@ def request_password_reset(email: str) -> tuple[bool, str]:
         _log_event(user["id"], email, "password_reset_requested")
         return generic_ok
 
-    except Exception as e:
-        return False, f"Could not start password reset: {e}"
+    except Exception:
+        return generic_ok
 
 
 def validate_reset_token(token: str) -> Optional[dict]:
@@ -620,10 +637,9 @@ def complete_password_reset(token: str, new_password: str) -> tuple[bool, str]:
     if not _BCRYPT_AVAILABLE:
         return False, "bcrypt is not installed. Add `bcrypt` to requirements.txt and redeploy."
 
-    if len(new_password) < 8:
-        return False, "Password must be at least 8 characters."
-    if len(new_password) > 128:
-        return False, "Password is too long (max 128 characters)."
+    password_error = _password_error(new_password)
+    if password_error:
+        return False, password_error
 
     record = validate_reset_token(token)
     if not record:
@@ -644,8 +660,8 @@ def complete_password_reset(token: str, new_password: str) -> tuple[bool, str]:
 
         _log_event(record["user_id"], record["email"], "password_reset_completed")
         return True, "Password updated. You can now log in with your new password."
-    except Exception as e:
-        return False, f"Could not reset password: {e}"
+    except Exception:
+        return False, "Could not reset the password right now. Request a new link and try again."
 
 
 # ─────────────────────────────────────────────────────────────────────────────

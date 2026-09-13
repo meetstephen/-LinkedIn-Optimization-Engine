@@ -22,7 +22,8 @@ jobs:
     steps:
       - name: Check Supabase database
         env:
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           python3 - <<'PY'
           import json
@@ -32,13 +33,14 @@ jobs:
           import urllib.error
           import urllib.request
 
-          key = os.environ.get("SUPABASE_PUBLISHABLE_KEY", "").strip()
-          if not key.startswith("sb_publishable_"):
-              sys.exit("::error::Set SUPABASE_PUBLISHABLE_KEY to the project's publishable API key.")
+          key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+          base_url = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+          if not key or not base_url.startswith("https://") or not base_url.endswith(".supabase.co"):
+              sys.exit("::error::Set SUPABASE_URL and the server-only SUPABASE_SERVICE_ROLE_KEY secrets.")
 
           # A real read through PostgREST, restricted to an impossible row match.
           # No user records are downloaded, logged, or changed.
-          url = "https://avmbwrxlmybnfxzphkur.supabase.co/rest/v1/lb_posts?select=id&id=is.null&limit=1"
+          url = base_url + "/rest/v1/lb_posts?select=id&id=is.null&limit=1"
           request = urllib.request.Request(url, headers={
               "apikey": key,
               "Accept": "application/json",

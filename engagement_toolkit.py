@@ -8,6 +8,7 @@ from industry_profiles import get_industry_voice_block
 from library import save_post_to_library
 from core.voice import HUMAN_VOICE_PRIMER, SHORT_PRIMER, BANNED
 from core.examples import get_examples, get_hook_examples
+from core.sanitize import sanitize_user_text as _safe_prompt_text
 
 
 POSTING_TIMES = {
@@ -47,6 +48,9 @@ _BANNED = BANNED
 
 
 def build_hooks_prompt(topic, tone, count, niche=""):
+    topic = _safe_prompt_text(topic)
+    tone = _safe_prompt_text(tone)
+    niche = _safe_prompt_text(niche)
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(niche) if niche.strip() else ""
 
@@ -81,7 +85,7 @@ Hook rules — non-negotiable:
 - Specific questions work as hooks when they create tension. Vague questions don't.
 - Each hook must use a DIFFERENT psychological trigger
 - No emojis in the hook line itself
-- Use specifics: real numbers, real places, real moments — not vague gestures
+- Use concrete mechanisms and stakes. Use numbers, places, or moments only when the user supplied them; never manufacture specificity.
 
 Psychological triggers to distribute across the {count} hooks:
   curiosity gap, specific number, confession, bold claim, direct address,
@@ -96,6 +100,9 @@ Number them 1 through {count}. No preamble.
 
 
 def build_cta_prompt(post_context, cta_goal, niche=""):
+    post_context = _safe_prompt_text(post_context)
+    cta_goal = _safe_prompt_text(cta_goal)
+    niche = _safe_prompt_text(niche)
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(niche) if niche.strip() else ""
     return f"""{SHORT_PRIMER}
@@ -136,6 +143,8 @@ After each: 🎯 Use when: [one-line context for when this CTA works best]
 
 
 def build_hashtag_prompt(post_content, industry):
+    post_content = _safe_prompt_text(post_content)
+    industry = _safe_prompt_text(industry)
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(industry) if industry.strip() else ""
     ng_context     = "\nNigerian context: include Nigeria-specific hashtags where relevant (e.g. #NigeriaLinkedIn #LagosBusinesses #NaijaTwitter #MadeInNigeria #AfricanBusiness)." if st.session_state.get("nigerian_mode") else ""
@@ -148,17 +157,19 @@ Industry: {industry}{ng_context}
 
 Give me a 3-tier hashtag strategy:
 
-## TIER 1 — BROAD (1M+ followers)
-3 tags. High reach, high competition. Include only if the post topic is genuinely broad.
-[hashtag] — [estimated followers] — [why include despite competition]
+## TIER 1 — BROAD DISCOVERY
+3 tags. Include only if the post topic is genuinely broad.
+[hashtag] — [reader intent] — [why it fits this exact post]
 
-## TIER 2 — MID-RANGE (100K–1M)
-3 tags. The sweet spot for most posts.
-[hashtag] — [estimated followers] — [why this specific tag for this specific post]
+## TIER 2 — PROFESSIONAL COMMUNITY
+3 tags used by the relevant profession or function.
+[hashtag] — [reader intent] — [why this specific tag fits]
 
-## TIER 3 — NICHE (10K–100K)
-3 tags. Smaller reach, higher engagement rate. Often the best performing tier.
-[hashtag] — [estimated followers] — [the specific audience this reaches]
+## TIER 3 — TOPIC-SPECIFIC
+3 precise tags tied to the subject matter.
+[hashtag] — [reader intent] — [the specific audience this reaches]
+
+Do not invent follower counts or claim a hashtag improves reach without evidence.
 
 ## COPY THESE (paste directly into LinkedIn after your post):
 #tag1 #tag2 #tag3 #tag4 #tag5 #tag6 #tag7 #tag8 #tag9

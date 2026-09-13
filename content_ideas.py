@@ -6,6 +6,7 @@ import streamlit as st
 from gemini_client import generate_text, get_profile_context, stream_text
 from library import save_post_to_library
 from industry_profiles import get_industry_voice_block
+from core.sanitize import sanitize_user_text as _safe_prompt_text
 from core.voice import HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES
 from core import web_research as _web_research
 
@@ -83,6 +84,9 @@ def _hashtag_block(use_nigerian_context: bool) -> str:
 
 
 def build_ideas_prompt(niche, role, pillars, count, timeframe, research=""):
+    niche = _safe_prompt_text(niche)
+    role = _safe_prompt_text(role)
+    timeframe = _safe_prompt_text(timeframe)
     pillar_list    = "\n".join([f"- {p}: {CONTENT_PILLARS[p]}" for p in pillars])
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(niche)

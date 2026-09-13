@@ -25,6 +25,7 @@ import streamlit as st
 
 from gemini_client import generate_text, get_profile_context
 from industry_profiles import get_industry_voice_block
+from core.sanitize import sanitize_user_text as _safe_prompt_text
 from core.voice import HUMAN_VOICE_PRIMER, BANNED
 from core import validator as _validator
 from core import web_research as _web_research
@@ -60,6 +61,9 @@ def build_hooks_prompt(
     count: int = 8,
     research: str = "",
 ) -> str:
+    topic = _safe_prompt_text(topic)
+    niche = _safe_prompt_text(niche)
+    audience = _safe_prompt_text(audience)
     """Compose the hook-generation prompt. Output is one 'PATTERN :: HOOK' per line."""
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(niche)

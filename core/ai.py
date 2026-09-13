@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Optional
+from typing import Any, Optional
 
 MAX_RETRIES  = 3
 RETRY_DELAY  = 1.5   # seconds; multiplied by attempt number for back-off
@@ -34,12 +34,24 @@ def _make_client(api_key: str):
     return google_genai.Client(api_key=api_key)
 
 
-def _genai_config(temperature: float, max_tokens: int):
+def _genai_config(
+    temperature: float,
+    max_tokens: int,
+    *,
+    response_schema: Optional[dict[str, Any]] = None,
+    system_instruction: str = "",
+):
     from google.genai import types as genai_types
-    return genai_types.GenerateContentConfig(
+    kwargs: dict[str, Any] = dict(
         temperature=temperature,
         max_output_tokens=max_tokens,
     )
+    if response_schema:
+        kwargs["response_mime_type"] = "application/json"
+        kwargs["response_schema"] = response_schema
+    if system_instruction:
+        kwargs["system_instruction"] = system_instruction
+    return genai_types.GenerateContentConfig(**kwargs)
 
 
 def _strip_fences(raw: str) -> str:
@@ -77,6 +89,8 @@ def generate_json(
     temperature: float = 0.4,
     max_tokens: int = 1500,
     required_keys: Optional[list[str]] = None,
+    response_schema: Optional[dict[str, Any]] = None,
+    system_instruction: str = "",
 ) -> dict:
     """
     Call Gemini and parse the result as JSON.
@@ -98,7 +112,11 @@ def generate_json(
     for attempt in range(MAX_RETRIES):
         try:
             client = _make_client(api_key)
-            cfg    = _genai_config(temperature, max_tokens)
+            cfg    = _genai_config(
+                temperature, max_tokens,
+                response_schema=response_schema,
+                system_instruction=system_instruction,
+            )
             raw    = _call(client, model, prompt, cfg)
             parsed = json.loads(_strip_fences(raw))
 
@@ -114,6 +132,8 @@ def generate_json(
             # One automatic fix attempt before sleeping
             try:
                 client = _make_client(api_key)
+                # JSON repair is intentionally schema-free: some models reject
+                # a schema when the prompt itself contains malformed JSON.
                 cfg    = _genai_config(0.0, max_tokens)
                 return _try_fix_json(raw, client, model, cfg)
             except Exception:

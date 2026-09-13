@@ -6,6 +6,7 @@ import streamlit as st
 from gemini_client import generate_text, get_profile_context, stream_text
 from library import save_post_to_library
 from industry_profiles import get_industry_voice_block
+from core.sanitize import sanitize_user_text as _safe_prompt_text
 from core.voice import HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES
 from core import web_research as _web_research
 
@@ -49,6 +50,9 @@ ADDITIONAL BANNED STRATEGY-SPECIFIC PHRASES:
 
 
 def build_strategy_prompt(creator_type, niche, goal, research=""):
+    creator_type = _safe_prompt_text(creator_type)
+    niche = _safe_prompt_text(niche)
+    goal = _safe_prompt_text(goal)
     archetype_desc  = CREATOR_ARCHETYPES.get(creator_type, "")
     hooks_formatted = "\n".join([f"{i+1}. {h}" for i, h in enumerate(HOOK_FORMULAS)])
     profile_ctx     = get_profile_context()

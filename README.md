@@ -38,6 +38,9 @@ Plus:
 - **Few-shot example calibration** — every module injects 2-3 real high-performing post examples into the prompt so the AI knows what "good" looks like, not just what to avoid.
 - **Engagement prediction** — deterministic 0-100 score after every generation evaluating hook strength, specificity, structure variety, and emotional pull.
 - **Voice quality gate** — deterministic validator catches 156+ banned phrases, weak CTAs, and structural issues before you ever see the output.
+- **Expert-depth pipeline** — maps the niche to durable practitioner workflows, metrics, stakeholders, and trade-offs; builds a structured brief before drafting; then scores domain specificity, mechanism, credibility, and actionability.
+- **Evidence boundary** — precise claims may come only from user source notes or grounded research. The app flags unsupported numbers and invented first-person experience and can run one targeted repair pass.
+- **Expanded domain intelligence** — 18+ profiles including cybersecurity, data/AI, insurance, manufacturing, supply chain, agriculture, telecom, accounting/tax, public policy, sales, and cross-disciplinary matching. Unknown niches remain custom instead of silently becoming “startup.”
 - **Cross-module pipelines** — `Post Generator → Hook Analyzer`, `Post Generator → Content Scheduler`, `Optimizer → Image Generator`, `Repurposing → Carousel Planner`, and more.
 
 ---
@@ -72,7 +75,7 @@ GEMINI_API_KEY    = "AIza..."
 STABILITY_API_KEY = "sk-..."
 HF_API_KEY        = "hf_..."
 SUPABASE_URL      = "https://xxxxx.supabase.co"
-SUPABASE_KEY      = "<your-anon-public-key>"
+SUPABASE_SERVICE_ROLE_KEY = "<server-only-service-role-key>"
 ```
 
 **Option B — `.env` file** (local dev). Copy `.env.example` to `.env` and fill in your keys.
@@ -86,7 +89,7 @@ If you skip this, the Post Library still works — but only for the current brow
 1. Create a free project at [supabase.com](https://supabase.com).
 2. Open **SQL Editor → New query**.
 3. Paste the entire contents of [`supabase_schema.sql`](./supabase_schema.sql) and click **Run**.
-4. Copy `Project URL` and the `anon public` key from **Project Settings → API** into your secrets/env (above).
+4. Copy `Project URL` and the **service role** key from **Project Settings → API** into server-side Streamlit secrets. Never expose the service-role key in the UI, logs, or client code.
 
 ### 5. Run
 
@@ -123,6 +126,7 @@ LinkedEdge ships with built-in email + password authentication. Every signed-in 
 ### Access control & key safety (read before going public)
 - **Sign-in is required by default.** Set `REQUIRE_AUTH=false` in env/secrets only for a personal single-user instance or a local demo — otherwise anonymous traffic could spend your shared API quota.
 - **Your server-side API keys are never exposed to visitors.** If you set `GEMINI_API_KEY` (etc.) in secrets, the sidebar keeps it hidden — it is *not* rendered into the password field (Streamlit ships widget values to the browser, so a pre-filled field could be read via devtools). Visitors see a masked notice and may type their own key to override.
+- **The database is private by default.** LinkedEdge's custom bcrypt auth runs on the Streamlit server, so the schema revokes `anon` and `authenticated` access and the server uses `SUPABASE_SERVICE_ROLE_KEY`. The former permissive-anon setup is available only through the explicit `ALLOW_INSECURE_ANON_DB=true` migration escape hatch and must not be used for a public multi-user deployment.
 - For a public launch, either accept that signed-in users share your key/quota, or ask each user to bring their own key in the sidebar.
 
 ### Beta feedback (for test groups)

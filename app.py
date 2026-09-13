@@ -2697,7 +2697,7 @@ def render_post_library():
                 st.markdown(
                     f"""
 - **SUPABASE_URL set:** {'✅' if _hc.get('url_present') else '❌ missing'}
-- **SUPABASE_KEY set:** {'✅' if _hc.get('key_present') else '❌ missing'}
+- **Server-side Supabase key set:** {'✅' if _hc.get('key_present') else '❌ missing'}
 - **Client created:**   {'✅' if _hc.get('client_ok') else '❌'}
 - **Query succeeded:**  {'✅' if _hc.get('query_ok')  else '❌'}
 - **Your user_id:**     `{_hc.get('user_id', '')}`
@@ -3225,7 +3225,7 @@ def render_content_scheduler():
     if not _CORE_AVAILABLE:
         st.error(
             "❌ The Content Scheduler requires Supabase to be connected. "
-            "Add `SUPABASE_URL` and `SUPABASE_KEY` to your Streamlit secrets, "
+            "Add `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to server-side Streamlit secrets, "
             "then run `supabase_schema.sql` in your Supabase SQL editor."
         )
         return

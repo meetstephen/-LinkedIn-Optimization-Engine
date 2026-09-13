@@ -9,6 +9,7 @@ This is how serious creators operate: one idea, maximum reach.
 import streamlit as st
 from gemini_client import get_profile_context, stream_text, generate_text
 from industry_profiles import get_industry_voice_block
+from core.sanitize import sanitize_user_text as _safe_prompt_text
 from library import save_post_to_library, bump_generated
 from core.voice import (
     HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES, STRUCTURE_RULES,
@@ -21,6 +22,9 @@ from core.error_logger import log_error
 
 
 def build_repurpose_prompt(idea: str, niche: str, audience: str, formats: list, story_beats: str = "") -> str:
+    idea = _safe_prompt_text(idea)
+    niche = _safe_prompt_text(niche)
+    audience = _safe_prompt_text(audience)
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(niche)
     formats_str    = ", ".join(formats)

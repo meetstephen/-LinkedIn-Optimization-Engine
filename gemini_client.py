@@ -2,6 +2,8 @@
 Gemini API client wrapper for all text generation tasks.
 Migrated to google-genai SDK (google.generativeai is deprecated).
 """
+from typing import Optional
+
 from google import genai
 from google.genai import types
 import streamlit as st
@@ -16,18 +18,31 @@ def get_profile_context() -> str:
     """
     p = st.session_state.get("user_profile", {})
     parts = []
-    if p.get("name"):            parts.append(f"- Name: {p['name']}")
-    if p.get("headline"):        parts.append(f"- LinkedIn Headline: {p['headline']}")
-    if p.get("role"):            parts.append(f"- Current Role: {p['role']}")
-    if p.get("industry"):        parts.append(f"- Industry / Niche: {p['industry']}")
-    if p.get("audience"):        parts.append(f"- Target Audience: {p['audience']}")
-    if p.get("content_pillars"): parts.append(f"- Content Pillars: {', '.join(p['content_pillars'])}")
-    if p.get("tone"):            parts.append(f"- Preferred Writing Tone: {p['tone']}")
+    try:
+        from core.sanitize import wrap_user_data as _wrap
+    except Exception:
+        _wrap = lambda value, _label: str(value or "")  # noqa: E731
+
+    _profile_fields = (
+        ("Name", "PROFILE_NAME", p.get("name")),
+        ("LinkedIn Headline", "PROFILE_HEADLINE", p.get("headline")),
+        ("Current Role", "PROFILE_ROLE", p.get("role")),
+        ("Industry / Niche", "PROFILE_INDUSTRY", p.get("industry")),
+        ("Target Audience", "PROFILE_AUDIENCE", p.get("audience")),
+        ("Preferred Writing Tone", "PROFILE_TONE", p.get("tone")),
+    )
+    for display, label, value in _profile_fields:
+        if value:
+            parts.append(f"- {display}:\n{_wrap(value, label)}")
+    if p.get("content_pillars"):
+        parts.append(
+            "- Content Pillars:\n" +
+            _wrap(", ".join(map(str, p["content_pillars"])), "PROFILE_CONTENT_PILLARS")
+        )
     if p.get("voice_sample"):
         # Sanitise + wrap the user's voice sample as an untrusted data block
         # so Gemini never treats it as instructions ("Ignore previous…" etc).
         try:
-            from core.sanitize import wrap_user_data as _wrap
             _voice_block = _wrap(p["voice_sample"][:400], "VOICE_SAMPLE")
         except Exception:
             _voice_block = ""
@@ -126,7 +141,7 @@ AVOID: Silicon Valley jargon, dollar-centric examples as primary reference,
 
 
 MODEL_DEFAULT = "gemini-2.5-flash"
-MODEL_LITE    = "gemini-2.0-flash-lite"
+MODEL_LITE    = "gemini-2.5-flash-lite"
 
 # ── Retry / backoff settings for streaming ───────────────────────────────────
 _STREAM_MAX_RETRIES = 3
@@ -166,9 +181,10 @@ def generate_text(
     prompt: str,
     temperature: float = 0.8,
     max_tokens: int = 8000,
-    model: str = MODEL_DEFAULT,
+    model: Optional[str] = None,
 ) -> str:
     """Generate text and return the full response string. Logs token usage."""
+    model = model or st.session_state.get("gemini_model", MODEL_DEFAULT)
     try:
         client = get_gemini_client()
         response = client.models.generate_content(
@@ -200,7 +216,7 @@ def stream_text(
     prompt: str,
     temperature: float = 0.8,
     max_tokens: int = 8000,
-    model: str = MODEL_DEFAULT,
+    model: Optional[str] = None,
 ):
     """
     Stream text generation from Gemini — yields text chunks as they arrive.
@@ -212,6 +228,7 @@ def stream_text(
         result = st.write_stream(stream_text(prompt))
     """
     import time as _time
+    model = model or st.session_state.get("gemini_model", MODEL_DEFAULT)
 
     last_exc: Exception = RuntimeError("stream_text: no attempts made")
 

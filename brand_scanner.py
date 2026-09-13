@@ -7,6 +7,7 @@ versus what your content says, and scores the gap.
 import streamlit as st
 from gemini_client import get_profile_context, stream_text
 from industry_profiles import get_industry_voice_block
+from core.sanitize import sanitize_user_text as _safe_prompt_text
 from library import save_post_to_library
 from core.voice import HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES, story_beats_block
 
@@ -16,6 +17,11 @@ def build_scanner_prompt(
     claimed_niche: str, claimed_audience: str,
     proof_beats: str = "",
 ) -> str:
+    headline = _safe_prompt_text(headline)
+    about = _safe_prompt_text(about)
+    recent_posts = _safe_prompt_text(recent_posts)
+    claimed_niche = _safe_prompt_text(claimed_niche)
+    claimed_audience = _safe_prompt_text(claimed_audience)
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(claimed_niche) if claimed_niche.strip() else ""
     beats_block    = story_beats_block(proof_beats, label="PROOF POINTS")

@@ -618,11 +618,16 @@ def detect_industry(niche_or_industry: str) -> str:
     Match a free-text niche/industry string to an INDUSTRY_VOICE_PROFILES key.
     Returns 'startup' as the catch-all if no specific match is found.
     """
-    text = niche_or_industry.lower()
-    for keywords, key in _MATCH_MAP:
-        if any(kw in text for kw in keywords):
-            return key
-    return "startup"
+    try:
+        from core.domain_intelligence import detect_industry_key
+        return detect_industry_key(niche_or_industry)
+    except Exception:
+        text = niche_or_industry.lower()
+        for keywords, key in _MATCH_MAP:
+            if any(kw in text for kw in keywords):
+                return key
+        # Never silently turn an unfamiliar profession into a startup.
+        return "custom"
 
 
 def get_industry_voice_block(niche_or_industry: str) -> str:
@@ -631,10 +636,21 @@ def get_industry_voice_block(niche_or_industry: str) -> str:
     Pass the result directly into your prompt string.
     Returns an empty string if niche_or_industry is blank.
     """
+    try:
+        from core.domain_intelligence import build_domain_block
+        return build_domain_block(niche_or_industry)
+    except Exception:
+        pass
+
     if not niche_or_industry.strip():
         return ""
 
     key     = detect_industry(niche_or_industry)
+    if key not in INDUSTRY_VOICE_PROFILES:
+        return (
+            f"\nCUSTOM INDUSTRY: {niche_or_industry}. Use only facts supplied "
+            "by the user; do not invent domain jargon, statistics or experience.\n"
+        )
     profile = INDUSTRY_VOICE_PROFILES[key]
 
     vocab        = ", ".join(profile["vocabulary"][:8])

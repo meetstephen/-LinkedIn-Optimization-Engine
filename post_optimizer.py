@@ -6,6 +6,7 @@ import streamlit as st
 from gemini_client import generate_text, get_profile_context, stream_text
 from library import save_post_to_library, bump_optimized
 from industry_profiles import get_industry_voice_block
+from core.sanitize import sanitize_user_text as _safe_prompt_text
 from core.voice import (
     HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES,
 )
@@ -26,6 +27,9 @@ OPTIMIZATION_GOALS = {
 
 
 def build_optimizer_prompt(original_post: str, goal: str, niche: str = "") -> str:
+    original_post = _safe_prompt_text(original_post)
+    goal = _safe_prompt_text(goal)
+    niche = _safe_prompt_text(niche)
     goal_desc      = OPTIMIZATION_GOALS.get(goal, goal)
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(niche) if niche.strip() else ""

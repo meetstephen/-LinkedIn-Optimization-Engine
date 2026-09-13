@@ -12,9 +12,9 @@ Tables (lb_ prefix — no conflict with other apps on the same Supabase project)
   lb_schedule     : user_id + day_of_week + time_slot → post_id  (Content Scheduler)
   lb_error_events : structured error log for the operator dashboard
 
-Required in .streamlit/secrets.toml:
+Required in .streamlit/secrets.toml for multi-user/custom-auth mode:
   SUPABASE_URL = "https://your-project.supabase.co"
-  SUPABASE_KEY = "<your-anon-public-key>"
+  SUPABASE_SERVICE_ROLE_KEY = "<server-only service-role key>"
 
 Public API (all callers unchanged from the SQLite era):
   save_post, get_posts, delete_post, restore_post, purge_post, toggle_star, get_stats
@@ -69,9 +69,23 @@ def _get_client():
     except ImportError:
         raise RuntimeError("Add 'supabase' to requirements.txt and redeploy.")
     url = _secret("SUPABASE_URL")
-    key = _secret("SUPABASE_KEY")
+    # This app implements authentication in Python, not Supabase Auth.  An
+    # anon key therefore has no authenticated JWT identity for RLS, and the
+    # old schema compensated with USING(true) policies on password/user data.
+    # Keep privileged DB access server-side instead.
+    key = _secret("SUPABASE_SERVICE_ROLE_KEY")
+    if not key:
+        legacy_ok = _secret("ALLOW_INSECURE_ANON_DB", "").strip().lower() in {
+            "1", "true", "yes", "on",
+        }
+        if legacy_ok:
+            key = _secret("SUPABASE_KEY")
     if not url or not key:
-        raise RuntimeError("SUPABASE_URL and SUPABASE_KEY missing from secrets.toml")
+        raise RuntimeError(
+            "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for secure "
+            "server-side persistence. Legacy SUPABASE_KEY access is disabled "
+            "unless ALLOW_INSECURE_ANON_DB=true."
+        )
     return create_client(url, key)
 
 
@@ -145,7 +159,11 @@ def health_check() -> dict:
     }
     try:
         url = st.secrets.get("SUPABASE_URL", "") or ""
-        key = st.secrets.get("SUPABASE_KEY", "") or ""
+        key = (
+            st.secrets.get("SUPABASE_SERVICE_ROLE_KEY", "")
+            or st.secrets.get("SUPABASE_KEY", "")
+            or ""
+        )
     except Exception as e:
         out["error"] = f"Could not read st.secrets: {e}"
         return out
@@ -157,7 +175,7 @@ def health_check() -> dict:
         out["supabase_url"] = url.replace("https://", "").split(".")[0][:8] + "….supabase.co"
 
     if not url or not key:
-        out["error"] = "SUPABASE_URL or SUPABASE_KEY missing from Streamlit secrets."
+        out["error"] = "SUPABASE_URL or a secure server-side Supabase key is missing."
         return out
 
     try:

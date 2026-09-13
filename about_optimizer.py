@@ -6,6 +6,7 @@ import streamlit as st
 from gemini_client import generate_text, get_profile_context, stream_text
 from library import save_post_to_library
 from industry_profiles import get_industry_voice_block
+from core.sanitize import sanitize_user_text as _safe_prompt_text
 from core.voice import HUMAN_VOICE_PRIMER, BANNED, HUMAN_SIGNATURES, story_beats_block
 from core.debug import stash_prompt, render_prompt_debug
 from core.error_logger import log_error
@@ -37,6 +38,10 @@ ADDITIONAL ABOUT-SECTION-SPECIFIC BANS:
 
 
 def build_about_prompt(current_about, name, role, industry, superpowers, achievements, goal, defining_moment=""):
+    current_about, name, role, industry, superpowers, achievements, goal, defining_moment = (
+        _safe_prompt_text(v) for v in
+        (current_about, name, role, industry, superpowers, achievements, goal, defining_moment)
+    )
     keywords       = INDUSTRY_KEYWORDS.get(industry, INDUSTRY_KEYWORDS["Other"])
     profile_ctx    = get_profile_context()
     industry_voice = get_industry_voice_block(industry)
